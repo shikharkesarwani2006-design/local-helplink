@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -18,7 +17,7 @@ export default function LandingPage() {
           <div className="bg-primary p-2 rounded-lg">
             <Heart className="text-white w-6 h-6" />
           </div>
-          <span className="text-2xl font-headline font-bold text-secondary">CampusConnect</span>
+          <span className="text-2xl font-headline font-bold text-secondary">Local HelpLink</span>
         </div>
         <div className="hidden md:flex gap-8">
           <Link href="#features" className="text-sm font-medium hover:text-accent transition-colors">Features</Link>
@@ -39,10 +38,10 @@ export default function LandingPage() {
         <div className="container px-4 z-10 grid md:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <h1 className="text-5xl md:text-7xl font-headline font-bold leading-tight text-slate-900">
-              Your Campus, <span className="text-secondary">Connected.</span>
+              Your Community, <span className="text-secondary">Connected.</span>
             </h1>
             <p className="text-xl text-slate-600 max-w-lg">
-              CampusConnect is the hyperlocal platform for emergencies and skill exchange. Get help when you need it, and offer your skills to those nearby.
+              Local HelpLink is the hyperlocal platform for emergencies and skill exchange. Get help when you need it, and offer your skills to those nearby.
             </p>
             <div className="flex gap-4">
               <Link href="/auth/register">
@@ -77,8 +76,8 @@ export default function LandingPage() {
       {/* Features Grid */}
       <section id="features" className="py-24 bg-white">
         <div className="container px-4 mx-auto text-center mb-16">
-          <h2 className="text-4xl font-headline font-bold mb-4">Why CampusConnect?</h2>
-          <p className="text-slate-500 max-w-2xl mx-auto">Building a resilient, helpful community within your campus and surrounding city.</p>
+          <h2 className="text-4xl font-headline font-bold mb-4">Why Local HelpLink?</h2>
+          <p className="text-slate-500 max-w-2xl mx-auto">Building a resilient, helpful community within your city and neighborhood.</p>
         </div>
         <div className="container px-4 mx-auto grid md:grid-cols-3 gap-8">
           {[
@@ -114,7 +113,7 @@ export default function LandingPage() {
         <div className="container px-4 mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex items-center gap-2">
             <Heart className="text-primary w-6 h-6" />
-            <span className="text-xl font-headline font-bold text-white">CampusConnect</span>
+            <span className="text-xl font-headline font-bold text-white">Local HelpLink</span>
           </div>
           <div className="flex gap-8 text-sm">
             <Link href="#" className="hover:text-white">Privacy Policy</Link>
@@ -122,7 +121,7 @@ export default function LandingPage() {
             <Link href="#" className="hover:text-white">Contact Us</Link>
           </div>
           <div className="text-sm">
-            © 2024 CampusConnect. Built for safer campuses.
+            © 2024 Local HelpLink. Built for safer communities.
           </div>
         </div>
       </footer>

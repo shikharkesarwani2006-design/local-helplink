@@ -1,12 +1,9 @@
-
 "use client";
 
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
-import { signOut, onAuthStateChanged } from "firebase/auth";
-import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { signOut } from "firebase/auth";
+import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -18,28 +15,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Heart, PlusCircle, LayoutDashboard, History, User, LogOut, Bell, ShieldCheck } from "lucide-react";
+import { useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const { user } = useUser();
+  const auth = useAuth();
+  const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (u) {
-        setUser(u);
-        const docSnap = await getDoc(doc(db, "users", u.uid));
-        if (docSnap.exists()) {
-          setProfile(docSnap.data());
-        }
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+  const userRef = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return doc(db, "users", user.uid);
+  }, [db, user?.uid]);
+
+  const { data: profile } = useDoc(userRef);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -63,7 +54,7 @@ export default function Navbar() {
           <div className="bg-primary p-1.5 rounded-lg">
             <Heart className="text-white w-5 h-5" />
           </div>
-          <span className="text-xl font-headline font-bold text-secondary">CampusConnect</span>
+          <span className="text-xl font-headline font-bold text-secondary">Local HelpLink</span>
         </Link>
 
         <div className="hidden md:flex gap-1">
@@ -91,7 +82,9 @@ export default function Navbar() {
 
         <Button variant="ghost" size="icon" className="relative text-slate-500">
           <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-destructive rounded-full" />
+          <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white">
+            2
+          </span>
         </Button>
 
         {user && (
@@ -116,6 +109,10 @@ export default function Navbar() {
               <DropdownMenuItem asChild>
                 <Link href="/profile">Profile Settings</Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/requests/my">My Requests</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
