@@ -5,26 +5,26 @@
 
 @layer base {
   :root {
-    --background: 156 22% 94%; /* #EBF4F0 */
+    --background: 226 20% 98%; /* Light slate background */
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 125 32% 74%; /* #A7D1AB */
+    --primary: 243 75% 59%; /* Indigo-600 #4f46e5 */
     --primary-foreground: 210 40% 98%;
-    --secondary: 185 30% 59%; /* #78B0B5 */
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 243 75% 59%;
+    --secondary-foreground: 210 40% 98%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 185 30% 59%; /* Soft Teal #78B0B5 */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 243 75% 59%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 185 30% 59%;
-    --radius: 0.75rem;
+    --ring: 243 75% 59%;
+    --radius: 1rem;
   }
 
   .dark {
@@ -34,19 +34,19 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 125 32% 74%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 210 40% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 185 30% 59%;
+    --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 243 75% 59%;
   }
 }
 
@@ -55,6 +55,27 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+@layer components {
+  .animate-pulse-red {
+    animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-red {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      border-color: rgba(239, 68, 68, 1);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+      border-color: rgba(239, 68, 68, 0.5);
+    }
+  }
+
+  .glass-card {
+    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-xl;
   }
 }
