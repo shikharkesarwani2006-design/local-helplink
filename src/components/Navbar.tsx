@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -57,12 +58,12 @@ export default function Navbar() {
           <span className="text-xl font-headline font-bold text-secondary">Local HelpLink</span>
         </Link>
 
-        <div className="hidden md:flex gap-1">
+        <div className="hidden lg:flex gap-1">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
               <Button
                 variant={pathname === item.href ? "secondary" : "ghost"}
-                className={`gap-2 ${pathname === item.href ? "text-secondary font-bold" : "text-slate-600"}`}
+                className={`gap-2 ${pathname === item.href ? "text-secondary font-bold bg-secondary/10" : "text-slate-600"}`}
               >
                 {item.icon}
                 {item.label}
@@ -74,15 +75,15 @@ export default function Navbar() {
 
       <div className="flex items-center gap-4">
         <Link href="/requests/new">
-          <Button className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-full px-5">
+          <Button className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-full px-5 shadow-sm">
             <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Post Request</span>
+            <span className="hidden sm:inline font-bold">Post Request</span>
           </Button>
         </Link>
 
-        <Button variant="ghost" size="icon" className="relative text-slate-500">
+        <Button variant="ghost" size="icon" className="relative text-slate-500 hover:bg-slate-50">
           <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white">
+          <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white ring-2 ring-white">
             2
           </span>
         </Button>
@@ -90,7 +91,7 @@ export default function Navbar() {
         {user && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full ring-2 ring-slate-100 hover:ring-secondary/20 transition-all">
                 <Avatar>
                   <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
                   <AvatarFallback>{user.email?.[0]?.toUpperCase()}</AvatarFallback>
@@ -100,20 +101,24 @@ export default function Navbar() {
             <DropdownMenuContent className="w-56" align="right" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{profile?.name || user.email}</p>
+                  <p className="text-sm font-bold leading-none">{profile?.name || user.email}</p>
                   <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                  <p className="text-[10px] mt-1 uppercase tracking-wider font-bold text-accent">{profile?.role}</p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="text-[10px] uppercase tracking-wider font-bold text-accent border-accent/20">
+                      {profile?.role}
+                    </Badge>
+                  </div>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/profile">Profile Settings</Link>
+                <Link href="/profile" className="cursor-pointer">Profile Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/requests/my">My Requests</Link>
+                <Link href="/requests/my" className="cursor-pointer">My Requests</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+              <DropdownMenuItem onClick={handleLogout} className="text-destructive font-bold cursor-pointer">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Log out</span>
               </DropdownMenuItem>
