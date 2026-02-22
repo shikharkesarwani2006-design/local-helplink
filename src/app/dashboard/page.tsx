@@ -26,7 +26,8 @@ import {
   AlertCircle,
   PlusCircle,
   History,
-  AlertTriangle
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
@@ -71,7 +72,7 @@ export default function Dashboard() {
     normal: 1,
   };
 
-  // Filtering and Client-side Sorting (Urgency Priority then Newest)
+  // Filtering and Client-side Sorting
   const filteredRequests = useMemo(() => {
     if (!allRequests) return [];
     
@@ -83,9 +84,6 @@ export default function Dashboard() {
         const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
         const matchesUrgency = urgencyFilter === "all" || req.urgency === urgencyFilter;
         
-        // Exclude user's own requests from the general feed if preferred, 
-        // but for a community app, usually, you can see all.
-        // We also check for expiration
         const now = new Date();
         const expiresAt = req.expiresAt instanceof Timestamp ? req.expiresAt.toDate() : (req.expiresAt ? new Date(req.expiresAt) : null);
         const notExpired = !expiresAt || expiresAt > now;
@@ -93,13 +91,10 @@ export default function Dashboard() {
         return matchesSearch && matchesCategory && matchesUrgency && notExpired;
       })
       .sort((a, b) => {
-        // Sort by urgency priority (desc)
         const priorityA = urgencyPriority[a.urgency] || 0;
         const priorityB = urgencyPriority[b.urgency] || 0;
-        if (priorityA !== priorityB) {
-          return priorityB - priorityA;
-        }
-        // Then by timestamp (desc - newest first)
+        if (priorityA !== priorityB) return priorityB - priorityA;
+        
         const timeA = a.createdAt instanceof Timestamp ? a.createdAt.toMillis() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
         const timeB = b.createdAt instanceof Timestamp ? b.createdAt.toMillis() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
         return timeB - timeA;
@@ -111,13 +106,7 @@ export default function Dashboard() {
 
     const requestRef = doc(db, "requests", requestId);
     const now = Timestamp.now();
-    
-    // Normalize createdAt to a date object
-    const createdDate = createdAt instanceof Timestamp 
-      ? createdAt.toDate() 
-      : (createdAt ? new Date(createdAt) : new Date());
-    
-    // Calculate response time in minutes
+    const createdDate = createdAt instanceof Timestamp ? createdAt.toDate() : (createdAt ? new Date(createdAt) : new Date());
     const diffMs = now.toMillis() - createdDate.getTime();
     const responseTimeMinutes = Math.max(0, Math.floor(diffMs / 60000));
 
@@ -129,7 +118,7 @@ export default function Dashboard() {
 
     toast({
       title: "Request Accepted!",
-      description: "You've committed to helping. Contact the requester to coordinate.",
+      description: "You've committed to helping. Coordinate with the requester.",
     });
   };
 
@@ -155,51 +144,51 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background pb-12">
       <Navbar />
 
-      {/* Community Stats Strip */}
-      <div className="bg-secondary/5 border-b py-3 overflow-hidden whitespace-nowrap">
-        <div className="container px-6 mx-auto flex flex-wrap justify-center md:justify-start gap-8 text-sm font-medium text-secondary">
+      {/* STATS STRIP (top) */}
+      <div className="bg-white border-b py-3 overflow-hidden">
+        <div className="container px-6 mx-auto flex flex-wrap justify-center md:justify-start gap-8 text-sm font-semibold text-slate-600">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-orange-500 animate-pulse" />
-            <span>{allRequests?.length || 0} Open Missions Nearby</span>
+            <span>{allRequests?.length || 0} Open Requests Near You</span>
           </div>
           <div className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            <span>128 Neighbors Helped Recently</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <span>128 People Helped This Week</span>
           </div>
           <div className="flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-amber-500" />
-            <span>45 Active Volunteers</span>
+            <Users className="w-4 h-4 text-secondary" />
+            <span>45 Volunteers Active Now</span>
           </div>
         </div>
       </div>
 
-      <header className="bg-white border-b py-8 sticky top-16 z-40 shadow-sm">
+      <header className="bg-slate-50 border-b py-8 sticky top-16 z-40 shadow-sm">
         <div className="container px-6 mx-auto space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-headline font-bold text-secondary">Local Help Feed</h1>
-              <p className="text-slate-500">Real-time alerts for neighborhood needs</p>
+              <h1 className="text-3xl font-headline font-bold text-secondary">Community Feed</h1>
+              <p className="text-slate-500">Real-time alerts for local needs</p>
             </div>
             <Link href="/requests/new">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white font-bold gap-2 rounded-full shadow-lg hover:shadow-primary/20 transition-all">
-                <PlusCircle className="w-5 h-5" /> Post Help Request
+              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white font-bold gap-2 rounded-full shadow-lg">
+                <PlusCircle className="w-5 h-5" /> Quick Post
               </Button>
             </Link>
           </div>
 
-          {/* Real-time Filter Bar */}
+          {/* FILTER BAR */}
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-grow">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
-                placeholder="Search requests (e.g., 'tutor', 'repair')..." 
-                className="pl-10 h-12 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+                placeholder="Search requests..." 
+                className="pl-10 h-12 bg-white border-slate-200"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full md:w-[180px] h-12">
+              <SelectTrigger className="w-full md:w-[180px] h-12 bg-white">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -208,11 +197,10 @@ export default function Dashboard() {
                 <SelectItem value="tutor">Tutoring</SelectItem>
                 <SelectItem value="repair">Repair</SelectItem>
                 <SelectItem value="emergency">Emergency</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
             <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
-              <SelectTrigger className="w-full md:w-[150px] h-12">
+              <SelectTrigger className="w-full md:w-[150px] h-12 bg-white">
                 <SelectValue placeholder="Urgency" />
               </SelectTrigger>
               <SelectContent>
@@ -227,7 +215,7 @@ export default function Dashboard() {
       </header>
 
       <main className="container px-6 mx-auto mt-8 flex flex-col lg:flex-row gap-8">
-        {/* Real-time Request Feed */}
+        {/* REQUEST FEED */}
         <div className="flex-grow space-y-6">
           {isLoading ? (
             <div className="grid md:grid-cols-2 gap-6">
@@ -236,19 +224,19 @@ export default function Dashboard() {
               ))}
             </div>
           ) : filteredRequests.length === 0 ? (
-            <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-secondary/30 flex flex-col items-center">
-              <CheckCircle2 className="w-16 h-16 text-primary mb-4 opacity-20" />
-              <h2 className="text-2xl font-headline font-bold text-slate-700">All Quiet in the Neighborhood</h2>
-              <p className="text-slate-500 max-w-xs">No active requests matching your filters. Why not post one if you need a hand?</p>
+            <div className="text-center py-24 bg-white rounded-3xl border border-dashed flex flex-col items-center">
+              <Zap className="w-16 h-16 text-slate-200 mb-4" />
+              <h2 className="text-2xl font-headline font-bold text-slate-700">All Quiet Nearby</h2>
+              <p className="text-slate-500">No active requests matching your filters.</p>
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-6">
               {filteredRequests.map((request) => (
-                <Card key={request.id} className="group hover:shadow-2xl transition-all border-none shadow-md flex flex-col h-full bg-white relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
+                <Card key={request.id} className="hover:shadow-xl transition-all border-none shadow-md flex flex-col h-full bg-white relative overflow-hidden group">
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${request.urgency === 'critical' ? 'bg-red-500' : request.urgency === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start mb-2">
-                      <Badge variant="outline" className={`capitalize font-bold border ${getUrgencyStyles(request.urgency)}`}>
+                      <Badge variant="outline" className={`capitalize font-bold ${getUrgencyStyles(request.urgency)}`}>
                         {request.urgency === 'critical' ? '🔴 ' : request.urgency === 'medium' ? '🟡 ' : '🟢 '}
                         {request.urgency}
                       </Badge>
@@ -257,7 +245,7 @@ export default function Dashboard() {
                         {request.category}
                       </div>
                     </div>
-                    <CardTitle className="text-xl font-headline group-hover:text-secondary transition-colors line-clamp-2 leading-tight">
+                    <CardTitle className="text-xl font-headline group-hover:text-secondary transition-colors line-clamp-2">
                       {request.title}
                     </CardTitle>
                   </CardHeader>
@@ -265,7 +253,7 @@ export default function Dashboard() {
                     <p className="text-slate-600 text-sm leading-relaxed line-clamp-3">
                       {request.description}
                     </p>
-                    <div className="space-y-2 text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <div className="space-y-2 text-xs text-slate-500 bg-slate-50 p-3 rounded-xl">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-3.5 h-3.5 text-secondary" />
                         <span className="font-semibold text-slate-700">{request.location?.area || "Hyperlocal"}</span>
@@ -276,24 +264,21 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </CardContent>
-                  <CardFooter className="pt-0 pb-6 mt-auto flex justify-between items-center bg-slate-50/50 px-6">
+                  <CardFooter className="pt-0 pb-6 mt-auto flex justify-between items-center bg-slate-50/30 px-6 rounded-b-lg">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-9 w-9 border-2 border-white shadow-sm ring-1 ring-slate-100">
+                      <Avatar className="h-8 w-8">
                         <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${request.createdBy}`} />
                         <AvatarFallback>?</AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-0.5">Requester</span>
-                        <span className="text-xs font-bold text-slate-700">{request.postedByName || "Member"}</span>
-                      </div>
+                      <span className="text-xs font-bold text-slate-700">{request.postedByName || "Member"}</span>
                     </div>
                     <Button 
                       size="sm" 
-                      className="bg-accent hover:bg-accent/90 text-white font-bold px-5 rounded-full group/btn shadow-md hover:shadow-accent/20 transition-all"
+                      className="bg-accent hover:bg-accent/90 text-white font-bold rounded-full shadow-md"
                       onClick={() => handleAcceptRequest(request.id, request.createdAt)}
                     >
-                      Accept &amp; Help
-                      <ArrowRight className="ml-2 w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                      Accept & Help
+                      <ArrowRight className="ml-2 w-4 h-4" />
                     </Button>
                   </CardFooter>
                 </Card>
@@ -302,76 +287,49 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* SIDEBAR */}
         <aside className="w-full lg:w-80 space-y-8">
-          {/* Quick Stats / Active Items */}
-          <Card className="shadow-xl border-t-4 border-t-secondary bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="pb-3 bg-secondary/5">
+          <Card className="shadow-lg border-t-4 border-t-secondary bg-white">
+            <CardHeader>
               <CardTitle className="text-lg font-headline flex items-center gap-2">
-                <History className="w-5 h-5 text-secondary" /> Active Missions
+                <History className="w-5 h-5 text-secondary" /> My Active Missions
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm pt-4">
-              <div className="flex flex-col items-center py-6 text-center">
-                <div className="bg-slate-50 p-4 rounded-full mb-3">
-                  <CheckCircle2 className="w-8 h-8 text-slate-300" />
-                </div>
-                <p className="text-slate-500 font-medium italic">You haven't accepted any requests yet.</p>
-              </div>
+            <CardContent className="text-sm">
+              <p className="text-slate-500 text-center py-4 italic">No active missions accepted.</p>
               <Link href="/requests/my">
-                <Button variant="outline" size="sm" className="w-full border-secondary text-secondary hover:bg-secondary/10 font-bold rounded-xl transition-all">
-                  View My Request History
-                </Button>
+                <Button variant="outline" size="sm" className="w-full mt-2 font-bold">History</Button>
               </Link>
             </CardContent>
           </Card>
 
-          {/* Leaderboard Card */}
-          <Card className="shadow-xl border-t-4 border-t-primary bg-white rounded-2xl overflow-hidden">
-            <CardHeader className="pb-3 bg-primary/5">
-              <div className="flex justify-between items-end">
-                <CardTitle className="text-lg font-headline flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-primary" /> Top Helpers
-                </CardTitle>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest pb-1">This Week</span>
-              </div>
+          <Card className="shadow-lg border-t-4 border-t-primary bg-white">
+            <CardHeader>
+              <CardTitle className="text-lg font-headline flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-primary" /> Top Helpers
+              </CardTitle>
             </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-5">
-                {topHelpers?.slice(0, 5).map((helper, idx) => (
-                  <div key={helper.id} className="flex items-center justify-between group">
+            <CardContent>
+              <div className="space-y-4">
+                {topHelpers?.slice(0, 3).map((helper, idx) => (
+                  <div key={helper.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar className="h-11 w-11 border-2 border-white shadow-md group-hover:scale-110 transition-transform ring-1 ring-slate-100">
-                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${helper.email}`} />
-                          <AvatarFallback>{helper.name?.[0]}</AvatarFallback>
-                        </Avatar>
-                        <div className={`absolute -bottom-1 -right-1 rounded-full p-0.5 shadow-lg border-2 border-white ${idx === 0 ? 'bg-yellow-400' : idx === 1 ? 'bg-slate-300' : idx === 2 ? 'bg-orange-400' : 'bg-secondary'}`}>
-                          <div className="w-4 h-4 flex items-center justify-center text-[8px] font-black text-white">
-                            {idx + 1}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-800 tracking-tight">{helper.name}</span>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Verified Hero</span>
-                      </div>
+                      <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${helper.email}`} />
+                        <AvatarFallback>{helper.name?.[0]}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-bold text-slate-700">{helper.name}</span>
                     </div>
-                    <Badge variant="secondary" className="bg-primary/10 text-primary font-black px-2 py-0.5 rounded-lg border-none">
-                      {helper.totalHelped} pts
+                    <Badge variant="secondary" className="bg-primary/10 text-primary">
+                      {helper.totalHelped}
                     </Badge>
                   </div>
                 ))}
                 {!topHelpers || topHelpers.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center py-4">Waiting for community action...</p>
+                  <p className="text-xs text-slate-400 text-center">Waiting for heroes...</p>
                 ) : null}
               </div>
             </CardContent>
-            <CardFooter className="pt-2">
-              <Button variant="ghost" size="sm" className="w-full text-xs font-bold text-slate-400 hover:text-secondary hover:bg-transparent transition-colors">
-                View Full Community Leaderboard
-              </Button>
-            </CardFooter>
           </Card>
         </aside>
       </main>

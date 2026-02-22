@@ -46,11 +46,13 @@ const prompt = ai.definePrompt({
   name: 'draftHelpRequestPrompt',
   input: {schema: DraftHelpRequestInputSchema},
   output: {schema: DraftHelpRequestOutputSchema},
-  prompt: `You are an AI assistant specialized in refining help requests for a hyperlocal emergency and skill exchange platform.
+  prompt: `You are an AI assistant specialized in refining help requests for a hyperlocal community platform.
 Your goal is to transform a user's initial input into a clear, comprehensive, and effective request that attracts the right help faster.
 
 Analyze the provided initial title and description. Suggest improvements, add relevant details, or rephrase the input to enhance clarity and effectiveness.
 Additionally, infer the most appropriate category and urgency level from the given information.
+
+Categories: blood, tutor, repair, emergency, other.
 
 Initial Title: {{{initialTitle}}}
 Initial Description: {{{initialDescription}}}`,

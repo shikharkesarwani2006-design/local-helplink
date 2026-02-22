@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { useFirestore, useUser } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +24,8 @@ export default function NewRequest() {
   });
   const [isDrafting, setIsDrafting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const db = useFirestore();
+  const { user } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -68,22 +69,22 @@ export default function NewRequest() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!user || !db) return;
 
     setIsSubmitting(true);
     try {
       const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 24); // 24h expiry
+      expiresAt.setHours(expiresAt.getHours() + 24);
 
       await addDoc(collection(db, "requests"), {
         ...formData,
         createdBy: user.uid,
         status: "open",
         acceptedBy: null,
-        timestamp: Timestamp.now(),
+        createdAt: Timestamp.now(),
         expiresAt: Timestamp.fromDate(expiresAt),
-        location: { area: "Main Campus" }, // Simplified
+        location: { area: "Hyperlocal Area" },
+        postedByName: user.displayName || user.email?.split('@')[0] || "Member",
       });
 
       toast({
@@ -111,7 +112,7 @@ export default function NewRequest() {
             <CardTitle className="text-2xl font-headline text-secondary flex items-center gap-2">
               <Send className="w-5 h-5" /> Post a Help Request
             </CardTitle>
-            <CardDescription>Tell the community what you need help with. Urgent? AI can help refine your post.</CardDescription>
+            <CardDescription>Tell the community what you need help with. AI can help refine your post.</CardDescription>
           </CardHeader>
           <CardContent className="pt-8">
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -133,7 +134,7 @@ export default function NewRequest() {
                     type="button" 
                     variant="ghost" 
                     size="sm" 
-                    className="text-secondary gap-1 hover:text-secondary hover:bg-secondary/10"
+                    className="text-secondary gap-1 hover:bg-secondary/10"
                     onClick={handleAIDraft}
                     disabled={isDrafting}
                   >
