@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "hero-community",
+      "description": "A diverse group of college students helping each other on a campus lawn.",
+      "imageUrl": "https://images.unsplash.com/photo-1519664699825-ddb2c64076bf?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjb2xsZWdlJTIwY29tbXVuaXR5fGVufDB8fHx8MTc3MTc4MjI3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "college community"
+    },
+    {
+      "id": "help-request",
+      "description": "A close up of hands holding a mobile phone displaying a help app.",
+      "imageUrl": "https://images.unsplash.com/photo-1558655146-364adaf1fcc9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxtb2JpbGUlMjBhcHB8ZW58MHx8fHwxNzcxNzYxODMxfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "mobile app"
+    },
+    {
+      "id": "volunteer-action",
+      "description": "A volunteer helping an elderly person with groceries.",
+      "imageUrl": "https://images.unsplash.com/photo-1761666507437-9fb5a6ef7b0a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx2b2x1bnRlZXIlMjBoZWxwaW5nfGVufDB8fHx8MTc3MTc4MjI3MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "volunteer helping"
+    }
+  ]
 }
