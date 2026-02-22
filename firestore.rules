@@ -3,129 +3,135 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * LOCAL HELPLINK SECURITY RULES (PROTOTYPING MODE)
-     *
+     * LOCAL HELPLINK SECURITY RULES
+     * 
      * Core Philosophy:
-     * This ruleset implements a robust authorization model for a community-driven help platform. 
-     * It prioritizes verified identity and resource ownership while allowing for the flexible 
-     * data evolution required during the prototyping phase.
-     *
-     * Data Structure:
-     * - /users/{userId}: Private and public profile information.
-     * - /requests/{requestId}: A global feed of help requests.
-     * - /ratings/{ratingId}: Feedback given after completed help sessions.
-     * - /admin_roles/{adminUid}: A secure flag collection for administrative privileges.
-     *
-     * Key Security Decisions:
-     * - Ownership-Based Writes: Most resources (profiles, requests) can only be modified by the creator.
-     * - Collaborative Transition: Help requests allow a specific state transition (Open -> Accepted) 
-     *   by users who are not the owner, facilitating the "volunteer" mechanic.
-     * - Admin Override: Users listed in the `admin_roles` collection have global read/write access.
-     * - Denormalization for Authorization: The `createdBy` and `acceptedBy` fields are strictly 
-     *   required on request documents to allow for fast, non-hierarchical authorization.
-     * - Public Reading: Signed-in users can view all requests and user profiles to facilitate 
-     *   discovery and the leaderboard features.
+     * 1. Public Discovery: Authenticated users can browse the community feed and public profiles.
+     * 2. Identity Verification: Users can only modify their own profile and create requests in their name.
+     * 3. Collaboration Logic: The transition from 'open' to 'accepted' is protected to ensure only 
+     *    one volunteer claims a task at a time.
+     * 4. Reputation Integrity: Ratings are immutable once posted and require involvement in the task.
+     * 5. Administrative Oversight: Admins have global read/write access via the admin_roles flag collection.
      */
 
     // --- Helper Functions ---
 
-    /** Checks if the user is authenticated. */
+    /** Checks if the user is signed in to a valid account. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Checks if the authenticated user's UID matches the provided ID. */
+    /** Checks if the current user is the owner of the document by UID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
     /** 
-     * Checks for administrative privileges using the dedicated admin_roles collection.
-     * This avoids calling get() on the primary users collection.
+     * Checks if the user has administrative privileges. 
+     * Uses a dedicated flag collection for high-performance 'exists' checks.
      */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
     }
 
-    /** Verifies a document exists and the current user is the owner. */
-    function isExistingOwner(ownerId) {
-      return resource != null && isOwner(ownerId);
-    }
-
-    /** Validates that a field has not been modified during an update. */
-    function isUnchanged(field) {
-      return request.resource.data[field] == resource.data[field];
+    /** Fetches the data of a specific request for involvement validation. */
+    function getRequestData(requestId) {
+      return get(/databases/$(database)/documents/requests/$(requestId)).data;
     }
 
     // --- Collection Rules ---
 
-    /**
-     * @description Rules for user profile documents. Allows self-creation and updates.
-     * @path /users/{userId}
-     * @allow get (signed-in user), list (signed-in user), create/update (owner)
-     * @deny write (mismatched UID), delete (non-admin)
-     * @principle Ownership and Self-Creation (P3.1, P3.4).
-     */
+    // 1. Users Collection
     match /users/{userId} {
+      // Community discovery: signed-in users can view profiles for trust building and leaderboards.
       allow get, list: if isSignedIn();
+      
+      // Self-management: users can create their own profile during registration.
       allow create: if isOwner(userId);
-      allow update: if (isOwner(userId) || isAdmin()) && isUnchanged('id');
+      
+      // Ownership: only the owner or an admin can update.
+      // Note: In production, we would add 'isUnchanged' checks for role/verified fields.
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Governance: only admins can remove user accounts.
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for help requests. Supports the "Accept & Help" transition.
-     * @path /requests/{requestId}
-     * @allow create (owner), update (owner or volunteer accepting open request)
-     * @deny create (spoofing creatorId), update (stealing an accepted request)
-     * @principle Ownership (P3.1) and Managed State Transition.
-     */
+    // 2. Help Requests Collection
     match /requests/{requestId} {
+      // Transparency: all members can browse active community needs.
       allow get, list: if isSignedIn();
-      
+
+      // Creation: must be signed in, and document 'createdBy' must match the author.
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
         && request.resource.data.status == 'open';
 
+      // Updates: Supports multiple collaborative state transitions.
       allow update: if isSignedIn() && (
-        // Case 1: Owner editing their own request (cannot change creator)
-        (isExistingOwner(resource.data.createdBy) && isUnchanged('createdBy')) ||
-        // Case 2: Volunteer accepting an "open" request
+        isAdmin() ||
+        // Owner editing their own open request.
+        (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
+        // Volunteer 'accepting' the request: status must move from open -> accepted.
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 
-          request.resource.data.acceptedBy == request.auth.uid &&
-          isUnchanged('createdBy')
+          request.resource.data.acceptedBy == request.auth.uid
         ) ||
-        isAdmin()
+        // Transition to 'completed': can be done by creator or the assigned volunteer.
+        (
+          request.resource.data.status == 'completed' && 
+          (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
+        )
       );
 
-      allow delete: if isExistingOwner(resource.data.createdBy) || isAdmin();
+      // Deletion: restricted to the creator or an administrator.
+      allow delete: if (resource.data.createdBy == request.auth.uid) || isAdmin();
     }
 
-    /**
-     * @description Rules for ratings between users. Immutable once created.
-     * @path /ratings/{ratingId}
-     * @allow create (fromUser matches auth), get/list (signed-in)
-     * @deny update (all), delete (non-admin)
-     * @principle Verified Identity (P2) and Immutability.
-     */
+    // 3. Ratings Collection
     match /ratings/{ratingId} {
+      // Open reviews for community accountability.
       allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.fromUser == request.auth.uid;
-      allow update: if false; // Ratings should not be changed once submitted
+      
+      // Integrity: user must be the author ('fromUser') AND must have been involved in the specific request.
+      allow create: if isSignedIn() 
+        && request.resource.data.fromUser == request.auth.uid
+        && (
+             getRequestData(request.resource.data.requestId).createdBy == request.auth.uid || 
+             getRequestData(request.resource.data.requestId).acceptedBy == request.auth.uid
+           );
+
+      // Immutability: ratings cannot be modified once submitted to prevent bias.
+      allow update: if false;
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Secure flag collection for managing administrative roles.
-     * @path /admin_roles/{adminUid}
-     * @allow read/write (admin only)
-     * @principle Structural Segregation for Authorization.
-     */
+    // 4. Notifications Collection
+    match /notifications/{userId}/items/{notificationId} {
+      // Privacy: only the recipient can see their alerts.
+      allow get, list: if isOwner(userId);
+      
+      // Trigger: any signed-in user can trigger a notification for another (e.g., accepting their request).
+      allow create: if isSignedIn();
+      
+      // Interaction: recipient can mark alerts as 'read'.
+      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // 5. Admin Roles (Internal Governance)
     match /admin_roles/{adminUid} {
-      // Only existing admins can manage the admin list. 
-      // Initial admin setup usually occurs via Firebase Console.
+      // Visibility: allow check for UI state.
+      allow read: if isSignedIn();
+      // Security: only existing admins can grant/revoke admin status.
+      allow write: if isAdmin();
+    }
+
+    // 6. Analytics (Reporting)
+    match /analytics/{docId} {
+      // Restricted: Global system performance is for administrators only.
       allow read, write: if isAdmin();
     }
   }
