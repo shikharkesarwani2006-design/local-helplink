@@ -1,0 +1,270 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user account within the Local HelpLink platform, including their profile details, role, and reputation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The phone number of the user."
+        },
+        "location": {
+          "type": "array",
+          "description": "Geographical location details of the user.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "role": {
+          "type": "string",
+          "description": "The role assigned to the user within the platform (e.g., normal user, volunteer, service provider, admin)."
+        },
+        "skills": {
+          "type": "array",
+          "description": "A list of skills possessed by the user, particularly relevant for volunteers and service providers.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rating": {
+          "type": "number",
+          "description": "The average rating received by the user based on their helpfulness and service."
+        },
+        "totalHelped": {
+          "type": "number",
+          "description": "A count of how many requests the user has successfully helped with."
+        },
+        "verified": {
+          "type": "boolean",
+          "description": "Indicates whether the user's identity or skills have been verified."
+        },
+        "fcmToken": {
+          "type": "string",
+          "description": "Firebase Cloud Messaging token for sending push notifications to the user's device."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "location",
+        "role",
+        "verified",
+        "createdAt"
+      ]
+    },
+    "HelpRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "HelpRequest",
+      "type": "object",
+      "description": "Represents a request for help posted by a user, including its details, status, and associated location.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the HelpRequest entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "A concise title for the help request."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the help needed."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the help request (e.g., blood donation, tutoring, repair, emergency, other)."
+        },
+        "location": {
+          "type": "array",
+          "description": "Geographical location details where the help is needed.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "urgency": {
+          "type": "string",
+          "description": "The level of urgency for the request (e.g., critical, medium, normal)."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the request (e.g., open, accepted, completed, expired)."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "Reference to the UserProfile who created this request. (Relationship: UserProfile 1:N HelpRequest)"
+        },
+        "acceptedBy": {
+          "type": "string",
+          "description": "Reference to the UserProfile who accepted this request, if any. (Relationship: UserProfile 1:N HelpRequest)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the request was created.",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "Timestamp when the request is set to automatically expire.",
+          "format": "date-time"
+        },
+        "responseTime": {
+          "type": "number",
+          "description": "The time taken in minutes for a helper to accept the request after it was posted, if applicable."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "description",
+        "category",
+        "location",
+        "urgency",
+        "status",
+        "createdBy",
+        "createdAt",
+        "expiresAt"
+      ]
+    },
+    "RequestRating": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RequestRating",
+      "type": "object",
+      "description": "Represents a rating given by one user to another after the completion of a help request.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the RequestRating entity."
+        },
+        "requestId": {
+          "type": "string",
+          "description": "Reference to the HelpRequest for which this rating was given. (Relationship: HelpRequest 1:N RequestRating)"
+        },
+        "fromUser": {
+          "type": "string",
+          "description": "Reference to the UserProfile who gave this rating. (Relationship: UserProfile 1:N RequestRating)"
+        },
+        "toUser": {
+          "type": "string",
+          "description": "Reference to the UserProfile who received this rating. (Relationship: UserProfile 1:N RequestRating)"
+        },
+        "score": {
+          "type": "number",
+          "description": "The numerical score of the rating, typically on a scale of 1 to 5."
+        },
+        "comment": {
+          "type": "string",
+          "description": "An optional textual comment accompanying the rating."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the rating was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "requestId",
+        "fromUser",
+        "toUser",
+        "score",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores individual user profiles. Each document represents a user account, containing personal details, role, skills, reputation, and verification status. Access is restricted to the owner for write operations, with public read access for certain display fields. Includes 'role' for general access control and 'totalHelped' for leaderboard queries.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching 'request.auth.uid'."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/requests/{requestId}",
+        "definition": {
+          "entityName": "HelpRequest",
+          "schema": {
+            "$ref": "#/backend/entities/HelpRequest"
+          },
+          "description": "Stores individual help requests posted by users. This is a top-level collection to facilitate global listing and filtering for the main feed. It includes 'createdBy' and 'acceptedBy' for direct authorization checks. Denormalizes 'postedByName' (from UserProfile.name) and 'postedByLocationArea' (from UserProfile.location) for efficient display in the request feed, ensuring Authorization Independence.",
+          "params": [
+            {
+              "name": "requestId",
+              "description": "The unique identifier for a help request."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/ratings/{ratingId}",
+        "definition": {
+          "entityName": "RequestRating",
+          "schema": {
+            "$ref": "#/backend/entities/RequestRating"
+          },
+          "description": "Stores ratings given for completed help requests. Includes 'fromUser' and 'toUser' fields to enable direct authorization checks for who can create the rating and who can read their received ratings. This is a top-level collection to simplify queries for user-specific rating histories.",
+          "params": [
+            {
+              "name": "ratingId",
+              "description": "The unique identifier for a request rating."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admin_roles/{adminUid}",
+        "definition": {
+          "entityName": "AdminRole",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "A dedicated collection for managing global administrator roles. This structure enables secure and performant admin privilege checks using 'exists()' in security rules, explicitly avoiding 'get()' calls on the main 'users' collection for authorization on other resources. Documents in this collection can be minimal, potentially just an empty object, serving as a flag.",
+          "params": [
+            {
+              "name": "adminUid",
+              "description": "The unique identifier of a user who holds an administrator role."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore data structure prioritizes security, scalability, and debuggability by strictly adhering to the core design principles. This design leverages structural segregation, denormalization for authorization independence, and consistent access modeling patterns.\n\n**Authorization Independence (CRITICAL):**\nTo eliminate hierarchical authorization dependencies (`get()` calls in security rules), the design incorporates denormalization where necessary. For the `HelpRequest` entity, which needs to be accessible globally for the main feed but also restrictable by `createdBy` and `acceptedBy` for updates, all authorization-relevant fields (`createdBy`, `acceptedBy`, `status`) are directly present within the `HelpRequest` document. This allows security rules to evaluate access based solely on `request.auth.uid` and the document's own fields (`resource.data.*`), avoiding expensive and complex cross-document lookups. Furthermore, `postedByName` and `postedByLocationArea` are denormalized into the `HelpRequest` document from the `UserProfile` to facilitate efficient display in the real-time feed without additional reads or complex security rule logic. For admin roles, a dedicated top-level `admin_roles/{adminUid}` collection is introduced. This allows for simple and performant `exists()` checks in security rules to determine admin privileges, adhering to the 'Existence over Content' principle for global roles and avoiding `get()` calls on potentially large `users` documents for general admin checks.\n\n**QAPs (Rules are not Filters):**\nThe structure is designed to enable secure and efficient `list` operations (Queryable Access Patterns):\n1.  **Request Feed:** The `requests` collection is a top-level collection (`/requests/{requestId}`). This allows clients to perform efficient `list` queries with filters like `status == 'open'`, and order by `urgency` and `createdAt`. Security rules can then enforce that only authenticated users can `list` requests with `status == 'open'`, while the client applies further filtering for `category`, `urgency`, and `location` (geo-query). The denormalized `postedByName` and `postedByLocationArea` fields support displaying request details without requiring additional lookups per card, optimizing client-side performance and simplifying rules.\n2.  **My Active Requests:** By having `createdBy` and `acceptedBy` fields directly on the `HelpRequest` document, users can query (`list`) the `/requests` collection with `createdBy == request.auth.uid` or `acceptedBy == request.auth.uid`. Security rules can then easily validate these queries, ensuring users only see their own associated requests.\n3.  **Leaderboard:** The `users` collection (`/users/{userId}`) stores `totalHelped` and `name`. Clients can perform a `list` query on this collection, ordered by `totalHelped`, allowing for efficient leaderboard display. Security rules can permit `list` operations to read only public profile fields required for the leaderboard (e.g., `name`, `totalHelped`, `rating`).\n\n**Structural Segregation and Access Modeling:**\n*   **`users/{userId}`:** Represents private user data, with read/write access primarily for the user themselves and broader read access for public profile fields. Role-based access to sensitive fields like `role` or `verified` is managed by rules.\n*   **`requests/{requestId}`:** A global, top-level collection for all help requests. This homogeneous security posture ensures that all documents in this collection share similar read/write rules (public read for 'open' status, owner/accepter write access). This avoids mixing different access needs within the same collection.\n*   **`ratings/{ratingId}`:** A top-level collection for all request ratings, allowing `fromUser` to create and `toUser` to read their own ratings easily. This provides flexibility for various query patterns (e.g., all ratings given by a user, all ratings received by a user).\n*   **`admin_roles/{adminUid}`:** A dedicated collection for administering global roles, facilitating clean and independent authorization checks for administrators. This separation adheres to the principle of structural segregation for different security postures."
+  }
+}
