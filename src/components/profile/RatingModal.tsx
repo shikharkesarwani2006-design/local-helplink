@@ -2,8 +2,8 @@
 "use client";
 
 import { useState } from "react";
-import { collection, addDoc, doc, Timestamp, getDoc } from "firebase/firestore";
-import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
+import { collection, addDoc, doc, Timestamp, runTransaction } from "firebase/firestore";
+import { useFirestore, useUser } from "@/firebase";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Star, Loader2, Heart } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { sendNotification } from "@/firebase/notifications";
 
 export function RatingModal({ requestId, toUser }: { requestId: string; toUser: string }) {
   const [open, setOpen] = useState(false);
@@ -33,31 +34,47 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
     setLoading(true);
     
     try {
-      // 1. Add the Rating Document
-      await addDoc(collection(db, "ratings"), {
-        requestId,
-        fromUser: user.uid,
-        toUser,
-        score,
-        comment,
-        createdAt: Timestamp.now(),
-      });
+      // 1. Transactional Average Rating Update
+      await runTransaction(db, async (transaction) => {
+        const targetUserRef = doc(db, "users", toUser);
+        const userDoc = await transaction.get(targetUserRef);
+        
+        if (!userDoc.exists()) {
+          throw "User does not exist!";
+        }
 
-      // 2. Update User's Average Rating (Simplified simulation of transaction)
-      const targetUserRef = doc(db, "users", toUser);
-      const snap = await getDoc(targetUserRef);
-      if (snap.exists()) {
-        const data = snap.data();
-        const currentCount = data.totalRatingsCount || 1; // Defaulting to 1 to avoid initial heavy swings
+        const data = userDoc.data();
+        const currentCount = data.totalRatingsCount || 0;
         const currentRating = data.rating || 5.0;
         const newRating = ((currentRating * currentCount) + score) / (currentCount + 1);
-        
-        updateDocumentNonBlocking(targetUserRef, {
+
+        // Add the Rating Document
+        const ratingsRef = collection(db, "ratings");
+        const ratingDocRef = doc(ratingsRef);
+        transaction.set(ratingDocRef, {
+          requestId,
+          fromUser: user.uid,
+          toUser,
+          score,
+          comment,
+          createdAt: Timestamp.now(),
+        });
+
+        // Update User Profile
+        transaction.update(targetUserRef, {
           rating: newRating,
           totalRatingsCount: currentCount + 1,
           totalHelped: (data.totalHelped || 0) + 1
         });
-      }
+      });
+
+      // 2. Client-side notification trigger
+      sendNotification(db, toUser, {
+        title: "New Rating Received",
+        message: `You received a ${score}-star rating for your help.`,
+        type: "rated",
+        link: "/profile"
+      });
 
       toast({
         title: "Feedback Shared!",
@@ -65,6 +82,7 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
       });
       setOpen(false);
     } catch (error) {
+      console.error(error);
       toast({
         variant: "destructive",
         title: "Error",

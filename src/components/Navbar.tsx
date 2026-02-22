@@ -4,7 +4,22 @@
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
-import { useAuth, useUser, useFirestore, useDoc } from "@/firebase";
+import { 
+  useAuth, 
+  useUser, 
+  useFirestore, 
+  useDoc, 
+  useCollection,
+  useMemoFirebase 
+} from "@/firebase";
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  doc, 
+  limit 
+} from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,9 +30,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { Heart, PlusCircle, LayoutDashboard, History, User, LogOut, Bell, ShieldCheck } from "lucide-react";
-import { useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
 
 export default function Navbar() {
   const { user } = useUser();
@@ -26,12 +40,24 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // 1. Listen for user profile
   const userRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, "users", user.uid);
   }, [db, user?.uid]);
-
   const { data: profile } = useDoc(userRef);
+
+  // 2. Real-time Notifications Listener
+  const notificationsQuery = useMemoFirebase(() => {
+    if (!db || !user?.uid) return null;
+    return query(
+      collection(db, "notifications", user.uid, "items"),
+      where("read", "==", false),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+  }, [db, user?.uid]);
+  const { data: unreadNotifications } = useCollection(notificationsQuery);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -81,11 +107,14 @@ export default function Navbar() {
           </Button>
         </Link>
 
+        {/* Real-time Notification Bell */}
         <Button variant="ghost" size="icon" className="relative text-slate-500 hover:bg-slate-50">
           <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white ring-2 ring-white">
-            2
-          </span>
+          {unreadNotifications && unreadNotifications.length > 0 && (
+            <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-white ring-2 ring-white animate-in zoom-in">
+              {unreadNotifications.length > 9 ? '9+' : unreadNotifications.length}
+            </span>
+          )}
         </Button>
 
         {user && (

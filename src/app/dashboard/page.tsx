@@ -1,7 +1,18 @@
+
 "use client";
 
-import { useState, useMemo } from "react";
-import { collection, query, orderBy, where, doc, Timestamp } from "firebase/firestore";
+import { useState, useMemo, useEffect } from "react";
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  where, 
+  doc, 
+  Timestamp, 
+  writeBatch, 
+  getDocs,
+  limit
+} from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +42,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { sendNotification } from "@/firebase/notifications";
 
 export default function Dashboard() {
   const { user } = useUser();
@@ -40,6 +52,46 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
+
+  // 1. AUTO-EXPIRE CLEANUP LOGIC
+  useEffect(() => {
+    if (!db) return;
+
+    const cleanupExpiredRequests = async () => {
+      const now = Timestamp.now();
+      const q = query(
+        collection(db, "requests"),
+        where("status", "==", "open"),
+        where("expiresAt", "<", now),
+        limit(50)
+      );
+
+      try {
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) return;
+
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((d) => {
+          batch.update(d.ref, { status: "expired" });
+          // Notify creator about expiration
+          const data = d.data();
+          sendNotification(db, data.createdBy, {
+            title: "Request Expired",
+            message: `Your request "${data.title}" has expired.`,
+            type: "system",
+            link: "/requests/my"
+          });
+        });
+
+        await batch.commit();
+        console.log(`Auto-expired ${snapshot.size} requests.`);
+      } catch (err) {
+        console.error("Cleanup error:", err);
+      }
+    };
+
+    cleanupExpiredRequests();
+  }, [db]);
 
   // Real-time Query for Open Requests
   const requestsQuery = useMemoFirebase(() => {
@@ -53,26 +105,25 @@ export default function Dashboard() {
 
   const { data: allRequests, isLoading } = useCollection(requestsQuery);
 
-  // Real-time Query for Top Helpers (Leaderboard)
+  // Real-time Query for Top Helpers
   const leaderboardQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
       collection(db, "users"),
       orderBy("totalHelped", "desc"),
-      where("totalHelped", ">", 0)
+      where("totalHelped", ">", 0),
+      limit(5)
     );
   }, [db]);
 
   const { data: topHelpers } = useCollection(leaderboardQuery);
 
-  // Priority mapping for sorting: critical (3) > medium (2) > normal (1)
   const urgencyPriority: Record<string, number> = {
     critical: 3,
     medium: 2,
     normal: 1,
   };
 
-  // Filtering and Client-side Sorting
   const filteredRequests = useMemo(() => {
     if (!allRequests) return [];
     
@@ -101,19 +152,28 @@ export default function Dashboard() {
       });
   }, [allRequests, searchQuery, categoryFilter, urgencyFilter]);
 
-  const handleAcceptRequest = (requestId: string, createdAt: any) => {
+  const handleAcceptRequest = async (request: any) => {
     if (!user || !db) return;
 
-    const requestRef = doc(db, "requests", requestId);
+    const requestRef = doc(db, "requests", request.id);
     const now = Timestamp.now();
-    const createdDate = createdAt instanceof Timestamp ? createdAt.toDate() : (createdAt ? new Date(createdAt) : new Date());
+    const createdDate = request.createdAt instanceof Timestamp ? request.createdAt.toDate() : (request.createdAt ? new Date(request.createdAt) : new Date());
     const diffMs = now.toMillis() - createdDate.getTime();
     const responseTimeMinutes = Math.max(0, Math.floor(diffMs / 60000));
 
+    // Update status and response time
     updateDocumentNonBlocking(requestRef, {
       status: "accepted",
       acceptedBy: user.uid,
       responseTime: responseTimeMinutes,
+    });
+
+    // Notify the requester
+    sendNotification(db, request.createdBy, {
+      title: "Request Accepted!",
+      message: `${user.displayName || "A neighbor"} has accepted your request: "${request.title}".`,
+      type: "accepted",
+      link: `/requests/my`
     });
 
     toast({
@@ -144,7 +204,6 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background pb-12">
       <Navbar />
 
-      {/* STATS STRIP (top) */}
       <div className="bg-white border-b py-3 overflow-hidden">
         <div className="container px-6 mx-auto flex flex-wrap justify-center md:justify-start gap-8 text-sm font-semibold text-slate-600">
           <div className="flex items-center gap-2">
@@ -176,7 +235,6 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          {/* FILTER BAR */}
           <div className="flex flex-col md:flex-row gap-3">
             <div className="relative flex-grow">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -215,7 +273,6 @@ export default function Dashboard() {
       </header>
 
       <main className="container px-6 mx-auto mt-8 flex flex-col lg:flex-row gap-8">
-        {/* REQUEST FEED */}
         <div className="flex-grow space-y-6">
           {isLoading ? (
             <div className="grid md:grid-cols-2 gap-6">
@@ -275,7 +332,7 @@ export default function Dashboard() {
                     <Button 
                       size="sm" 
                       className="bg-accent hover:bg-accent/90 text-white font-bold rounded-full shadow-md"
-                      onClick={() => handleAcceptRequest(request.id, request.createdAt)}
+                      onClick={() => handleAcceptRequest(request)}
                     >
                       Accept & Help
                       <ArrowRight className="ml-2 w-4 h-4" />
@@ -287,7 +344,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* SIDEBAR */}
         <aside className="w-full lg:w-80 space-y-8">
           <Card className="shadow-lg border-t-4 border-t-secondary bg-white">
             <CardHeader>
@@ -311,7 +367,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {topHelpers?.slice(0, 3).map((helper, idx) => (
+                {topHelpers?.map((helper) => (
                   <div key={helper.id} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
@@ -325,9 +381,6 @@ export default function Dashboard() {
                     </Badge>
                   </div>
                 ))}
-                {!topHelpers || topHelpers.length === 0 ? (
-                  <p className="text-xs text-slate-400 text-center">Waiting for heroes...</p>
-                ) : null}
               </div>
             </CardContent>
           </Card>
