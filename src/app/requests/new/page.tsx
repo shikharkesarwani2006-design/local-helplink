@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, Timestamp, getDocs } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +28,7 @@ import {
   Plus
 } from "lucide-react";
 import { draftHelpRequest } from "@/ai/flows/draft-help-request";
-import { cn, calculateDistance } from "@/lib/utils";
-import { sendNotification } from "@/firebase/notifications";
-import { sendHighUrgencyAlerts } from "@/app/actions/alerts";
+import { cn } from "@/lib/utils";
 
 type Step = 1 | 2 | 3;
 
@@ -120,7 +118,7 @@ export default function NewRequest() {
         setIsLocating(false);
         toast({
           title: "Location Detected",
-          description: "Latitude and longitude captured successfully.",
+          description: "Coordinates captured successfully.",
         });
       },
       () => {
@@ -153,100 +151,50 @@ export default function NewRequest() {
     return Timestamp.fromDate(now);
   };
 
-  const broadcastToNearbyUsers = async (requestId: string, requestData: any) => {
-    if (!db || !user) return;
-
-    try {
-      // 1. Trigger High Urgency External Alerts (Twilio/SendGrid)
-      if (requestData.urgency === 'high') {
-        sendHighUrgencyAlerts({
-          title: requestData.title,
-          description: requestData.description,
-          category: requestData.category,
-          area: requestData.location?.area || 'Nearby',
-          postedByName: requestData.postedByName,
-        });
-      }
-
-      // 2. In-App Broadcast to matching users
-      const usersSnap = await getDocs(collection(db, "users"));
-      const nearbyUsers = usersSnap.docs.filter(doc => {
-        const u = doc.data();
-        if (doc.id === user.uid) return false;
-        
-        const hasInterest = !u.interests || u.interests.length === 0 || u.interests.includes(requestData.category);
-        
-        let isNearby = true;
-        if (requestData.location?.lat && u.location?.lat) {
-          const dist = calculateDistance(
-            requestData.location.lat,
-            requestData.location.lng,
-            u.location.lat,
-            u.location.lng
-          );
-          isNearby = dist <= 5;
-        }
-        
-        return hasInterest && isNearby;
-      });
-
-      for (const uDoc of nearbyUsers) {
-        sendNotification(db, uDoc.id, {
-          title: requestData.urgency === 'high' ? "🚨 URGENT MISSION NEARBY" : "New Request Nearby",
-          message: `${requestData.postedByName} needs help with ${requestData.category}: "${requestData.title}"`,
-          type: "accepted",
-          link: `/dashboard`
-        });
-      }
-    } catch (err) {
-      console.error("Broadcast failed:", err);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!user || !db) return;
 
     setIsSubmitting(true);
     try {
       const expiresAt = calculateExpiry(formData.urgency);
+      
+      // Payload strictly following user requirements
       const requestPayload = {
         title: formData.title,
         description: formData.description,
         category: formData.category,
         urgency: formData.urgency,
+        area: formData.area,
+        skills: formData.skills,
+        contactPreference: formData.contactPreference,
+        status: "open",
+        createdBy: user.uid,
+        createdAt: serverTimestamp(),
+        expiresAt: expiresAt,
+        // Additional metadata for app logic
         location: {
           area: formData.area,
           lat: formData.lat,
           lng: formData.lng,
         },
-        skills: formData.skills,
-        contactPreference: formData.contactPreference,
-        createdBy: user.uid,
-        status: "open",
-        acceptedBy: null,
-        createdAt: Timestamp.now(),
-        expiresAt: expiresAt,
         postedByName: user.displayName || user.email?.split('@')[0] || "Member",
       };
 
-      const docRef = await addDoc(collection(db, "requests"), requestPayload);
-
-      // Trigger smart broadcast (Including external alerts if High Urgency)
-      broadcastToNearbyUsers(docRef.id, requestPayload);
+      // Auto-generates document ID using Firestore addDoc
+      await addDoc(collection(db, "requests"), requestPayload);
 
       toast({
         title: "Request Live!",
-        description: formData.urgency === 'high' 
-          ? "Broadcast sent to community responders via SMS and Email." 
-          : "Your request has been broadcasted to the community.",
+        description: "Your help request has been broadcasted to the community.",
       });
       
-      router.push("/requests/my");
+      // Redirect to dashboard as requested
+      router.push("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message,
+        title: "Submission Error",
+        description: error.message || "Failed to post the help request.",
       });
     } finally {
       setIsSubmitting(false);
@@ -361,12 +309,6 @@ export default function NewRequest() {
                       </button>
                     ))}
                   </div>
-                  {formData.urgency === 'high' && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-100 flex items-center gap-2 text-red-600 text-xs font-medium">
-                      <AlertCircle className="w-4 h-4" />
-                      External alerts (SMS/Email) will be triggered for high-urgency needs.
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -416,7 +358,7 @@ export default function NewRequest() {
                   <p className="text-sm text-slate-600 italic leading-relaxed">"{formData.description}"</p>
                   <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-500">
                     <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> {formData.area}</div>
-                    <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> {formData.urgency === 'high' ? '2h exp.' : '24h exp.'}</div>
+                    <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> {formData.urgency === 'high' ? '2h exp.' : formData.urgency === 'medium' ? '12h exp.' : '24h exp.'}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl text-amber-700 border border-amber-200">
