@@ -10,7 +10,7 @@ import {
   SheetTrigger,
   SheetDescription,
   SheetFooter
-} from "@/components/ui/dialog";
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
