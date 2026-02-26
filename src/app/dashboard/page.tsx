@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -70,7 +69,7 @@ export default function Dashboard() {
 
   // Auto-expire cleanup logic
   useEffect(() => {
-    if (!db) return;
+    if (!db || !user) return;
     const cleanupExpiredRequests = async () => {
       const now = Timestamp.now();
       const q = query(
@@ -96,28 +95,28 @@ export default function Dashboard() {
       } catch (err) { console.error("Cleanup error:", err); }
     };
     cleanupExpiredRequests();
-  }, [db]);
+  }, [db, user]);
 
   const requestsQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user) return null;
     return query(
       collection(db, "requests"),
       where("status", "==", "open"),
       orderBy("createdAt", "desc")
     );
-  }, [db]);
+  }, [db, user]);
 
   const { data: allRequests, isLoading } = useCollection(requestsQuery);
 
   const leaderboardQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user) return null;
     return query(
       collection(db, "users"),
       orderBy("totalHelped", "desc"),
       where("totalHelped", ">", 0),
       limit(5)
     );
-  }, [db]);
+  }, [db, user]);
 
   const { data: topHelpers } = useCollection(leaderboardQuery);
 

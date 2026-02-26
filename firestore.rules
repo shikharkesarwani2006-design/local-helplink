@@ -4,37 +4,22 @@ service cloud.firestore {
 
     /**
      * LOCAL HELPLINK SECURITY RULES
-     * 
-     * Core Philosophy:
-     * 1. Public Discovery: Authenticated users can browse the community feed and public profiles.
-     * 2. Identity Verification: Users can only modify their own profile and create requests in their name.
-     * 3. Collaboration Logic: The transition from 'open' to 'accepted' is protected to ensure only 
-     *    one volunteer claims a task at a time.
-     * 4. Reputation Integrity: Ratings are immutable once posted and require involvement in the task.
-     * 5. Administrative Oversight: Admins have global read/write access via the admin_roles flag collection.
      */
 
     // --- Helper Functions ---
 
-    /** Checks if the user is signed in to a valid account. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Checks if the current user is the owner of the document by UID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** 
-     * Checks if the user has administrative privileges. 
-     * Uses a dedicated flag collection for high-performance 'exists' checks.
-     */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
     }
 
-    /** Fetches the data of a specific request for involvement validation. */
     function getRequestData(requestId) {
       return get(/databases/$(database)/documents/requests/$(requestId)).data;
     }
@@ -43,95 +28,63 @@ service cloud.firestore {
 
     // 1. Users Collection
     match /users/{userId} {
-      // Community discovery: signed-in users can view profiles for trust building and leaderboards.
-      allow get, list: if isSignedIn();
-      
-      // Self-management: users can create their own profile during registration.
+      allow read: if isSignedIn();
       allow create: if isOwner(userId);
-      
-      // Ownership: only the owner or an admin can update.
-      // Note: In production, we would add 'isUnchanged' checks for role/verified fields.
       allow update: if isOwner(userId) || isAdmin();
-      
-      // Governance: only admins can remove user accounts.
       allow delete: if isAdmin();
     }
 
     // 2. Help Requests Collection
     match /requests/{requestId} {
-      // Transparency: all members can browse active community needs.
-      allow get, list: if isSignedIn();
-
-      // Creation: must be signed in, and document 'createdBy' must match the author.
+      allow read: if isSignedIn();
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
         && request.resource.data.status == 'open';
-
-      // Updates: Supports multiple collaborative state transitions.
       allow update: if isSignedIn() && (
         isAdmin() ||
-        // Owner editing their own open request.
         (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
-        // Volunteer 'accepting' the request: status must move from open -> accepted.
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 
           request.resource.data.acceptedBy == request.auth.uid
         ) ||
-        // Transition to 'completed': can be done by creator or the assigned volunteer.
         (
           request.resource.data.status == 'completed' && 
           (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
         )
       );
-
-      // Deletion: restricted to the creator or an administrator.
       allow delete: if (resource.data.createdBy == request.auth.uid) || isAdmin();
     }
 
     // 3. Ratings Collection
     match /ratings/{ratingId} {
-      // Open reviews for community accountability.
-      allow get, list: if isSignedIn();
-      
-      // Integrity: user must be the author ('fromUser') AND must have been involved in the specific request.
+      allow read: if isSignedIn();
       allow create: if isSignedIn() 
         && request.resource.data.fromUser == request.auth.uid
         && (
              getRequestData(request.resource.data.requestId).createdBy == request.auth.uid || 
              getRequestData(request.resource.data.requestId).acceptedBy == request.auth.uid
            );
-
-      // Immutability: ratings cannot be modified once submitted to prevent bias.
       allow update: if false;
       allow delete: if isAdmin();
     }
 
     // 4. Notifications Collection
     match /notifications/{userId}/items/{notificationId} {
-      // Privacy: only the recipient can see their alerts.
       allow get, list: if isOwner(userId);
-      
-      // Trigger: any signed-in user can trigger a notification for another (e.g., accepting their request).
       allow create: if isSignedIn();
-      
-      // Interaction: recipient can mark alerts as 'read'.
       allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      
       allow delete: if isOwner(userId) || isAdmin();
     }
 
     // 5. Admin Roles (Internal Governance)
     match /admin_roles/{adminUid} {
-      // Visibility: allow check for UI state.
       allow read: if isSignedIn();
-      // Security: only existing admins can grant/revoke admin status.
       allow write: if isAdmin();
     }
 
     // 6. Analytics (Reporting)
     match /analytics/{docId} {
-      // Restricted: Global system performance is for administrators only.
       allow read, write: if isAdmin();
     }
   }

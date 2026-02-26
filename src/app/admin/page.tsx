@@ -61,17 +61,17 @@ export default function AdminDashboard() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
-  // 2. Data Fetching
+  // 2. Data Fetching - Gated by Admin Role
   const usersQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user || profile?.role !== 'admin') return null;
     return query(collection(db, "users"), orderBy("createdAt", "desc"));
-  }, [db]);
+  }, [db, user, profile?.role]);
   const { data: allUsers } = useCollection(usersQuery);
 
   const requestsQuery = useMemoFirebase(() => {
-    if (!db) return null;
+    if (!db || !user || profile?.role !== 'admin') return null;
     return query(collection(db, "requests"), orderBy("createdAt", "desc"));
-  }, [db]);
+  }, [db, user, profile?.role]);
   const { data: allRequests } = useCollection(requestsQuery);
 
   const [searchQuery, setSearchQuery] = useState("");
