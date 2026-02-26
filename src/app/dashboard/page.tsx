@@ -50,7 +50,9 @@ import {
   Zap,
   Phone,
   MessageSquare,
-  ChevronRight
+  ChevronRight,
+  Heart,
+  Star
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
