@@ -5,6 +5,12 @@ service cloud.firestore {
 
     /**
      * LOCAL HELPLINK SECURITY RULES
+     * 
+     * Core Principles:
+     * 1. Only authenticated users can access any data.
+     * 2. Field-level protection: Users cannot verify themselves or change their roles.
+     * 3. Mission integrity: Only open missions can be accepted, and only by one person.
+     * 4. Privacy: Notifications are strictly owner-only.
      */
 
     function isSignedIn() {
@@ -20,19 +26,20 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function getRequestData(requestId) {
-      return get(/databases/$(database)/documents/requests/$(requestId)).data;
-    }
-
-    function isValidRequestData(data) {
-      return data.category in ['blood', 'tutor', 'repair', 'emergency', 'other']
-        && data.urgency in ['high', 'medium', 'low'];
+    function isVerified() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true;
     }
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) 
+        && request.resource.data.verified == false
+        && request.resource.data.role == 'user';
+      allow update: if (isOwner(userId) && (
+        // Prevent owners from verifying themselves or changing their role/rating
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified', 'role', 'rating', 'totalHelped', 'totalRatingsCount'])
+      )) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -40,41 +47,41 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
-        && request.resource.data.status == 'open'
-        && isValidRequestData(request.resource.data);
+        && request.resource.data.status == 'open';
+      
       allow update: if isSignedIn() && (
         isAdmin() ||
+        // Owners can edit details only if mission is still open
         (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
+        // Any user can accept an open mission they didn't create
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 
-          request.resource.data.acceptedBy == request.auth.uid
+          request.resource.data.acceptedBy == request.auth.uid &&
+          resource.data.createdBy != request.auth.uid
         ) ||
+        // Either party can mark as completed
         (
           resource.data.status == 'accepted' &&
           request.resource.data.status == 'completed' && 
           (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
         )
       );
-      allow delete: if (resource.data.createdBy == request.auth.uid) || isAdmin();
+      allow delete: if (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') || isAdmin();
     }
 
     match /ratings/{ratingId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() 
-        && request.resource.data.fromUser == request.auth.uid
-        && (
-             getRequestData(request.resource.data.requestId).createdBy == request.auth.uid || 
-             getRequestData(request.resource.data.requestId).acceptedBy == request.auth.uid
-           );
-      allow update: if false;
+        && request.resource.data.fromUser == request.auth.uid;
+      allow update: if false; // Ratings are immutable
       allow delete: if isAdmin();
     }
 
     match /notifications/{userId}/items/{notificationId} {
       allow get, list: if isOwner(userId);
-      allow create: if isSignedIn();
-      allow update: if isOwner(userId);
+      allow create: if isSignedIn(); // Allow system or users to send notifications
+      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isOwner(userId) || isAdmin();
     }
   }

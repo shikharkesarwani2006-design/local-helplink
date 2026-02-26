@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -37,18 +38,20 @@ import {
   ChevronRight,
   Filter,
   Navigation,
-  Heart,
-  ShieldCheck
+  LayoutGrid,
+  Map as MapIcon
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
 import { cn, calculateDistance } from "@/lib/utils";
+import MapDashboard from "@/components/dashboard/MapDashboard";
 
 export default function Dashboard() {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
 
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
@@ -123,6 +126,17 @@ export default function Dashboard() {
 
   const handleAcceptRequest = async (request: any) => {
     if (!user || !db) return;
+    
+    // Prevent self-acceptance
+    if (request.createdBy === user.uid) {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "You cannot accept your own mission.",
+      });
+      return;
+    }
+
     const requestRef = doc(db, "requests", request.id);
     const now = Timestamp.now();
     const createdDate = request.createdAt instanceof Timestamp ? request.createdAt.toDate() : new Date();
@@ -207,6 +221,27 @@ export default function Dashboard() {
 
         <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
           <div className="flex flex-wrap gap-2">
+            <div className="bg-white border border-slate-200 rounded-full p-1 flex mr-2">
+              <button
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
+                  viewMode === "list" ? "bg-primary text-white" : "text-slate-400"
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" /> List
+              </button>
+              <button
+                onClick={() => setViewMode("map")}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
+                  viewMode === "map" ? "bg-primary text-white" : "text-slate-400"
+                )}
+              >
+                <MapIcon className="w-4 h-4" /> Map
+              </button>
+            </div>
+
             {categories.map((cat) => (
               <button
                 key={cat.id}
@@ -260,6 +295,12 @@ export default function Dashboard() {
             <h3 className="text-2xl font-headline font-bold text-slate-700">All missions cleared!</h3>
             <p className="text-slate-500 mt-2">There are no open help requests in this area right now.</p>
           </div>
+        ) : viewMode === "map" ? (
+          <MapDashboard 
+            requests={filteredRequests} 
+            userLocation={userLocation} 
+            onAccept={handleAcceptRequest} 
+          />
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredRequests.map((request) => (
@@ -308,7 +349,6 @@ export default function Dashboard() {
                         <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
                         <AvatarFallback>?</AvatarFallback>
                       </Avatar>
-                      {/* Note: In a real app, we'd fetch the poster's profile to check 'verified' status */}
                     </div>
                     <span className="text-[10px] font-bold text-slate-700">{request.postedByName || "Member"}</span>
                   </div>
