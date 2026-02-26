@@ -10,7 +10,6 @@ import {
   LogOut,
   Heart,
   Trophy,
-  Settings,
   Shield
 } from "lucide-react";
 import { 
@@ -170,7 +169,7 @@ export function AppSidebar() {
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === '/admin'}
-                    tooltip="Admin Panel"
+                    tooltip="Admin Oversight"
                     onClick={handleLinkClick}
                     className={cn(
                       "h-11 px-3 rounded-xl transition-all duration-200",
