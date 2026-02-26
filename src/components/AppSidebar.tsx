@@ -9,7 +9,8 @@ import {
   LogOut,
   Heart,
   Trophy,
-  Settings
+  Settings,
+  Shield
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -83,10 +84,17 @@ export function AppSidebar() {
         </Link>
 
         <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:border-none overflow-hidden transition-all duration-300">
-          <Avatar className="h-10 w-10 shrink-0 ring-2 ring-white/10">
-            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
-            <AvatarFallback className="bg-primary text-white font-bold">{profile?.name?.[0] || '?'}</AvatarFallback>
-          </Avatar>
+          <div className="relative shrink-0">
+            <Avatar className="h-10 w-10 ring-2 ring-white/10">
+              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
+              <AvatarFallback className="bg-primary text-white font-bold">{profile?.name?.[0] || '?'}</AvatarFallback>
+            </Avatar>
+            {profile?.verified && (
+              <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 ring-2 ring-sidebar">
+                <ShieldCheck className="w-2.5 h-2.5" />
+              </div>
+            )}
+          </div>
           <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-bold text-white truncate">{profile?.name || "Member"}</span>
             <Badge variant="outline" className="w-fit text-[9px] font-black uppercase h-4 px-1.5 mt-0.5 bg-primary/20 border-primary/30 text-primary-foreground">
@@ -171,8 +179,8 @@ export function AppSidebar() {
                     )}
                   >
                     <Link href="/admin">
-                      <ShieldCheck className={cn("w-5 h-5", pathname === '/admin' ? "text-white" : "text-amber-500/40")} />
-                      <span>Admin Dashboard</span>
+                      <Shield className={cn("w-5 h-5", pathname === '/admin' ? "text-white" : "text-amber-500/40")} />
+                      <span>Admin Oversight</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -38,7 +37,8 @@ import {
   ChevronRight,
   Filter,
   Navigation,
-  Heart
+  Heart,
+  ShieldCheck
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
@@ -303,10 +303,13 @@ export default function Dashboard() {
                 </CardContent>
                 <CardFooter className="pt-4 pb-6 bg-slate-50/50 flex justify-between items-center mt-auto border-t border-slate-100">
                   <div className="flex items-center gap-2">
-                    <Avatar className="h-7 w-7 ring-2 ring-white">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
-                      <AvatarFallback>?</AvatarFallback>
-                    </Avatar>
+                    <div className="relative">
+                      <Avatar className="h-7 w-7 ring-2 ring-white">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
+                        <AvatarFallback>?</AvatarFallback>
+                      </Avatar>
+                      {/* Note: In a real app, we'd fetch the poster's profile to check 'verified' status */}
+                    </div>
                     <span className="text-[10px] font-bold text-slate-700">{request.postedByName || "Member"}</span>
                   </div>
                   <Button 
