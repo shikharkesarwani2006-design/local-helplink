@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -40,11 +39,12 @@ import {
   AlertTriangle,
   Zap,
   ChevronRight,
-  Filter
+  Filter,
+  Navigation
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
-import { cn } from "@/lib/utils";
+import { cn, calculateDistance } from "@/lib/utils";
 
 export default function Dashboard() {
   const { user } = useUser();
@@ -54,36 +54,29 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [showOnlyNearby, setShowOnlyNearby] = useState(true);
 
-  // Auto-expire cleanup logic
+  // Auto-detect user location for nearby filtering
   useEffect(() => {
-    if (!db || !user) return;
-    const cleanupExpiredRequests = async () => {
-      const now = Timestamp.now();
-      const q = query(
-        collection(db, "requests"),
-        where("status", "==", "open"),
-        where("expiresAt", "<", now),
-        limit(20)
-      );
-      try {
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) return;
-        const batch = writeBatch(db);
-        snapshot.docs.forEach((d) => {
-          batch.update(d.ref, { status: "expired" });
-          sendNotification(db, d.data().createdBy, {
-            title: "Request Expired",
-            message: `Your request "${d.data().title}" has expired.`,
-            type: "system",
-            link: "/requests/my"
+    if ("geolocation" in navigator) {
+      setIsLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
           });
-        });
-        await batch.commit();
-      } catch (err) { console.error("Cleanup error:", err); }
-    };
-    cleanupExpiredRequests();
-  }, [db, user]);
+          setIsLocating(false);
+        },
+        () => {
+          setIsLocating(false);
+          setShowOnlyNearby(false); // Fallback to all if permission denied
+        }
+      );
+    }
+  }, []);
 
   const requestsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -98,15 +91,38 @@ export default function Dashboard() {
 
   const filteredRequests = useMemo(() => {
     if (!allRequests) return [];
-    return allRequests
+    
+    let processed = allRequests.map(req => {
+      let distance = null;
+      if (userLocation && req.location?.lat && req.location?.lng) {
+        distance = calculateDistance(
+          userLocation.lat,
+          userLocation.lng,
+          req.location.lat,
+          req.location.lng
+        );
+      }
+      return { ...req, distance };
+    });
+
+    return processed
       .filter(req => {
         const matchesSearch = 
           req.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
           req.description.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
-        return matchesSearch && matchesCategory;
+        const matchesNearby = !showOnlyNearby || !userLocation || (req.distance !== null && req.distance <= 5);
+        
+        return matchesSearch && matchesCategory && matchesNearby;
+      })
+      .sort((a, b) => {
+        // If we have distance, sort by it first, otherwise by date
+        if (showOnlyNearby && a.distance !== null && b.distance !== null) {
+          return a.distance - b.distance;
+        }
+        return 0; // Maintain original creation date sort
       });
-  }, [allRequests, searchQuery, categoryFilter]);
+  }, [allRequests, searchQuery, categoryFilter, userLocation, showOnlyNearby]);
 
   const handleAcceptRequest = async (request: any) => {
     if (!user || !db) return;
@@ -159,11 +175,13 @@ export default function Dashboard() {
           <Card className="border-none shadow-sm bg-white">
             <CardContent className="pt-6 flex items-center gap-4">
               <div className="bg-primary/10 p-3 rounded-2xl">
-                <Flame className="w-6 h-6 text-primary" />
+                <Navigation className={cn("w-6 h-6 text-primary", isLocating && "animate-pulse")} />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Open Requests</p>
-                <h3 className="text-2xl font-bold text-slate-900">{allRequests?.length || 0}</h3>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Your Range</p>
+                <h3 className="text-2xl font-bold text-slate-900">
+                  {userLocation ? "Within 5km" : "Global Feed"}
+                </h3>
               </div>
             </CardContent>
           </Card>
@@ -173,8 +191,8 @@ export default function Dashboard() {
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">People Helped</p>
-                <h3 className="text-2xl font-bold text-slate-900">1,248</h3>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Nearby Calls</p>
+                <h3 className="text-2xl font-bold text-slate-900">{filteredRequests.length}</h3>
               </div>
             </CardContent>
           </Card>
@@ -184,8 +202,8 @@ export default function Dashboard() {
                 <Users className="w-6 h-6 text-amber-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Volunteers</p>
-                <h3 className="text-2xl font-bold text-slate-900">84 Active</h3>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Neighborhood</p>
+                <h3 className="text-2xl font-bold text-slate-900">Campus Area</h3>
               </div>
             </CardContent>
           </Card>
@@ -195,19 +213,32 @@ export default function Dashboard() {
         <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
-              <Button
+              <button
                 key={cat.id}
-                variant={categoryFilter === cat.id ? "default" : "outline"}
                 onClick={() => setCategoryFilter(cat.id)}
                 className={cn(
-                  "rounded-full px-5 font-bold h-10 border-slate-200",
-                  categoryFilter === cat.id ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white text-slate-600"
+                  "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all",
+                  categoryFilter === cat.id 
+                    ? "bg-primary text-white shadow-lg shadow-primary/20 border-primary" 
+                    : "bg-white text-slate-600 border-slate-200 hover:border-primary/50"
                 )}
               >
-                <cat.icon className="w-4 h-4 mr-2" />
+                <cat.icon className="w-4 h-4" />
                 {cat.label}
-              </Button>
+              </button>
             ))}
+            <button
+              onClick={() => setShowOnlyNearby(!showOnlyNearby)}
+              className={cn(
+                "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all ml-2",
+                showOnlyNearby 
+                  ? "bg-secondary text-white border-secondary" 
+                  : "bg-white text-slate-400 border-slate-200"
+              )}
+            >
+              <MapPin className="w-4 h-4" />
+              Nearby (5km)
+            </button>
           </div>
           <div className="relative w-full lg:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -232,8 +263,9 @@ export default function Dashboard() {
             <div className="bg-white p-8 rounded-full inline-block mb-6 shadow-sm">
               <Zap className="w-12 h-12 text-slate-200" />
             </div>
-            <h3 className="text-2xl font-headline font-bold text-slate-700">All Quiet in the Neighborhood</h3>
+            <h3 className="text-2xl font-headline font-bold text-slate-700">No requests nearby</h3>
             <p className="text-slate-500 mt-2">Be the first to help your community by posting a request.</p>
+            {!showOnlyNearby && <p className="text-xs text-slate-400 mt-4">Try clearing your search or category filters.</p>}
           </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -263,9 +295,17 @@ export default function Dashboard() {
                   <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
                     {request.description}
                   </p>
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                    <MapPin className="w-3 h-3 text-primary" />
-                    <span>{request.location?.area || "Campus Area"}</span>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                      <MapPin className="w-3 h-3 text-primary" />
+                      <span>{request.location?.area || "Campus Area"}</span>
+                    </div>
+                    {request.distance !== null && (
+                      <div className="flex items-center gap-2 text-[10px] font-black text-secondary uppercase">
+                        <Navigation className="w-3 h-3" />
+                        <span>{request.distance.toFixed(1)} km away</span>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
                 <CardFooter className="pt-4 pb-6 bg-slate-50/50 flex justify-between items-center mt-auto border-t border-slate-100">
@@ -302,6 +342,7 @@ export default function Dashboard() {
                 </DialogTitle>
                 <p className="text-white/80 text-sm font-medium">
                   Posted {formatDistanceToNow(selectedRequest.createdAt.toDate())} ago • {selectedRequest.location?.area}
+                  {selectedRequest.distance !== null && ` (${selectedRequest.distance.toFixed(1)} km)`}
                 </p>
               </div>
               

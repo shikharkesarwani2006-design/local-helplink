@@ -1,205 +1,62 @@
-
 {
   "entities": {
     "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user account within the Local HelpLink platform, including their profile details, role, and reputation.",
+      "description": "Represents a user account within the Local HelpLink platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the user.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The phone number of the user."
-        },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
         "location": {
-          "type": "array",
-          "description": "Geographical location details of the user.",
-          "items": {
-            "type": "string"
+          "type": "object",
+          "properties": {
+            "area": { "type": "string" },
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
           }
         },
-        "role": {
-          "type": "string",
-          "description": "The role assigned to the user within the platform (e.g., normal user, volunteer, service provider, admin)."
-        },
-        "skills": {
-          "type": "array",
-          "description": "A list of skills possessed by the user, particularly relevant for volunteers and service providers.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "rating": {
-          "type": "number",
-          "description": "The average rating received by the user based on their helpfulness and service."
-        },
-        "totalHelped": {
-          "type": "number",
-          "description": "A count of how many requests the user has successfully helped with."
-        },
-        "verified": {
-          "type": "boolean",
-          "description": "Indicates whether the user's identity or skills have been verified."
-        },
-        "fcmToken": {
-          "type": "string",
-          "description": "Firebase Cloud Messaging token for sending push notifications to the user's device."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the user profile was created.",
-          "format": "date-time"
-        }
+        "role": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number" },
+        "totalHelped": { "type": "number" },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "location",
-        "role",
-        "verified",
-        "createdAt"
-      ]
+      "required": ["id", "name", "email", "role", "verified", "createdAt"]
     },
     "HelpRequest": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "HelpRequest",
       "type": "object",
-      "description": "Represents a request for help posted by a user, including its details, status, and associated location.",
+      "description": "Represents a request for help posted by a user.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the HelpRequest entity."
-        },
-        "title": {
-          "type": "string",
-          "description": "A concise title for the help request."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the help needed."
-        },
-        "category": {
-          "type": "string",
-          "description": "The category of the help request.",
-          "enum": ["blood", "tutor", "repair", "emergency", "other"]
-        },
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["blood", "tutor", "repair", "emergency", "other"] },
         "location": {
-          "type": "array",
-          "description": "Geographical location details where the help is needed.",
-          "items": {
-            "type": "string"
+          "type": "object",
+          "properties": {
+            "area": { "type": "string" },
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
           }
         },
-        "urgency": {
-          "type": "string",
-          "description": "The level of urgency for the request.",
-          "enum": ["high", "medium", "low"]
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the request (e.g., open, accepted, completed, expired)."
-        },
-        "createdBy": {
-          "type": "string",
-          "description": "Reference to the UserProfile who created this request."
-        },
-        "acceptedBy": {
-          "type": "string",
-          "description": "Reference to the UserProfile who accepted this request, if any."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the request was created.",
-          "format": "date-time"
-        },
-        "expiresAt": {
-          "type": "string",
-          "description": "Timestamp when the request is set to automatically expire.",
-          "format": "date-time"
-        },
-        "responseTime": {
-          "type": "number",
-          "description": "The time taken in minutes for a helper to accept the request after it was posted."
-        }
+        "urgency": { "type": "string", "enum": ["high", "medium", "low"] },
+        "status": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "acceptedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "title",
-        "description",
-        "category",
-        "location",
-        "urgency",
-        "status",
-        "createdBy",
-        "createdAt",
-        "expiresAt"
-      ]
-    },
-    "RequestRating": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "RequestRating",
-      "type": "object",
-      "description": "Represents a rating given by one user to another after the completion of a help request.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the RequestRating entity."
-        },
-        "requestId": {
-          "type": "string",
-          "description": "Reference to the HelpRequest for which this rating was given."
-        },
-        "fromUser": {
-          "type": "string",
-          "description": "Reference to the UserProfile who gave this rating."
-        },
-        "toUser": {
-          "type": "string",
-          "description": "Reference to the UserProfile who received this rating."
-        },
-        "score": {
-          "type": "number",
-          "description": "The numerical score of the rating, typically on a scale of 1 to 5."
-        },
-        "comment": {
-          "type": "string",
-          "description": "An optional textual comment accompanying the rating."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the rating was created.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "requestId",
-        "fromUser",
-        "toUser",
-        "score",
-        "createdAt"
-      ]
+      "required": ["id", "title", "description", "category", "location", "urgency", "status", "createdBy", "createdAt", "expiresAt"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "google"
-    ]
+    "providers": ["password", "google"]
   },
   "firestore": {
     "structure": [
@@ -207,9 +64,6 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
           "description": "Stores individual user profiles."
         }
       },
@@ -217,30 +71,7 @@
         "path": "/requests/{requestId}",
         "definition": {
           "entityName": "HelpRequest",
-          "schema": {
-            "$ref": "#/backend/entities/HelpRequest"
-          },
-          "description": "Stores individual help requests posted by users."
-        }
-      },
-      {
-        "path": "/ratings/{ratingId}",
-        "definition": {
-          "entityName": "RequestRating",
-          "schema": {
-            "$ref": "#/backend/entities/RequestRating"
-          },
-          "description": "Stores ratings given for completed help requests."
-        }
-      },
-      {
-        "path": "/admin_roles/{adminUid}",
-        "definition": {
-          "entityName": "AdminRole",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Dedicated collection for managing global administrator roles."
+          "description": "Stores individual help requests."
         }
       }
     ]
