@@ -39,12 +39,14 @@ import {
   Filter,
   Navigation,
   LayoutGrid,
-  Map as MapIcon
+  Map as MapIcon,
+  Sparkles
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
 import { cn, calculateDistance } from "@/lib/utils";
 import MapDashboard from "@/components/dashboard/MapDashboard";
+import { summarizeHelpRequest } from "@/ai/flows/summarize-help-request";
 
 export default function Dashboard() {
   const { user } = useUser();
@@ -58,6 +60,8 @@ export default function Dashboard() {
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [showOnlyNearby, setShowOnlyNearby] = useState(true);
+  const [isSummarizing, setIsSummarizing] = useState<string | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -123,6 +127,19 @@ export default function Dashboard() {
         return 0;
       });
   }, [allRequests, searchQuery, categoryFilter, userLocation, showOnlyNearby, user?.uid]);
+
+  const handleGenerateSummary = async (request: any) => {
+    if (summaries[request.id]) return;
+    setIsSummarizing(request.id);
+    try {
+      const result = await summarizeHelpRequest({ description: request.description });
+      setSummaries(prev => ({ ...prev, [request.id]: result.summary }));
+    } catch (error) {
+      console.error("AI Summary failed:", error);
+    } finally {
+      setIsSummarizing(null);
+    }
+  };
 
   const handleAcceptRequest = async (request: any) => {
     if (!user || !db) return;
@@ -224,7 +241,6 @@ export default function Dashboard() {
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-1 flex mr-2">
                 <button
                   onClick={() => setViewMode("list")}
-                  aria-label="List view"
                   className={cn(
                     "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
                     viewMode === "list" ? "bg-primary text-white" : "text-slate-400"
@@ -234,7 +250,6 @@ export default function Dashboard() {
                 </button>
                 <button
                   onClick={() => setViewMode("map")}
-                  aria-label="Map view"
                   className={cn(
                     "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
                     viewMode === "map" ? "bg-primary text-white" : "text-slate-400"
@@ -249,7 +264,6 @@ export default function Dashboard() {
                   <button
                     key={cat.id}
                     onClick={() => setCategoryFilter(cat.id)}
-                    aria-pressed={categoryFilter === cat.id}
                     className={cn(
                       "flex items-center gap-2 rounded-full px-4 sm:px-5 font-bold h-10 border transition-all text-sm",
                       categoryFilter === cat.id 
@@ -264,7 +278,6 @@ export default function Dashboard() {
               </div>
               <button
                 onClick={() => setShowOnlyNearby(!showOnlyNearby)}
-                aria-pressed={showOnlyNearby}
                 className={cn(
                   "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all ml-0 sm:ml-2 text-sm",
                   showOnlyNearby 
@@ -284,7 +297,6 @@ export default function Dashboard() {
                 className="pl-11 h-11 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-full focus:ring-primary/20 shadow-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search missions"
               />
             </div>
           </div>
@@ -319,7 +331,6 @@ export default function Dashboard() {
                     request.urgency === 'high' && "animate-pulse-red"
                   )}
                   onClick={() => setSelectedRequest(request)}
-                  role="article"
                 >
                   <CardHeader className="pb-4">
                     <div className="flex justify-between items-start mb-3">
@@ -335,30 +346,60 @@ export default function Dashboard() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="flex-grow space-y-4">
-                    <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
-                      {request.description}
-                    </p>
+                    {summaries[request.id] ? (
+                      <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-800/30">
+                        <p className="text-xs font-bold text-primary flex items-center gap-1.5 mb-1.5">
+                          <Sparkles className="w-3 h-3" /> AI Summary
+                        </p>
+                        <p className="text-slate-600 dark:text-slate-400 text-sm italic leading-relaxed">
+                          "{summaries[request.id]}"
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
+                        {request.description}
+                      </p>
+                    )}
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                         <MapPin className="w-3 h-3 text-primary" />
                         <span>{request.location?.area || "Campus Area"}</span>
                       </div>
-                      {request.distance !== null && (
-                        <div className="flex items-center gap-2 text-[10px] font-black text-secondary dark:text-indigo-400 uppercase">
-                          <Navigation className="w-3 h-3" />
-                          <span>{request.distance.toFixed(1)} km away</span>
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between">
+                        {request.distance !== null && (
+                          <div className="flex items-center gap-2 text-[10px] font-black text-secondary dark:text-indigo-400 uppercase">
+                            <Navigation className="w-3 h-3" />
+                            <span>{request.distance.toFixed(1)} km away</span>
+                          </div>
+                        )}
+                        {!summaries[request.id] && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/5 gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleGenerateSummary(request);
+                            }}
+                            disabled={isSummarizing === request.id}
+                          >
+                            {isSummarizing === request.id ? (
+                              <Zap className="w-3 h-3 animate-pulse" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            AI Match
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                   <CardFooter className="pt-4 pb-6 bg-slate-50/50 dark:bg-slate-950/50 flex justify-between items-center mt-auto border-t border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-slate-800">
-                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
-                          <AvatarFallback>?</AvatarFallback>
-                        </Avatar>
-                      </div>
+                      <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-slate-800">
+                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
+                        <AvatarFallback>?</AvatarFallback>
+                      </Avatar>
                       <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400">{request.postedByName || "Member"}</span>
                     </div>
                     <Button 
@@ -368,7 +409,6 @@ export default function Dashboard() {
                         e.stopPropagation();
                         handleAcceptRequest(request);
                       }}
-                      aria-label={`Accept mission: ${request.title}`}
                     >
                       Accept <ChevronRight className="ml-1 w-3 h-3" />
                     </Button>
@@ -426,7 +466,7 @@ export default function Dashboard() {
                   Close
                 </Button>
                 <Button 
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold shadow-lg shadow-primary/20"
+                  className="flex-1 bg-primary text-white font-bold shadow-lg shadow-primary/20"
                   onClick={() => handleAcceptRequest(selectedRequest)}
                 >
                   Confirm Mission
@@ -439,3 +479,4 @@ export default function Dashboard() {
     </div>
   );
 }
+

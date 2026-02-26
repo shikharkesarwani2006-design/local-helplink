@@ -12,7 +12,6 @@ import {
   SheetFooter
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bell, CheckCircle2, Star, Zap, Clock, Inbox, MoreHorizontal } from "lucide-react";
 import { 
@@ -22,7 +21,7 @@ import {
   useMemoFirebase, 
   updateDocumentNonBlocking 
 } from "@/firebase";
-import { query, collection, where, orderBy, doc, writeBatch, getDocs } from "firebase/firestore";
+import { query, collection, orderBy, doc, writeBatch } from "firebase/firestore";
 import { formatDistanceToNow } from "date-fns";
 
 export function NotificationDrawer() {
@@ -42,29 +41,24 @@ export function NotificationDrawer() {
   const { data: notifications, isLoading } = useCollection(notificationsQuery);
   const unreadCount = notifications?.filter(n => !n.read).length || 0;
 
-  // Real-time Feedback: Vibrate and Browser Notification on new unread item
   useEffect(() => {
-    if (unreadCount > prevUnreadCount.current) {
-      // Vibrate for 200ms
+    if (unreadCount > prevUnreadCount.current && !open) {
       if ("vibrate" in navigator) {
-        navigator.vibrate(200);
+        navigator.vibrate([100, 50, 100]);
       }
 
-      // Browser Notification (Simulating Push)
       if ("Notification" in window && Notification.permission === "granted") {
         const lastNotif = notifications?.find(n => !n.read);
         if (lastNotif) {
           new Notification(lastNotif.title, {
             body: lastNotif.message,
-            icon: "/favicon.ico"
           });
         }
       }
     }
     prevUnreadCount.current = unreadCount;
-  }, [unreadCount, notifications]);
+  }, [unreadCount, notifications, open]);
 
-  // Request browser notification permission
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
@@ -136,7 +130,7 @@ export function NotificationDrawer() {
               notifications?.map((n) => (
                 <div 
                   key={n.id} 
-                  className={`p-6 flex gap-4 transition-colors hover:bg-slate-50/50 ${!n.read ? 'bg-indigo-50/30' : ''}`}
+                  className={`p-6 flex gap-4 transition-colors hover:bg-slate-50/50 cursor-pointer ${!n.read ? 'bg-indigo-50/30' : ''}`}
                   onClick={() => !n.read && updateDocumentNonBlocking(doc(db, "notifications", user!.uid, "items", n.id), { read: true })}
                 >
                   <div className={`mt-1 h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${!n.read ? 'bg-white shadow-sm ring-1 ring-indigo-100' : 'bg-slate-100'}`}>
@@ -166,3 +160,4 @@ export function NotificationDrawer() {
     </Sheet>
   );
 }
+

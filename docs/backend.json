@@ -2,10 +2,9 @@
 {
   "entities": {
     "UserProfile": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
-      "type": "object",
       "description": "Represents a user account within the Local HelpLink platform.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
@@ -20,7 +19,7 @@
             "lng": { "type": "number" }
           }
         },
-        "role": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "volunteer", "provider", "admin"] },
         "skills": { "type": "array", "items": { "type": "string" } },
         "interests": { "type": "array", "items": { "type": "string" } },
         "rating": { "type": "number" },
@@ -32,10 +31,9 @@
       "required": ["id", "name", "email", "role", "verified", "createdAt"]
     },
     "HelpRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "HelpRequest",
-      "type": "object",
       "description": "Represents a request for help posted by a user.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "title": { "type": "string" },
@@ -61,16 +59,15 @@
       "required": ["id", "title", "description", "category", "location", "urgency", "status", "createdBy", "createdAt", "expiresAt"]
     },
     "Rating": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Rating",
-      "type": "object",
       "description": "A review and rating left for a community member.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "requestId": { "type": "string" },
         "fromUser": { "type": "string" },
         "toUser": { "type": "string" },
-        "score": { "type": "number", "minimum": 1, "maximum": 5 },
+        "score": { "type": "number" },
         "comment": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -81,44 +78,30 @@
     "providers": ["password", "google"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "description": "Stores individual user profiles."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/UserProfile" },
+      "description": "Stores individual user profiles."
+    },
+    "/requests/{requestId}": {
+      "schema": { "$ref": "#/backend/entities/HelpRequest" },
+      "description": "Stores individual help requests."
+    },
+    "/ratings/{ratingId}": {
+      "schema": { "$ref": "#/backend/entities/Rating" },
+      "description": "Global ratings collection."
+    },
+    "/notifications/{userId}/items/{notificationId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "type": { "type": "string" },
+          "read": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
         }
       },
-      {
-        "path": "/requests/{requestId}",
-        "definition": {
-          "entityName": "HelpRequest",
-          "description": "Stores individual help requests."
-        }
-      },
-      {
-        "path": "/ratings/{ratingId}",
-        "definition": {
-          "entityName": "Rating",
-          "description": "Global ratings collection."
-        }
-      },
-      {
-        "path": "/notifications/{userId}/items/{notificationId}",
-        "definition": {
-          "schema": {
-             "type": "object",
-             "properties": {
-               "title": { "type": "string" },
-               "message": { "type": "string" },
-               "type": { "type": "string" },
-               "read": { "type": "boolean" },
-               "createdAt": { "type": "string", "format": "date-time" }
-             }
-          },
-          "description": "User specific notifications."
-        }
-      }
-    ]
+      "description": "User specific notifications."
+    }
   }
 }
