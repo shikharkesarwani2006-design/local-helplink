@@ -127,7 +127,6 @@ export default function Dashboard() {
   const handleAcceptRequest = async (request: any) => {
     if (!user || !db) return;
     
-    // Prevent self-acceptance
     if (request.createdBy === user.uid) {
       toast({
         variant: "destructive",
@@ -164,9 +163,9 @@ export default function Dashboard() {
 
   const getUrgencyStyles = (urgency: string) => {
     switch (urgency) {
-      case "high": return "border-red-500 bg-red-50 text-red-600";
-      case "medium": return "border-amber-500 bg-amber-50 text-amber-600";
-      default: return "border-emerald-500 bg-emerald-50 text-emerald-600";
+      case "high": return "border-red-500 bg-red-50 dark:bg-red-950/30 text-red-600";
+      case "medium": return "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-600";
+      default: return "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600";
     }
   };
 
@@ -179,198 +178,210 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20">
-      <main className="container px-6 mx-auto py-8 space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-none shadow-sm bg-white">
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
+      <main className="container px-4 sm:px-6 mx-auto py-8 space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
             <CardContent className="pt-6 flex items-center gap-4">
               <div className="bg-primary/10 p-3 rounded-2xl">
                 <Navigation className={cn("w-6 h-6 text-primary", isLocating && "animate-pulse")} />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Your Range</p>
-                <h3 className="text-2xl font-bold text-slate-900">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Your Range</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
                   {userLocation ? "Within 5km" : "Global Feed"}
                 </h3>
               </div>
             </CardContent>
           </Card>
-          <Card className="border-none shadow-sm bg-white">
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
             <CardContent className="pt-6 flex items-center gap-4">
-              <div className="bg-emerald-100 p-3 rounded-2xl">
+              <div className="bg-emerald-100 dark:bg-emerald-950/50 p-3 rounded-2xl">
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Nearby Calls</p>
-                <h3 className="text-2xl font-bold text-slate-900">{filteredRequests.length}</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nearby Calls</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{filteredRequests.length}</h3>
               </div>
             </CardContent>
           </Card>
-          <Card className="border-none shadow-sm bg-white">
+          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 sm:col-span-2 lg:col-span-1">
             <CardContent className="pt-6 flex items-center gap-4">
-              <div className="bg-amber-100 p-3 rounded-2xl">
+              <div className="bg-amber-100 dark:bg-amber-950/50 p-3 rounded-2xl">
                 <Users className="w-6 h-6 text-amber-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Active Helpers</p>
-                <h3 className="text-2xl font-bold text-slate-900">Campus Area</h3>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Helpers</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Campus Area</h3>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-          <div className="flex flex-wrap gap-2">
-            <div className="bg-white border border-slate-200 rounded-full p-1 flex mr-2">
-              <button
-                onClick={() => setViewMode("list")}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                  viewMode === "list" ? "bg-primary text-white" : "text-slate-400"
-                )}
-              >
-                <LayoutGrid className="w-4 h-4" /> List
-              </button>
-              <button
-                onClick={() => setViewMode("map")}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                  viewMode === "map" ? "bg-primary text-white" : "text-slate-400"
-                )}
-              >
-                <MapIcon className="w-4 h-4" /> Map
-              </button>
-            </div>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filters">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-1 flex mr-2">
+                <button
+                  onClick={() => setViewMode("list")}
+                  aria-label="List view"
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
+                    viewMode === "list" ? "bg-primary text-white" : "text-slate-400"
+                  )}
+                >
+                  <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">List</span>
+                </button>
+                <button
+                  onClick={() => setViewMode("map")}
+                  aria-label="Map view"
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
+                    viewMode === "map" ? "bg-primary text-white" : "text-slate-400"
+                  )}
+                >
+                  <MapIcon className="w-4 h-4" /> <span className="hidden sm:inline">Map</span>
+                </button>
+              </div>
 
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setCategoryFilter(cat.id)}
-                className={cn(
-                  "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all",
-                  categoryFilter === cat.id 
-                    ? "bg-primary text-white shadow-lg shadow-primary/20 border-primary" 
-                    : "bg-white text-slate-600 border-slate-200 hover:border-primary/50"
-                )}
-              >
-                <cat.icon className="w-4 h-4" />
-                {cat.label}
-              </button>
-            ))}
-            <button
-              onClick={() => setShowOnlyNearby(!showOnlyNearby)}
-              className={cn(
-                "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all ml-2",
-                showOnlyNearby 
-                  ? "bg-secondary text-white border-secondary" 
-                  : "bg-white text-slate-400 border-slate-200"
-              )}
-            >
-              <MapPin className="w-4 h-4" />
-              Nearby Only
-            </button>
-          </div>
-          <div className="relative w-full lg:w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Search missions..." 
-              className="pl-11 h-11 bg-white border-slate-200 rounded-full focus:ring-primary/20 shadow-sm"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-64 w-full rounded-3xl" />
-            ))}
-          </div>
-        ) : filteredRequests.length === 0 ? (
-          <div className="py-24 text-center">
-            <div className="bg-white p-8 rounded-full inline-block mb-6 shadow-sm">
-              <Zap className="w-12 h-12 text-slate-200" />
-            </div>
-            <h3 className="text-2xl font-headline font-bold text-slate-700">All missions cleared!</h3>
-            <p className="text-slate-500 mt-2">There are no open help requests in this area right now.</p>
-          </div>
-        ) : viewMode === "map" ? (
-          <MapDashboard 
-            requests={filteredRequests} 
-            userLocation={userLocation} 
-            onAccept={handleAcceptRequest} 
-          />
-        ) : (
-          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredRequests.map((request) => (
-              <Card 
-                key={request.id} 
-                className={cn(
-                  "group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white rounded-3xl border border-slate-100 flex flex-col h-full cursor-pointer",
-                  request.urgency === 'high' && "animate-pulse-red"
-                )}
-                onClick={() => setSelectedRequest(request)}
-              >
-                <CardHeader className="pb-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <Badge className={cn("capitalize px-3 py-1 font-bold text-[10px] rounded-full border-2", getUrgencyStyles(request.urgency))}>
-                      {request.urgency}
-                    </Badge>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {request.createdAt ? formatDistanceToNow(request.createdAt.toDate()) : "just now"}
-                    </span>
-                  </div>
-                  <CardTitle className="text-lg font-headline font-bold text-slate-800 leading-tight group-hover:text-primary transition-colors">
-                    {request.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-grow space-y-4">
-                  <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
-                    {request.description}
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                      <MapPin className="w-3 h-3 text-primary" />
-                      <span>{request.location?.area || "Campus Area"}</span>
-                    </div>
-                    {request.distance !== null && (
-                      <div className="flex items-center gap-2 text-[10px] font-black text-secondary uppercase">
-                        <Navigation className="w-3 h-3" />
-                        <span>{request.distance.toFixed(1)} km away</span>
-                      </div>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setCategoryFilter(cat.id)}
+                    aria-pressed={categoryFilter === cat.id}
+                    className={cn(
+                      "flex items-center gap-2 rounded-full px-4 sm:px-5 font-bold h-10 border transition-all text-sm",
+                      categoryFilter === cat.id 
+                        ? "bg-primary text-white shadow-lg shadow-primary/20 border-primary" 
+                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-primary/50"
                     )}
-                  </div>
-                </CardContent>
-                <CardFooter className="pt-4 pb-6 bg-slate-50/50 flex justify-between items-center mt-auto border-t border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <Avatar className="h-7 w-7 ring-2 ring-white">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
-                        <AvatarFallback>?</AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-700">{request.postedByName || "Member"}</span>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    className="bg-primary hover:bg-primary/90 text-white rounded-full font-bold h-8 px-4"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAcceptRequest(request);
-                    }}
                   >
-                    Accept <ChevronRight className="ml-1 w-3 h-3" />
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+                    <cat.icon className="w-4 h-4" />
+                    <span className="hidden xs:inline">{cat.label}</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setShowOnlyNearby(!showOnlyNearby)}
+                aria-pressed={showOnlyNearby}
+                className={cn(
+                  "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all ml-0 sm:ml-2 text-sm",
+                  showOnlyNearby 
+                    ? "bg-secondary text-white border-secondary" 
+                    : "bg-white dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-800"
+                )}
+              >
+                <MapPin className="w-4 h-4" />
+                <span className="hidden sm:inline">Nearby Only</span>
+                <span className="sm:hidden">Nearby</span>
+              </button>
+            </div>
+            <div className="relative w-full lg:w-96">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder="Search missions..." 
+                className="pl-11 h-11 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-full focus:ring-primary/20 shadow-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search missions"
+              />
+            </div>
           </div>
-        )}
+
+          {isLoading ? (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} className="h-64 w-full rounded-3xl" />
+              ))}
+            </div>
+          ) : filteredRequests.length === 0 ? (
+            <div className="py-24 text-center">
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-full inline-block mb-6 shadow-sm">
+                <Zap className="w-12 h-12 text-slate-200 dark:text-slate-700" />
+              </div>
+              <h3 className="text-2xl font-headline font-bold text-slate-700 dark:text-slate-300">All missions cleared!</h3>
+              <p className="text-slate-500 mt-2">There are no open help requests in this area right now.</p>
+            </div>
+          ) : viewMode === "map" ? (
+            <MapDashboard 
+              requests={filteredRequests} 
+              userLocation={userLocation} 
+              onAccept={handleAcceptRequest} 
+            />
+          ) : (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredRequests.map((request) => (
+                <Card 
+                  key={request.id} 
+                  className={cn(
+                    "group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 flex flex-col h-full cursor-pointer",
+                    request.urgency === 'high' && "animate-pulse-red"
+                  )}
+                  onClick={() => setSelectedRequest(request)}
+                  role="article"
+                >
+                  <CardHeader className="pb-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <Badge className={cn("capitalize px-3 py-1 font-bold text-[10px] rounded-full border-2", getUrgencyStyles(request.urgency))}>
+                        {request.urgency}
+                      </Badge>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {request.createdAt ? formatDistanceToNow(request.createdAt.toDate()) : "just now"}
+                      </span>
+                    </div>
+                    <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-white leading-tight group-hover:text-primary transition-colors">
+                      {request.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-grow space-y-4">
+                    <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
+                      {request.description}
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                        <MapPin className="w-3 h-3 text-primary" />
+                        <span>{request.location?.area || "Campus Area"}</span>
+                      </div>
+                      {request.distance !== null && (
+                        <div className="flex items-center gap-2 text-[10px] font-black text-secondary dark:text-indigo-400 uppercase">
+                          <Navigation className="w-3 h-3" />
+                          <span>{request.distance.toFixed(1)} km away</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-4 pb-6 bg-slate-50/50 dark:bg-slate-950/50 flex justify-between items-center mt-auto border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-slate-800">
+                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
+                          <AvatarFallback>?</AvatarFallback>
+                        </Avatar>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400">{request.postedByName || "Member"}</span>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      className="bg-primary hover:bg-primary/90 text-white rounded-full font-bold h-8 px-4"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAcceptRequest(request);
+                      }}
+                      aria-label={`Accept mission: ${request.title}`}
+                    >
+                      Accept <ChevronRight className="ml-1 w-3 h-3" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-        <DialogContent className="sm:max-w-xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="sm:max-w-xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl dark:bg-slate-900">
           {selectedRequest && (
             <div className="flex flex-col">
               <div className={cn("p-8 text-white", selectedRequest.urgency === 'high' ? 'bg-red-500' : 'bg-primary')}>
@@ -391,26 +402,26 @@ export default function Dashboard() {
               <div className="p-8 space-y-6">
                 <div className="space-y-2">
                   <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mission Goal</h4>
-                  <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
                     {selectedRequest.description}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 p-4 rounded-2xl border">
+                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700">
                     <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Contact Preferred</p>
-                    <p className="text-sm font-bold text-slate-700 capitalize">{selectedRequest.contactPreference || "In-App Chat"}</p>
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 capitalize">{selectedRequest.contactPreference || "In-App Chat"}</p>
                   </div>
-                  <div className="bg-slate-50 p-4 rounded-2xl border">
+                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700">
                     <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Time Left</p>
-                    <p className="text-sm font-bold text-slate-700">
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                       {selectedRequest.expiresAt ? formatDistanceToNow(selectedRequest.expiresAt.toDate()) : '...'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className="p-6 bg-slate-50 border-t flex gap-3">
+              <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-950/50 border-t dark:border-slate-800 flex flex-row gap-3">
                 <Button variant="ghost" className="font-bold text-slate-500 flex-1" onClick={() => setSelectedRequest(null)}>
                   Close
                 </Button>

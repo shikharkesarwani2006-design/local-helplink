@@ -21,7 +21,7 @@ export function MobileNav() {
   ];
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t px-4 py-2 flex justify-around items-end shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-3xl">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t dark:border-slate-800 px-4 py-2 flex justify-around items-end shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-3xl" role="navigation" aria-label="Mobile Bottom Navigation">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = pathname === tab.href;
@@ -30,13 +30,14 @@ export function MobileNav() {
           <Link 
             key={tab.href} 
             href={tab.href}
+            aria-label={tab.label}
             className={cn(
               "flex flex-col items-center gap-1 py-1 px-3 transition-all duration-300 relative",
               isActive ? "text-primary -translate-y-2" : "text-slate-400"
             )}
           >
             {isActive && (
-              <span className="absolute -top-1 w-1 h-1 bg-primary rounded-full animate-pulse" />
+              <span className="absolute -top-1 w-1 h-1 bg-primary rounded-full animate-pulse" aria-hidden="true" />
             )}
             <div className={cn(
               "p-2 rounded-2xl transition-all duration-300",

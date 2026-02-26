@@ -1,3 +1,4 @@
+
 "use client";
 
 import { 
@@ -72,9 +73,9 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-white/10">
+    <Sidebar collapsible="icon" className="border-r border-white/10 dark:border-slate-800/50" role="navigation" aria-label="Sidebar Navigation">
       <SidebarHeader className="p-6">
-        <Link href="/dashboard" className="flex items-center gap-3 mb-8 group-data-[collapsible=icon]:mb-0">
+        <Link href="/dashboard" className="flex items-center gap-3 mb-8 group-data-[collapsible=icon]:mb-0" aria-label="Local HelpLink Home">
           <div className="bg-primary p-2 rounded-xl shrink-0 shadow-lg shadow-primary/20">
             <Heart className="text-white w-5 h-5 fill-white" />
           </div>

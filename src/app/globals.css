@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,8 +26,7 @@
     --ring: 243 75% 59%;
     --radius: 0.75rem;
 
-    /* Sidebar Variables - Re-themed to Dark Indigo */
-    --sidebar-background: 226 43% 11%; /* #1e1b4b */
+    --sidebar-background: 226 43% 11%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 243 75% 59%;
     --sidebar-primary-foreground: 0 0% 98%;
@@ -37,14 +37,14 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222.2 84% 4.9%; /* Very dark blue/slate */
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 222.2 84% 8%; /* Slightly lighter than bg */
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 243 75% 59%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 243 75% 70%; /* Lighter indigo for dark mode */
+    --primary-foreground: 222.2 84% 4.9%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
@@ -56,6 +56,10 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 243 75% 59%;
+
+    --sidebar-background: 226 43% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-border: 226 43% 8%;
   }
 }
 
@@ -64,7 +68,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-body antialiased;
+    @apply bg-background text-foreground font-body antialiased transition-colors duration-300;
   }
 }
 
@@ -85,6 +89,19 @@
   }
 
   .glass-card {
-    @apply bg-white/70 backdrop-blur-lg border border-white/20 shadow-sm;
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-lg border border-white/20 dark:border-white/5 shadow-sm;
   }
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
 }
