@@ -1,4 +1,3 @@
-
 "use client";
 
 import { 
@@ -9,8 +8,8 @@ import {
   ShieldCheck, 
   LogOut,
   Heart,
-  ChevronRight,
-  Trophy
+  Trophy,
+  Settings
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -56,11 +55,15 @@ export function AppSidebar() {
     if (isMobile) setOpenMobile(false);
   };
 
-  const menuItems = [
-    { label: "Community Feed", href: "/dashboard", icon: LayoutDashboard },
+  const mainLinks = [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Post Request", href: "/requests/new", icon: PlusCircle },
-    { label: "My Activity", href: "/requests/my", icon: History },
+    { label: "My Requests", href: "/requests/my", icon: History },
+  ];
+
+  const personalLinks = [
     { label: "My Profile", href: "/profile", icon: User },
+    { label: "Leaderboard", href: "#", icon: Trophy },
   ];
 
   const handleLinkClick = () => {
@@ -68,37 +71,39 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r bg-white">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3 mb-6 px-2">
-          <div className="bg-primary p-2 rounded-xl shrink-0">
-            <Heart className="text-white w-5 h-5" />
+    <Sidebar collapsible="icon" className="border-r border-white/10">
+      <SidebarHeader className="p-6">
+        <Link href="/dashboard" className="flex items-center gap-3 mb-8 group-data-[collapsible=icon]:mb-0">
+          <div className="bg-primary p-2 rounded-xl shrink-0 shadow-lg shadow-primary/20">
+            <Heart className="text-white w-5 h-5 fill-white" />
           </div>
-          <span className="font-headline font-bold text-lg group-data-[collapsible=icon]:hidden truncate">
-            Local HelpLink
+          <span className="font-headline font-bold text-xl tracking-tight text-white group-data-[collapsible=icon]:hidden">
+            HelpLink
           </span>
-        </div>
+        </Link>
 
-        <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-2xl group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:bg-transparent overflow-hidden">
-          <Avatar className="h-10 w-10 shrink-0 ring-2 ring-white">
+        <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:border-none overflow-hidden transition-all duration-300">
+          <Avatar className="h-10 w-10 shrink-0 ring-2 ring-white/10">
             <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`} />
-            <AvatarFallback className="bg-primary text-white">{profile?.name?.[0] || '?'}</AvatarFallback>
+            <AvatarFallback className="bg-primary text-white font-bold">{profile?.name?.[0] || '?'}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-black text-slate-900 truncate">{profile?.name || "Member"}</span>
-            <Badge variant="outline" className="w-fit text-[10px] font-black uppercase h-4 px-1.5 mt-0.5 bg-white border-primary/20 text-primary">
+            <span className="text-sm font-bold text-white truncate">{profile?.name || "Member"}</span>
+            <Badge variant="outline" className="w-fit text-[9px] font-black uppercase h-4 px-1.5 mt-0.5 bg-primary/20 border-primary/30 text-primary-foreground">
               {profile?.role || "user"}
             </Badge>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-3 gap-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="font-black text-[10px] uppercase tracking-widest text-slate-400 px-4">Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
+            Main
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
+              {mainLinks.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton 
                     asChild 
@@ -106,14 +111,45 @@ export function AppSidebar() {
                     tooltip={item.label}
                     onClick={handleLinkClick}
                     className={cn(
-                      "rounded-xl h-11 px-4 transition-all duration-300",
+                      "h-11 px-3 rounded-xl transition-all duration-200",
                       pathname === item.href 
-                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary/90" 
-                        : "text-slate-500 hover:bg-slate-50 font-medium"
+                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
                     )}
                   >
                     <Link href={item.href}>
-                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-slate-400")} />
+                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
+            Personal
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {personalLinks.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "h-11 px-3 rounded-xl transition-all duration-200",
+                      pathname === item.href 
+                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Link href={item.href}>
+                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
                       <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -125,17 +161,17 @@ export function AppSidebar() {
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === '/admin'}
-                    tooltip="Admin Dashboard"
+                    tooltip="Admin Panel"
                     onClick={handleLinkClick}
                     className={cn(
-                      "rounded-xl h-11 px-4 transition-all duration-300",
+                      "h-11 px-3 rounded-xl transition-all duration-200",
                       pathname === '/admin' 
-                        ? "bg-secondary text-white font-bold shadow-lg shadow-secondary/20 hover:bg-secondary/90" 
-                        : "text-slate-500 hover:bg-slate-50 font-medium"
+                        ? "bg-amber-500 text-white font-bold shadow-lg shadow-amber-500/20" 
+                        : "text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/5"
                     )}
                   >
                     <Link href="/admin">
-                      <ShieldCheck className={cn("w-5 h-5", pathname === '/admin' ? "text-white" : "text-slate-400")} />
+                      <ShieldCheck className={cn("w-5 h-5", pathname === '/admin' ? "text-white" : "text-amber-500/40")} />
                       <span>Admin Dashboard</span>
                     </Link>
                   </SidebarMenuButton>
@@ -146,16 +182,16 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t">
+      <SidebarFooter className="p-4 border-t border-white/5">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleLogout}
-              tooltip="Sign Out"
-              className="rounded-xl h-11 px-4 text-destructive font-black hover:bg-destructive/5 hover:text-destructive transition-colors"
+              tooltip="Log Out"
+              className="rounded-xl h-11 px-3 text-red-400 font-bold hover:bg-red-500/10 hover:text-red-300 transition-colors"
             >
               <LogOut className="w-5 h-5" />
-              <span>Log Out</span>
+              <span>Sign Out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
