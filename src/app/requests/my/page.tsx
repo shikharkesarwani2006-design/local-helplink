@@ -1,18 +1,23 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
-import { useFirestore, useUser } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { collection, query, where, orderBy, onSnapshot, doc } from "firebase/firestore";
+import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Inbox } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Inbox, CheckCircle2, Clock, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { RatingModal } from "@/components/profile/RatingModal";
 
 export default function MyRequests() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const db = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user || !db) {
@@ -20,6 +25,7 @@ export default function MyRequests() {
       return;
     }
 
+    // Requests I created
     const q = query(
       collection(db, "requests"),
       where("createdBy", "==", user.uid),
@@ -34,6 +40,15 @@ export default function MyRequests() {
     return () => unsubscribe();
   }, [user, db]);
 
+  const handleCompleteRequest = (requestId: string) => {
+    if (!db) return;
+    updateDocumentNonBlocking(doc(db, "requests", requestId), { status: "completed" });
+    toast({
+      title: "Mission Completed",
+      description: "Great job resolving this community need!",
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "open": return "bg-blue-100 text-blue-700";
@@ -44,11 +59,11 @@ export default function MyRequests() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12">
+    <div className="min-h-screen bg-slate-50/50 pb-24">
       <header className="bg-white border-b py-8">
         <div className="container px-6 mx-auto">
           <h1 className="text-3xl font-headline font-bold text-secondary">My Request History</h1>
-          <p className="text-slate-500">Tracking your impact and open calls for help</p>
+          <p className="text-slate-500">Manage missions you've broadcasted to the community</p>
         </div>
       </header>
 
@@ -61,22 +76,45 @@ export default function MyRequests() {
             <p className="text-slate-500">You haven't posted any help requests yet.</p>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-6">
             {myRequests.map((req) => (
-              <Card key={req.id} className="hover:shadow-md transition-shadow bg-white border-none">
-                <CardHeader className="flex flex-row items-center justify-between py-4">
+              <Card key={req.id} className="hover:shadow-lg transition-all bg-white border-none rounded-2xl overflow-hidden">
+                <CardHeader className="flex flex-row items-center justify-between py-6">
                   <div className="space-y-1">
-                    <CardTitle className="text-lg font-headline">{req.title}</CardTitle>
-                    <div className="text-xs text-slate-400">
-                      Posted {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
+                    <CardTitle className="text-xl font-headline font-bold text-slate-900">{req.title}</CardTitle>
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
+                      <Clock className="w-3.5 h-3.5" />
+                      {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
                     </div>
                   </div>
-                  <Badge className={`capitalize ${getStatusColor(req.status)}`}>
+                  <Badge className={`capitalize px-4 py-1.5 rounded-full font-bold border-none ${getStatusColor(req.status)}`}>
                     {req.status}
                   </Badge>
                 </CardHeader>
-                <CardContent className="pb-4">
-                  <p className="text-sm text-slate-600 line-clamp-2">{req.description}</p>
+                <CardContent className="pb-6">
+                  <p className="text-slate-600 leading-relaxed">{req.description}</p>
+                  
+                  {req.status === 'accepted' && (
+                    <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-primary/20 p-2 rounded-lg"><CheckCircle2 className="text-primary w-5 h-5" /></div>
+                        <p className="text-sm font-bold text-slate-700">A neighbor is currently helping you.</p>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        className="bg-primary hover:bg-primary/90 text-white font-bold rounded-full"
+                        onClick={() => handleCompleteRequest(req.id)}
+                      >
+                        Mark Completed
+                      </Button>
+                    </div>
+                  )}
+
+                  {req.status === 'completed' && req.acceptedBy && (
+                    <div className="mt-6 flex justify-end">
+                      <RatingModal requestId={req.id} toUser={req.acceptedBy} />
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

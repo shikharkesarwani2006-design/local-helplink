@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { collection, addDoc, doc, Timestamp, runTransaction } from "firebase/firestore";
+import { collection, doc, Timestamp, runTransaction } from "firebase/firestore";
 import { useFirestore, useUser } from "@/firebase";
 import {
   Dialog,
@@ -40,15 +40,19 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
         const userDoc = await transaction.get(targetUserRef);
         
         if (!userDoc.exists()) {
-          throw "User does not exist!";
+          throw new Error("Target user profile not found");
         }
 
         const data = userDoc.data();
         const currentCount = data.totalRatingsCount || 0;
         const currentRating = data.rating || 5.0;
-        const newRating = ((currentRating * currentCount) + score) / (currentCount + 1);
+        
+        // Calculate new average
+        const newTotalScore = (currentRating * currentCount) + score;
+        const newCount = currentCount + 1;
+        const newAverage = newTotalScore / newCount;
 
-        // Add the Rating Document
+        // Add the Rating Document to the global collection
         const ratingsRef = collection(db, "ratings");
         const ratingDocRef = doc(ratingsRef);
         transaction.set(ratingDocRef, {
@@ -60,33 +64,34 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
           createdAt: Timestamp.now(),
         });
 
-        // Update User Profile
+        // Update User Profile with new stats
         transaction.update(targetUserRef, {
-          rating: newRating,
-          totalRatingsCount: currentCount + 1,
+          rating: Number(newAverage.toFixed(2)),
+          totalRatingsCount: newCount,
+          // If this was a helper rating, increment their helped count too if not already done
           totalHelped: (data.totalHelped || 0) + 1
         });
       });
 
-      // 2. Client-side notification trigger
+      // 2. Trigger notification
       sendNotification(db, toUser, {
-        title: "New Rating Received",
-        message: `You received a ${score}-star rating for your help.`,
+        title: "Community Appreciation",
+        message: `You received a ${score}-star review for your help!`,
         type: "rated",
         link: "/profile"
       });
 
       toast({
         title: "Feedback Shared!",
-        description: "Thank you for helping keep our community quality high.",
+        description: "Your review helps keep our community safe and high-quality.",
       });
       setOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to submit rating.",
+        title: "Submission Error",
+        description: error.message || "Could not save your rating.",
       });
     } finally {
       setLoading(false);
@@ -96,47 +101,59 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" className="text-primary hover:bg-primary/10 font-bold gap-1">
-          <Heart className="w-4 h-4" /> Rate Helper
+        <Button size="sm" variant="outline" className="text-primary hover:bg-primary/10 font-bold gap-2 rounded-full border-primary">
+          <Heart className="w-4 h-4 fill-primary" /> Rate Your Helper
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px]">
-        <DialogHeader className="text-center">
-          <DialogTitle className="font-headline text-2xl">Share the Love</DialogTitle>
-          <DialogDescription>
-            How was your experience with this neighbor?
+      <DialogContent className="sm:max-w-[400px] rounded-3xl p-8">
+        <DialogHeader className="text-center space-y-3">
+          <div className="bg-primary/10 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-2">
+            <Heart className="text-primary w-8 h-8 fill-primary" />
+          </div>
+          <DialogTitle className="font-headline text-3xl font-bold text-slate-900">Mission Feedback</DialogTitle>
+          <DialogDescription className="text-slate-500 font-medium">
+            How helpful was your neighbor? Your honest review builds a trusted campus network.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-6 py-6 text-center">
-          <div className="flex justify-center gap-2">
+
+        <div className="grid gap-8 py-8 text-center">
+          <div className="flex justify-center gap-3">
             {[1, 2, 3, 4, 5].map((s) => (
               <button
                 key={s}
                 onClick={() => setScore(s)}
-                className="transition-transform hover:scale-125 focus:outline-none"
+                className="transition-all hover:scale-125 active:scale-95 focus:outline-none"
               >
                 <Star
-                  className={`w-10 h-10 ${
-                    s <= score ? "text-amber-400 fill-amber-400" : "text-slate-200"
+                  className={`w-12 h-12 transition-colors ${
+                    s <= score ? "text-amber-400 fill-amber-400" : "text-slate-100"
                   }`}
                 />
               </button>
             ))}
           </div>
-          <div className="space-y-2 text-left">
-            <Label htmlFor="comment">Optional Comment</Label>
+          <div className="space-y-3 text-left">
+            <Label htmlFor="comment" className="font-bold text-slate-700">A short note (Optional)</Label>
             <Textarea
               id="comment"
-              placeholder="What made this experience great?"
+              placeholder="Tell others what made this experience great..."
+              className="min-h-[100px] rounded-2xl bg-slate-50 border-none resize-none"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button onClick={handleSubmitRating} disabled={loading} className="bg-primary hover:bg-primary/90 text-white w-full">
-            {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Submit Feedback
+        <DialogFooter className="sm:flex-col gap-3">
+          <Button 
+            onClick={handleSubmitRating} 
+            disabled={loading} 
+            className="bg-primary hover:bg-primary/90 text-white w-full h-14 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20"
+          >
+            {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
+            Submit Review
+          </Button>
+          <Button variant="ghost" className="w-full font-bold text-slate-400 h-10" onClick={() => setOpen(false)}>
+            Maybe later
           </Button>
         </DialogFooter>
       </DialogContent>

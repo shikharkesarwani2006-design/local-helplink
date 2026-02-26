@@ -7,8 +7,6 @@ service cloud.firestore {
      * LOCAL HELPLINK SECURITY RULES
      */
 
-    // --- Helper Functions ---
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -18,7 +16,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid));
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function getRequestData(requestId) {
@@ -30,9 +29,6 @@ service cloud.firestore {
         && data.urgency in ['high', 'medium', 'low'];
     }
 
-    // --- Collection Rules ---
-
-    // 1. Users Collection
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId);
@@ -40,7 +36,6 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // 2. Help Requests Collection
     match /requests/{requestId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() 
@@ -49,27 +44,21 @@ service cloud.firestore {
         && isValidRequestData(request.resource.data);
       allow update: if isSignedIn() && (
         isAdmin() ||
-        // Creator can update basic info while still open
-        (resource.data.createdBy == request.auth.uid && resource.data.status == 'open' && isValidRequestData(request.resource.data)) ||
-        // Transition from open to accepted (The core "Accept" logic)
+        (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 
-          request.resource.data.acceptedBy == request.auth.uid &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedBy', 'responseTime'])
+          request.resource.data.acceptedBy == request.auth.uid
         ) ||
-        // Transition to completed
         (
           resource.data.status == 'accepted' &&
           request.resource.data.status == 'completed' && 
-          (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid) &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
         )
       );
       allow delete: if (resource.data.createdBy == request.auth.uid) || isAdmin();
     }
 
-    // 3. Ratings Collection
     match /ratings/{ratingId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() 
@@ -82,18 +71,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // 4. Notifications Collection
     match /notifications/{userId}/items/{notificationId} {
       allow get, list: if isOwner(userId);
       allow create: if isSignedIn();
-      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow update: if isOwner(userId);
       allow delete: if isOwner(userId) || isAdmin();
-    }
-
-    // 5. Admin Roles
-    match /admin_roles/{adminUid} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
     }
   }
 }
