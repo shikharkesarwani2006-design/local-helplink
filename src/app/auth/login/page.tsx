@@ -5,7 +5,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +41,30 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+
+      // Check if the user document exists in Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userDocRef);
+
+      if (!userSnap.exists()) {
+        // Create new user profile for first-time Google login
+        await setDoc(userDocRef, {
+          id: user.uid,
+          name: user.displayName || "Member",
+          email: user.email,
+          phone: user.phoneNumber || "",
+          role: "user",
+          skills: [],
+          rating: 0,
+          totalHelped: 0,
+          verified: false,
+          area: "",
+          createdAt: serverTimestamp(),
+        });
+      }
+
       router.push("/dashboard");
     } catch (error: any) {
       toast({

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,18 +34,24 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
+      // Create user document in Firestore immediately after auth creation
       await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
+        id: user.uid,
         name: formData.name,
         email: formData.email,
         phone: formData.phone,
-        role: formData.role,
+        role: formData.role || "user",
         skills: [],
-        rating: 5.0,
+        rating: 0,
         totalHelped: 0,
-        verified: formData.role === "user",
-        createdAt: new Date(),
-        location: null,
+        verified: false,
+        area: "",
+        createdAt: serverTimestamp(),
+      });
+
+      toast({
+        title: "Account Created",
+        description: "Welcome to Local HelpLink! Your profile has been set up.",
       });
 
       router.push("/dashboard");
