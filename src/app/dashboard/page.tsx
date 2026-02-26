@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -7,10 +8,7 @@ import {
   orderBy, 
   where, 
   doc, 
-  Timestamp, 
-  writeBatch, 
-  getDocs,
-  limit
+  Timestamp 
 } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,7 +30,6 @@ import {
   CheckCircle2, 
   Search, 
   Users, 
-  Flame, 
   Droplets,
   BookOpen,
   Wrench,
@@ -40,7 +37,8 @@ import {
   Zap,
   ChevronRight,
   Filter,
-  Navigation
+  Navigation,
+  Heart
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
@@ -58,7 +56,6 @@ export default function Dashboard() {
   const [isLocating, setIsLocating] = useState(false);
   const [showOnlyNearby, setShowOnlyNearby] = useState(true);
 
-  // Auto-detect user location for nearby filtering
   useEffect(() => {
     if ("geolocation" in navigator) {
       setIsLocating(true);
@@ -72,7 +69,7 @@ export default function Dashboard() {
         },
         () => {
           setIsLocating(false);
-          setShowOnlyNearby(false); // Fallback to all if permission denied
+          setShowOnlyNearby(false);
         }
       );
     }
@@ -112,17 +109,17 @@ export default function Dashboard() {
           req.description.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
         const matchesNearby = !showOnlyNearby || !userLocation || (req.distance !== null && req.distance <= 5);
+        const isNotMine = req.createdBy !== user?.uid;
         
-        return matchesSearch && matchesCategory && matchesNearby;
+        return matchesSearch && matchesCategory && matchesNearby && isNotMine;
       })
       .sort((a, b) => {
-        // If we have distance, sort by it first, otherwise by date
         if (showOnlyNearby && a.distance !== null && b.distance !== null) {
           return a.distance - b.distance;
         }
-        return 0; // Maintain original creation date sort
+        return 0;
       });
-  }, [allRequests, searchQuery, categoryFilter, userLocation, showOnlyNearby]);
+  }, [allRequests, searchQuery, categoryFilter, userLocation, showOnlyNearby, user?.uid]);
 
   const handleAcceptRequest = async (request: any) => {
     if (!user || !db) return;
@@ -139,14 +136,14 @@ export default function Dashboard() {
 
     sendNotification(db, request.createdBy, {
       title: "Mission Accepted!",
-      message: `${user.displayName || "A neighbor"} has accepted your request.`,
+      message: `${user.displayName || "A neighbor"} has accepted your mission: "${request.title}"`,
       type: "accepted",
       link: `/requests/my`
     });
 
     toast({
       title: "Help Accepted!",
-      description: "You've successfully claimed this request.",
+      description: "You've successfully claimed this request. Coordinate with your neighbor now!",
     });
     setSelectedRequest(null);
   };
@@ -170,7 +167,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
       <main className="container px-6 mx-auto py-8 space-y-8">
-        {/* STATS STRIP */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-none shadow-sm bg-white">
             <CardContent className="pt-6 flex items-center gap-4">
@@ -202,14 +198,13 @@ export default function Dashboard() {
                 <Users className="w-6 h-6 text-amber-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Neighborhood</p>
+                <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Active Helpers</p>
                 <h3 className="text-2xl font-bold text-slate-900">Campus Area</h3>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* SEARCH & FILTERS */}
         <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
@@ -237,7 +232,7 @@ export default function Dashboard() {
               )}
             >
               <MapPin className="w-4 h-4" />
-              Nearby (5km)
+              Nearby Only
             </button>
           </div>
           <div className="relative w-full lg:w-96">
@@ -251,7 +246,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* FEED GRID */}
         {isLoading ? (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -263,9 +257,8 @@ export default function Dashboard() {
             <div className="bg-white p-8 rounded-full inline-block mb-6 shadow-sm">
               <Zap className="w-12 h-12 text-slate-200" />
             </div>
-            <h3 className="text-2xl font-headline font-bold text-slate-700">No requests nearby</h3>
-            <p className="text-slate-500 mt-2">Be the first to help your community by posting a request.</p>
-            {!showOnlyNearby && <p className="text-xs text-slate-400 mt-4">Try clearing your search or category filters.</p>}
+            <h3 className="text-2xl font-headline font-bold text-slate-700">All missions cleared!</h3>
+            <p className="text-slate-500 mt-2">There are no open help requests in this area right now.</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -311,12 +304,19 @@ export default function Dashboard() {
                 <CardFooter className="pt-4 pb-6 bg-slate-50/50 flex justify-between items-center mt-auto border-t border-slate-100">
                   <div className="flex items-center gap-2">
                     <Avatar className="h-7 w-7 ring-2 ring-white">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${request.createdBy}`} />
+                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
                       <AvatarFallback>?</AvatarFallback>
                     </Avatar>
                     <span className="text-[10px] font-bold text-slate-700">{request.postedByName || "Member"}</span>
                   </div>
-                  <Button size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-full font-bold h-8 px-4">
+                  <Button 
+                    size="sm" 
+                    className="bg-primary hover:bg-primary/90 text-white rounded-full font-bold h-8 px-4"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAcceptRequest(request);
+                    }}
+                  >
                     Accept <ChevronRight className="ml-1 w-3 h-3" />
                   </Button>
                 </CardFooter>
@@ -326,7 +326,6 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* REQUEST DETAIL DIALOG */}
       <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
         <DialogContent className="sm:max-w-xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
           {selectedRequest && (
@@ -348,7 +347,7 @@ export default function Dashboard() {
               
               <div className="p-8 space-y-6">
                 <div className="space-y-2">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Full Description</h4>
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mission Goal</h4>
                   <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
                     {selectedRequest.description}
                   </p>
@@ -356,11 +355,11 @@ export default function Dashboard() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-4 rounded-2xl border">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Contact Method</p>
-                    <p className="text-sm font-bold text-slate-700 capitalize">{selectedRequest.contactPreference || "In-App"}</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Contact Preferred</p>
+                    <p className="text-sm font-bold text-slate-700 capitalize">{selectedRequest.contactPreference || "In-App Chat"}</p>
                   </div>
                   <div className="bg-slate-50 p-4 rounded-2xl border">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Expires In</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Time Left</p>
                     <p className="text-sm font-bold text-slate-700">
                       {selectedRequest.expiresAt ? formatDistanceToNow(selectedRequest.expiresAt.toDate()) : '...'}
                     </p>
@@ -376,7 +375,7 @@ export default function Dashboard() {
                   className="flex-1 bg-primary hover:bg-primary/90 text-white font-bold shadow-lg shadow-primary/20"
                   onClick={() => handleAcceptRequest(selectedRequest)}
                 >
-                  Accept Mission
+                  Confirm Mission
                 </Button>
               </DialogFooter>
             </div>

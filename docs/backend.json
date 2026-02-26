@@ -50,7 +50,9 @@
         "urgency": { "type": "string", "enum": ["high", "medium", "low"] },
         "status": { "type": "string" },
         "createdBy": { "type": "string" },
+        "postedByName": { "type": "string" },
         "acceptedBy": { "type": "string" },
+        "responseTime": { "type": "number", "description": "Response time in minutes." },
         "createdAt": { "type": "string", "format": "date-time" },
         "expiresAt": { "type": "string", "format": "date-time" }
       },

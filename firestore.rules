@@ -49,15 +49,21 @@ service cloud.firestore {
         && isValidRequestData(request.resource.data);
       allow update: if isSignedIn() && (
         isAdmin() ||
+        // Creator can update basic info while still open
         (resource.data.createdBy == request.auth.uid && resource.data.status == 'open' && isValidRequestData(request.resource.data)) ||
+        // Transition from open to accepted (The core "Accept" logic)
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 
-          request.resource.data.acceptedBy == request.auth.uid
+          request.resource.data.acceptedBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'acceptedBy', 'responseTime'])
         ) ||
+        // Transition to completed
         (
+          resource.data.status == 'accepted' &&
           request.resource.data.status == 'completed' && 
-          (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
+          (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         )
       );
       allow delete: if (resource.data.createdBy == request.auth.uid) || isAdmin();
@@ -84,15 +90,10 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
     }
 
-    // 5. Admin Roles (Internal Governance)
+    // 5. Admin Roles
     match /admin_roles/{adminUid} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
-    }
-
-    // 6. Analytics (Reporting)
-    match /analytics/{docId} {
-      allow read, write: if isAdmin();
     }
   }
 }
