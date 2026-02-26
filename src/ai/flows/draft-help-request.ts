@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview An AI assistant flow for drafting help requests.
@@ -31,9 +32,9 @@ const DraftHelpRequestOutputSchema = z.object({
     .enum(['blood', 'tutor', 'repair', 'emergency', 'other'])
     .describe('A suggested category for the help request based on its content.'),
   suggestedUrgency: z
-    .enum(['critical', 'medium', 'normal'])
+    .enum(['high', 'medium', 'low'])
     .describe(
-      'A suggested urgency level for the help request (critical, medium, or normal) based on its content.'
+      'A suggested urgency level for the help request (high, medium, or low) based on its content.'
     ),
 });
 export type DraftHelpRequestOutput = z.infer<typeof DraftHelpRequestOutputSchema>;
@@ -53,6 +54,7 @@ Analyze the provided initial title and description. Suggest improvements, add re
 Additionally, infer the most appropriate category and urgency level from the given information.
 
 Categories: blood, tutor, repair, emergency, other.
+Urgency: high, medium, low.
 
 Initial Title: {{{initialTitle}}}
 Initial Description: {{{initialDescription}}}`,

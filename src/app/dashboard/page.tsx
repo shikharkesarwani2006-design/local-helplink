@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -38,8 +39,6 @@ import {
   Wrench,
   AlertTriangle,
   Zap,
-  Phone,
-  MessageSquare,
   ChevronRight,
   Filter
 } from "lucide-react";
@@ -138,7 +137,7 @@ export default function Dashboard() {
 
   const getUrgencyStyles = (urgency: string) => {
     switch (urgency) {
-      case "critical": return "border-red-500 bg-red-50 text-red-600";
+      case "high": return "border-red-500 bg-red-50 text-red-600";
       case "medium": return "border-amber-500 bg-amber-50 text-amber-600";
       default: return "border-emerald-500 bg-emerald-50 text-emerald-600";
     }
@@ -243,7 +242,7 @@ export default function Dashboard() {
                 key={request.id} 
                 className={cn(
                   "group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white rounded-3xl border border-slate-100 flex flex-col h-full cursor-pointer",
-                  request.urgency === 'critical' && "animate-pulse-red"
+                  request.urgency === 'high' && "animate-pulse-red"
                 )}
                 onClick={() => setSelectedRequest(request)}
               >
@@ -292,7 +291,7 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
           {selectedRequest && (
             <div className="flex flex-col">
-              <div className={cn("p-8 text-white", selectedRequest.urgency === 'critical' ? 'bg-red-500' : 'bg-primary')}>
+              <div className={cn("p-8 text-white", selectedRequest.urgency === 'high' ? 'bg-red-500' : 'bg-primary')}>
                 <div className="flex items-center gap-2 mb-4">
                   <Badge className="bg-white/20 border-white/30 text-white font-bold uppercase text-[10px]">
                     {selectedRequest.category}

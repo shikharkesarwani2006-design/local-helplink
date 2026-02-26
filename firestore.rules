@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -24,6 +25,11 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/requests/$(requestId)).data;
     }
 
+    function isValidRequestData(data) {
+      return data.category in ['blood', 'tutor', 'repair', 'emergency', 'other']
+        && data.urgency in ['high', 'medium', 'low'];
+    }
+
     // --- Collection Rules ---
 
     // 1. Users Collection
@@ -39,10 +45,11 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
-        && request.resource.data.status == 'open';
+        && request.resource.data.status == 'open'
+        && isValidRequestData(request.resource.data);
       allow update: if isSignedIn() && (
         isAdmin() ||
-        (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
+        (resource.data.createdBy == request.auth.uid && resource.data.status == 'open' && isValidRequestData(request.resource.data)) ||
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 

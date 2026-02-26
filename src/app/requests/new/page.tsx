@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -23,9 +24,6 @@ import {
   Clock, 
   ChevronRight, 
   ChevronLeft,
-  Phone,
-  MessageSquare,
-  AppWindow,
   X,
   Plus
 } from "lucide-react";
@@ -40,7 +38,7 @@ export default function NewRequest() {
     title: "",
     description: "",
     category: "other",
-    urgency: "normal" as "normal" | "medium" | "critical",
+    urgency: "low" as "high" | "medium" | "low",
     area: "",
     lat: null as number | null,
     lng: null as number | null,
@@ -147,7 +145,7 @@ export default function NewRequest() {
 
   const calculateExpiry = (urgency: string) => {
     const now = new Date();
-    if (urgency === "critical") now.setHours(now.getHours() + 2);
+    if (urgency === "high") now.setHours(now.getHours() + 2);
     else if (urgency === "medium") now.setHours(now.getHours() + 12);
     else now.setHours(now.getHours() + 24);
     return Timestamp.fromDate(now);
@@ -287,9 +285,9 @@ export default function NewRequest() {
                   <Label>Urgency Level</Label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { id: "critical", label: "Critical", icon: "🔴", color: "border-red-500 bg-red-50" },
+                      { id: "high", label: "High", icon: "🔴", color: "border-red-500 bg-red-50" },
                       { id: "medium", label: "Medium", icon: "🟡", color: "border-amber-500 bg-amber-50" },
-                      { id: "normal", label: "Normal", icon: "🟢", color: "border-emerald-500 bg-emerald-50" }
+                      { id: "low", label: "Low", icon: "🟢", color: "border-emerald-500 bg-emerald-50" }
                     ].map((level) => (
                       <button
                         key={level.id}
@@ -354,7 +352,7 @@ export default function NewRequest() {
                   <p className="text-sm text-slate-600 italic leading-relaxed">"{formData.description}"</p>
                   <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-500">
                     <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> {formData.area}</div>
-                    <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> {formData.urgency === 'critical' ? '2h exp.' : '24h exp.'}</div>
+                    <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> {formData.urgency === 'high' ? '2h exp.' : '24h exp.'}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl text-amber-700 border border-amber-200">
