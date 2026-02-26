@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { collection, addDoc, Timestamp, getDocs } from "firebase/firestore";
 import { useFirestore, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,8 @@ import {
   Plus
 } from "lucide-react";
 import { draftHelpRequest } from "@/ai/flows/draft-help-request";
-import { cn } from "@/lib/utils";
+import { cn, calculateDistance } from "@/lib/utils";
+import { sendNotification } from "@/firebase/notifications";
 
 type Step = 1 | 2 | 3;
 
@@ -151,14 +152,55 @@ export default function NewRequest() {
     return Timestamp.fromDate(now);
   };
 
+  const broadcastToNearbyUsers = async (requestId: string, requestData: any) => {
+    if (!db || !user) return;
+
+    try {
+      // In a real app, this would be a Cloud Function. 
+      // For this prototype, we simulate the "Push" by identifying matching users client-side.
+      const usersSnap = await getDocs(collection(db, "users"));
+      const nearbyUsers = usersSnap.docs.filter(doc => {
+        const u = doc.data();
+        if (doc.id === user.uid) return false; // Don't notify self
+        
+        // Filter by interest (if specified) and distance
+        const hasInterest = !u.interests || u.interests.length === 0 || u.interests.includes(requestData.category);
+        
+        let isNearby = true; // Default if user has no location
+        if (requestData.location?.lat && u.location?.lat) {
+          const dist = calculateDistance(
+            requestData.location.lat,
+            requestData.location.lng,
+            u.location.lat,
+            u.location.lng
+          );
+          isNearby = dist <= 5; // 5km radius
+        }
+        
+        return hasInterest && isNearby;
+      });
+
+      // Send notifications to each matching user
+      for (const uDoc of nearbyUsers) {
+        sendNotification(db, uDoc.id, {
+          title: "New Request Nearby",
+          message: `Someone needs help with ${requestData.category} near you: "${requestData.title}"`,
+          type: "accepted",
+          link: `/dashboard`
+        });
+      }
+    } catch (err) {
+      console.error("Broadcast failed:", err);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user || !db) return;
 
     setIsSubmitting(true);
     try {
       const expiresAt = calculateExpiry(formData.urgency);
-
-      await addDoc(collection(db, "requests"), {
+      const requestPayload = {
         title: formData.title,
         description: formData.description,
         category: formData.category,
@@ -176,7 +218,12 @@ export default function NewRequest() {
         createdAt: Timestamp.now(),
         expiresAt: expiresAt,
         postedByName: user.displayName || user.email?.split('@')[0] || "Member",
-      });
+      };
+
+      const docRef = await addDoc(collection(db, "requests"), requestPayload);
+
+      // Trigger smart broadcast (Simulating Cloud Function behavior)
+      broadcastToNearbyUsers(docRef.id, requestPayload);
 
       toast({
         title: "Request Live!",

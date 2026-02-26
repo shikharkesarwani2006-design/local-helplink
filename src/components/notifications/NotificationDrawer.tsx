@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Sheet, 
   SheetContent, 
@@ -29,6 +29,7 @@ export function NotificationDrawer() {
   const { user } = useUser();
   const db = useFirestore();
   const [open, setOpen] = useState(false);
+  const prevUnreadCount = useRef(0);
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -40,6 +41,35 @@ export function NotificationDrawer() {
 
   const { data: notifications, isLoading } = useCollection(notificationsQuery);
   const unreadCount = notifications?.filter(n => !n.read).length || 0;
+
+  // Real-time Feedback: Vibrate and Browser Notification on new unread item
+  useEffect(() => {
+    if (unreadCount > prevUnreadCount.current) {
+      // Vibrate for 200ms
+      if ("vibrate" in navigator) {
+        navigator.vibrate(200);
+      }
+
+      // Browser Notification (Simulating Push)
+      if ("Notification" in window && Notification.permission === "granted") {
+        const lastNotif = notifications?.find(n => !n.read);
+        if (lastNotif) {
+          new Notification(lastNotif.title, {
+            body: lastNotif.message,
+            icon: "/favicon.ico"
+          });
+        }
+      }
+    }
+    prevUnreadCount.current = unreadCount;
+  }, [unreadCount, notifications]);
+
+  // Request browser notification permission
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const handleMarkAllRead = async () => {
     if (!db || !user?.uid || !notifications) return;

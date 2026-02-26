@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -20,6 +21,7 @@
         },
         "role": { "type": "string" },
         "skills": { "type": "array", "items": { "type": "string" } },
+        "interests": { "type": "array", "items": { "type": "string" }, "description": "Categories the user is interested in helping with." },
         "rating": { "type": "number" },
         "totalHelped": { "type": "number" },
         "verified": { "type": "boolean" },
@@ -72,6 +74,22 @@
         "definition": {
           "entityName": "HelpRequest",
           "description": "Stores individual help requests."
+        }
+      },
+      {
+        "path": "/notifications/{userId}/items/{notificationId}",
+        "definition": {
+          "schema": {
+             "type": "object",
+             "properties": {
+               "title": { "type": "string" },
+               "message": { "type": "string" },
+               "type": { "type": "string" },
+               "read": { "type": "boolean" },
+               "createdAt": { "type": "string", "format": "date-time" }
+             }
+          },
+          "description": "User specific notifications."
         }
       }
     ]
