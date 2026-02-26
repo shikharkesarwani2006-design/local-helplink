@@ -30,6 +30,7 @@ import {
 import { draftHelpRequest } from "@/ai/flows/draft-help-request";
 import { cn, calculateDistance } from "@/lib/utils";
 import { sendNotification } from "@/firebase/notifications";
+import { sendHighUrgencyAlerts } from "@/app/actions/alerts";
 
 type Step = 1 | 2 | 3;
 
@@ -156,17 +157,26 @@ export default function NewRequest() {
     if (!db || !user) return;
 
     try {
-      // In a real app, this would be a Cloud Function. 
-      // For this prototype, we simulate the "Push" by identifying matching users client-side.
+      // 1. Trigger High Urgency External Alerts (Twilio/SendGrid)
+      if (requestData.urgency === 'high') {
+        sendHighUrgencyAlerts({
+          title: requestData.title,
+          description: requestData.description,
+          category: requestData.category,
+          area: requestData.location?.area || 'Nearby',
+          postedByName: requestData.postedByName,
+        });
+      }
+
+      // 2. In-App Broadcast to matching users
       const usersSnap = await getDocs(collection(db, "users"));
       const nearbyUsers = usersSnap.docs.filter(doc => {
         const u = doc.data();
-        if (doc.id === user.uid) return false; // Don't notify self
+        if (doc.id === user.uid) return false;
         
-        // Filter by interest (if specified) and distance
         const hasInterest = !u.interests || u.interests.length === 0 || u.interests.includes(requestData.category);
         
-        let isNearby = true; // Default if user has no location
+        let isNearby = true;
         if (requestData.location?.lat && u.location?.lat) {
           const dist = calculateDistance(
             requestData.location.lat,
@@ -174,17 +184,16 @@ export default function NewRequest() {
             u.location.lat,
             u.location.lng
           );
-          isNearby = dist <= 5; // 5km radius
+          isNearby = dist <= 5;
         }
         
         return hasInterest && isNearby;
       });
 
-      // Send notifications to each matching user
       for (const uDoc of nearbyUsers) {
         sendNotification(db, uDoc.id, {
-          title: "New Request Nearby",
-          message: `Someone needs help with ${requestData.category} near you: "${requestData.title}"`,
+          title: requestData.urgency === 'high' ? "🚨 URGENT MISSION NEARBY" : "New Request Nearby",
+          message: `${requestData.postedByName} needs help with ${requestData.category}: "${requestData.title}"`,
           type: "accepted",
           link: `/dashboard`
         });
@@ -222,12 +231,14 @@ export default function NewRequest() {
 
       const docRef = await addDoc(collection(db, "requests"), requestPayload);
 
-      // Trigger smart broadcast (Simulating Cloud Function behavior)
+      // Trigger smart broadcast (Including external alerts if High Urgency)
       broadcastToNearbyUsers(docRef.id, requestPayload);
 
       toast({
         title: "Request Live!",
-        description: "Your request has been broadcasted to the community.",
+        description: formData.urgency === 'high' 
+          ? "Broadcast sent to community responders via SMS and Email." 
+          : "Your request has been broadcasted to the community.",
       });
       
       router.push("/requests/my");
@@ -350,6 +361,12 @@ export default function NewRequest() {
                       </button>
                     ))}
                   </div>
+                  {formData.urgency === 'high' && (
+                    <div className="p-3 rounded-lg bg-red-50 border border-red-100 flex items-center gap-2 text-red-600 text-xs font-medium">
+                      <AlertCircle className="w-4 h-4" />
+                      External alerts (SMS/Email) will be triggered for high-urgency needs.
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
