@@ -35,11 +35,12 @@ export default function RegisterPage() {
       const user = userCredential.user;
 
       // Create user document in Firestore immediately after auth creation
+      // Using user.uid as the document ID as requested
       await setDoc(doc(db, "users", user.uid), {
         id: user.uid,
         name: formData.name,
         email: formData.email,
-        phone: formData.phone,
+        phone: formData.phone || "",
         role: formData.role || "user",
         skills: [],
         rating: 0,
