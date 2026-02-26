@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
@@ -6,6 +5,7 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { MobileNav } from '@/components/MobileNav';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import Navbar from '@/components/Navbar';
 
 export const metadata: Metadata = {
   title: 'Local HelpLink | Hyperlocal Emergency & Skill Exchange',
@@ -30,7 +30,10 @@ export default function RootLayout({
             <div className="flex min-h-screen w-full">
               <AppSidebar />
               <div className="flex flex-col flex-1 min-w-0">
-                {children}
+                <Navbar />
+                <main className="flex-1">
+                  {children}
+                </main>
               </div>
             </div>
             <MobileNav />

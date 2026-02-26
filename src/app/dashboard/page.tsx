@@ -13,7 +13,6 @@ import {
   limit
 } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +23,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog";
@@ -33,24 +31,21 @@ import {
   Clock, 
   CheckCircle2, 
   Search, 
-  ArrowRight, 
   Users, 
   Flame, 
   Droplets,
   BookOpen,
   Wrench,
-  AlertCircle,
   AlertTriangle,
   Zap,
   Phone,
   MessageSquare,
   ChevronRight,
-  Heart,
   Filter
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import Link from "next/link";
 import { sendNotification } from "@/firebase/notifications";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const { user } = useUser();
@@ -159,8 +154,6 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
-      <Navbar />
-
       <main className="container px-6 mx-auto py-8 space-y-8">
         {/* STATS STRIP */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

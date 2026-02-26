@@ -24,15 +24,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { 
-  Heart, 
   PlusCircle, 
   LogOut, 
   User, 
   Settings, 
-  History, 
-  ShieldCheck,
   ChevronDown,
-  Bell
 } from "lucide-react";
 import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
 
@@ -49,20 +45,21 @@ export default function Navbar() {
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userRef);
 
+  // Hide Navbar on Landing and Auth pages
+  if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
+
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/");
   };
 
   const getPageTitle = () => {
-    switch(pathname) {
-      case '/dashboard': return 'Community Feed';
-      case '/requests/new': return 'New Request';
-      case '/requests/my': return 'My Requests';
-      case '/profile': return 'My Profile';
-      case '/admin': return 'Admin Oversight';
-      default: return 'Local HelpLink';
-    }
+    if (pathname === '/dashboard') return 'Community Feed';
+    if (pathname === '/requests/new') return 'New Request';
+    if (pathname === '/requests/my') return 'My Requests';
+    if (pathname === '/profile') return 'My Profile';
+    if (pathname === '/admin') return 'Admin Oversight';
+    return 'Local HelpLink';
   }
 
   return (

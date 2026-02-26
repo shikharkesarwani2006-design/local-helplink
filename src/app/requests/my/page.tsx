@@ -1,10 +1,8 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import Navbar from "@/components/Navbar";
+import { useFirestore, useUser } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Inbox } from "lucide-react";
@@ -13,10 +11,11 @@ import { formatDistanceToNow } from "date-fns";
 export default function MyRequests() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const db = useFirestore();
+  const { user } = useUser();
 
   useEffect(() => {
-    const user = auth.currentUser;
-    if (!user) {
+    if (!user || !db) {
       setLoading(false);
       return;
     }
@@ -24,7 +23,7 @@ export default function MyRequests() {
     const q = query(
       collection(db, "requests"),
       where("createdBy", "==", user.uid),
-      orderBy("timestamp", "desc")
+      orderBy("createdAt", "desc")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -33,7 +32,7 @@ export default function MyRequests() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user, db]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -45,8 +44,7 @@ export default function MyRequests() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-12">
-      <Navbar />
+    <div className="min-h-screen bg-slate-50/50 pb-12">
       <header className="bg-white border-b py-8">
         <div className="container px-6 mx-auto">
           <h1 className="text-3xl font-headline font-bold text-secondary">My Request History</h1>
@@ -63,14 +61,14 @@ export default function MyRequests() {
             <p className="text-slate-500">You haven't posted any help requests yet.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid gap-4">
             {myRequests.map((req) => (
-              <Card key={req.id} className="hover:shadow-md transition-shadow">
+              <Card key={req.id} className="hover:shadow-md transition-shadow bg-white border-none">
                 <CardHeader className="flex flex-row items-center justify-between py-4">
                   <div className="space-y-1">
                     <CardTitle className="text-lg font-headline">{req.title}</CardTitle>
                     <div className="text-xs text-slate-400">
-                      Posted {req.timestamp ? formatDistanceToNow(req.timestamp.toDate()) : "just now"} ago
+                      Posted {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
                     </div>
                   </div>
                   <Badge className={`capitalize ${getStatusColor(req.status)}`}>
