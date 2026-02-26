@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -28,19 +27,24 @@ import {
   History,
   Activity,
   ArrowUpRight,
-  PieChart as PieIcon
+  PieChart as PieIcon,
+  Database,
+  Loader2
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   LineChart, Line, PieChart, Pie, Cell 
 } from "recharts";
 import { format } from "date-fns";
+import { seedDatabase } from "@/lib/seed-data";
 
 export default function AdminDashboard() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // 1. Access Control
   const userProfileRef = useMemoFirebase(() => {
@@ -112,6 +116,26 @@ export default function AdminDashboard() {
     toast({ title: isVerified ? "User Verified" : "Verification Removed" });
   };
 
+  const handleSeedData = async () => {
+    if (!db) return;
+    setIsSeeding(true);
+    try {
+      await seedDatabase(db);
+      toast({
+        title: "Seed Complete!",
+        description: "Local community has been populated with sample citizens and missions.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Seed Failed",
+        description: "Could not populate sample data.",
+      });
+    } finally {
+      setIsSeeding(false);
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     if (!allUsers) return [];
     return allUsers.filter(u => 
@@ -119,6 +143,8 @@ export default function AdminDashboard() {
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [allUsers, searchQuery]);
+
+  const isDatabaseEmpty = !allUsers || allUsers.length <= 1; // 1 is the admin themselves
 
   if (isUserLoading || isProfileLoading || profile?.role !== 'admin') {
     return (
@@ -139,11 +165,18 @@ export default function AdminDashboard() {
             <p className="text-slate-500">Global community metrics and governance</p>
           </div>
           <div className="flex gap-3">
+            {isDatabaseEmpty && (
+              <Button 
+                onClick={handleSeedData} 
+                disabled={isSeeding}
+                className="bg-primary hover:bg-primary/90 text-white gap-2"
+              >
+                {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+                Seed Sample Data
+              </Button>
+            )}
             <Button variant="outline" className="gap-2">
               <History className="w-4 h-4" /> Export logs
-            </Button>
-            <Button className="bg-secondary hover:bg-secondary/90 text-white gap-2">
-              <ShieldAlert className="w-4 h-4" /> Alert System
             </Button>
           </div>
         </div>
@@ -162,7 +195,7 @@ export default function AdminDashboard() {
                 <div className="bg-primary/10 p-2 rounded-xl"><Users className="text-primary w-5 h-5" /></div>
               </div>
               <div className="mt-4 flex items-center gap-1 text-emerald-500 text-xs font-bold">
-                <ArrowUpRight className="w-3 h-3" /> 12% growth this week
+                <ArrowUpRight className="w-3 h-3" /> Growth tracked live
               </div>
             </CardContent>
           </Card>
@@ -177,7 +210,7 @@ export default function AdminDashboard() {
                 <div className="bg-secondary/10 p-2 rounded-xl"><BarIcon className="text-secondary w-5 h-5" /></div>
               </div>
               <div className="mt-4 flex items-center gap-1 text-slate-400 text-xs font-bold">
-                <Activity className="w-3 h-3" /> Average 14 per day
+                <Activity className="w-3 h-3" /> System activity pulse
               </div>
             </CardContent>
           </Card>
@@ -192,7 +225,7 @@ export default function AdminDashboard() {
                 <div className="bg-amber-100/50 p-2 rounded-xl"><CheckCircle2 className="text-amber-500 w-5 h-5" /></div>
               </div>
               <div className="mt-4 flex items-center gap-1 text-amber-500 text-xs font-bold">
-                <TrendingUp className="w-3 h-3" /> Up 4.2% from last month
+                <TrendingUp className="w-3 h-3" /> Community resolution rate
               </div>
             </CardContent>
           </Card>
