@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore, useUser } from "@/firebase";
@@ -12,28 +12,25 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Loader2, 
   Sparkles, 
   Send, 
   MapPin, 
-  AlertCircle, 
-  CheckCircle2, 
   Clock, 
-  ChevronRight, 
-  ChevronLeft,
-  X,
-  Plus
+  AlertCircle,
+  CheckCircle2,
+  ChevronRight,
+  Info
 } from "lucide-react";
 import { draftHelpRequest } from "@/ai/flows/draft-help-request";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
-type Step = 1 | 2 | 3;
+const MAX_DESC_LENGTH = 500;
 
 export default function NewRequest() {
-  const [step, setStep] = useState<Step>(1);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -43,13 +40,10 @@ export default function NewRequest() {
     lat: null as number | null,
     lng: null as number | null,
     contactPreference: "in-app",
-    skills: [] as string[],
   });
   
-  const [skillInput, setSkillInput] = useState("");
   const [isDrafting, setIsDrafting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLocating, setIsLocating] = useState(false);
   
   const db = useFirestore();
   const { user } = useUser();
@@ -59,7 +53,7 @@ export default function NewRequest() {
   const handleAIDraft = async () => {
     if (!formData.title || !formData.description) {
       toast({
-        title: "Initial info needed",
+        title: "More context needed",
         description: "Please provide a basic title and description for AI to refine.",
       });
       return;
@@ -75,72 +69,24 @@ export default function NewRequest() {
       setFormData(prev => ({
         ...prev,
         title: result.improvedTitle,
-        description: result.improvedDescription,
+        description: result.improvedDescription.slice(0, MAX_DESC_LENGTH),
         category: result.suggestedCategory,
         urgency: result.suggestedUrgency as any,
       }));
 
       toast({
-        title: "AI Optimization Complete",
-        description: "Your request details have been refined for clarity.",
+        title: "AI Draft Ready",
+        description: "Your request has been optimized for better community response.",
       });
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "AI Draft Failed",
-        description: "Could not use AI drafting right now.",
+        title: "AI Unavailable",
+        description: "Could not use AI drafting right now. Please continue manually.",
       });
     } finally {
       setIsDrafting(false);
     }
-  };
-
-  const handleGeoLocation = () => {
-    setIsLocating(true);
-    if (!navigator.geolocation) {
-      toast({
-        variant: "destructive",
-        title: "Not Supported",
-        description: "Geolocation is not supported by your browser.",
-      });
-      setIsLocating(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setFormData(prev => ({
-          ...prev,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          area: prev.area || "Detected Location"
-        }));
-        setIsLocating(false);
-        toast({
-          title: "Location Detected",
-          description: "Coordinates captured successfully.",
-        });
-      },
-      () => {
-        toast({
-          variant: "destructive",
-          title: "Access Denied",
-          description: "Please enable location services for this feature.",
-        });
-        setIsLocating(false);
-      }
-    );
-  };
-
-  const addSkill = () => {
-    if (skillInput && !formData.skills.includes(skillInput)) {
-      setFormData(prev => ({ ...prev, skills: [...prev.skills, skillInput] }));
-      setSkillInput("");
-    }
-  };
-
-  const removeSkill = (skill: string) => {
-    setFormData(prev => ({ ...prev, skills: prev.skills.filter(s => s !== skill) }));
   };
 
   const calculateExpiry = (urgency: string) => {
@@ -151,238 +97,287 @@ export default function NewRequest() {
     return Timestamp.fromDate(now);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user || !db) return;
 
     setIsSubmitting(true);
     try {
       const expiresAt = calculateExpiry(formData.urgency);
       
-      // Payload strictly following user requirements
       const requestPayload = {
         title: formData.title,
         description: formData.description,
         category: formData.category,
         urgency: formData.urgency,
         area: formData.area,
-        skills: formData.skills,
-        contactPreference: formData.contactPreference,
         status: "open",
         createdBy: user.uid,
         createdAt: serverTimestamp(),
         expiresAt: expiresAt,
-        // Additional metadata for app logic
         location: {
           area: formData.area,
           lat: formData.lat,
           lng: formData.lng,
         },
         postedByName: user.displayName || user.email?.split('@')[0] || "Member",
+        contactPreference: formData.contactPreference,
       };
 
-      // Auto-generates document ID using Firestore addDoc
       await addDoc(collection(db, "requests"), requestPayload);
 
       toast({
-        title: "Request Live!",
-        description: "Your help request has been broadcasted to the community.",
+        title: "Mission Broadcasted!",
+        description: "Your neighbors have been notified of your request.",
       });
       
-      // Redirect to dashboard as requested
       router.push("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Submission Error",
-        description: error.message || "Failed to post the help request.",
+        title: "Submission Failed",
+        description: error.message || "We couldn't post your request. Please try again.",
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isStep1Valid = formData.title.length > 0 && formData.description.length > 0;
-  const isStep2Valid = formData.area.length > 0;
+  const isValid = 
+    formData.title.length >= 5 && 
+    formData.description.length >= 10 && 
+    formData.area.length >= 3;
+
+  const urgencyOptions = [
+    { id: "high", label: "Critical", icon: "🔴", color: "border-red-500 bg-red-50 dark:bg-red-950/20 text-red-600", desc: "2hr Response" },
+    { id: "medium", label: "Medium", icon: "🟡", color: "border-amber-500 bg-amber-50 dark:bg-amber-950/20 text-amber-600", desc: "12hr Response" },
+    { id: "low", label: "Normal", icon: "🟢", color: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600", desc: "24hr Response" }
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-12">
-      <main className="container max-w-2xl px-6 mx-auto mt-8 space-y-8">
-        <div className="space-y-4">
-          <div className="flex justify-between items-end">
-            <div>
-              <h1 className="text-3xl font-headline font-bold text-secondary">Broadcast Need</h1>
-              <p className="text-slate-500">Step {step} of 3: {step === 1 ? "Details" : step === 2 ? "Location" : "Review"}</p>
-            </div>
-            <div className="text-right text-xs font-bold text-slate-400 uppercase tracking-widest">
-              {Math.round((step / 3) * 100)}% Complete
-            </div>
+    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20 pt-8">
+      <main className="container max-w-5xl px-4 mx-auto grid lg:grid-cols-2 gap-8 items-start">
+        
+        {/* Form Section */}
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-headline font-bold text-slate-900 dark:text-white">Broadcast a Need</h1>
+            <p className="text-slate-500 text-sm">Fill in the details to notify verified neighbors nearby.</p>
           </div>
-          <Progress value={(step / 3) * 100} className="h-2" />
-        </div>
 
-        <Card className="shadow-2xl border-none overflow-hidden bg-white">
-          <CardHeader className="bg-slate-50 border-b">
-            <CardTitle className="flex items-center gap-2">
-              {step === 1 && <Sparkles className="w-5 h-5 text-amber-500" />}
-              {step === 2 && <MapPin className="w-5 h-5 text-primary" />}
-              {step === 3 && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
-              {step === 1 ? "What do you need help with?" : step === 2 ? "Where is help needed?" : "Confirm and Broadcast"}
-            </CardTitle>
-          </CardHeader>
+          <Card className="shadow-xl border-none bg-white dark:bg-slate-900 overflow-hidden rounded-3xl">
+            <CardHeader className="bg-slate-50/50 dark:bg-slate-950/50 border-b dark:border-slate-800">
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" /> Mission Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="title" className="font-bold">What do you need help with?</Label>
+                <Input
+                  id="title"
+                  placeholder="e.g., Need O+ Blood or Laptop Repair"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="h-12 rounded-xl"
+                />
+              </div>
 
-          <CardContent className="pt-8 min-h-[400px]">
-            {step === 1 && (
-              <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="title">Help Title</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g., Need help moving boxes or Physics tutoring"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  />
+                  <Label className="font-bold">Category</Label>
+                  <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: val })}>
+                    <SelectTrigger className="h-12 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="blood">🩸 Blood Donation</SelectItem>
+                      <SelectItem value="tutor">📚 Academic Tutor</SelectItem>
+                      <SelectItem value="repair">🔧 Technical Repair</SelectItem>
+                      <SelectItem value="emergency">🚨 Emergency Help</SelectItem>
+                      <SelectItem value="other">💬 Other Needs</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Category</Label>
-                    <Select value={formData.category} onValueChange={(val) => setFormData({ ...formData, category: val })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="blood">🩸 Blood Donation</SelectItem>
-                        <SelectItem value="tutor">📚 Academic / Tutor</SelectItem>
-                        <SelectItem value="repair">🔧 Repair / Technical</SelectItem>
-                        <SelectItem value="emergency">🚨 Emergency</SelectItem>
-                        <SelectItem value="other">💬 Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Contact Preference</Label>
-                    <Select value={formData.contactPreference} onValueChange={(val) => setFormData({ ...formData, contactPreference: val })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="in-app">💬 In-App Chat</SelectItem>
-                        <SelectItem value="whatsapp">📱 WhatsApp</SelectItem>
-                        <SelectItem value="call">📞 Phone Call</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <Label htmlFor="description">Detailed Description</Label>
-                    <Button variant="ghost" size="sm" className="text-secondary h-7 gap-1" onClick={handleAIDraft} disabled={isDrafting}>
-                      {isDrafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
-                      AI Optimize
-                    </Button>
-                  </div>
-                  <Textarea
-                    id="description"
-                    placeholder="Describe exactly what you need..."
-                    className="min-h-[120px]"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <Label>Urgency Level</Label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {[
-                      { id: "high", label: "High", icon: "🔴", color: "border-red-500 bg-red-50" },
-                      { id: "medium", label: "Medium", icon: "🟡", color: "border-amber-500 bg-amber-50" },
-                      { id: "low", label: "Low", icon: "🟢", color: "border-emerald-500 bg-emerald-50" }
-                    ].map((level) => (
-                      <button
-                        key={level.id}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, urgency: level.id as any })}
-                        className={cn(
-                          "flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all",
-                          formData.urgency === level.id ? level.color : "border-slate-100 bg-white"
-                        )}
-                      >
-                        <span className="text-2xl mb-1">{level.icon}</span>
-                        <span className="text-xs font-bold uppercase">{level.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Specific Skills Needed (Optional)</Label>
-                  <div className="flex gap-2">
-                    <Input placeholder="e.g. JavaScript" value={skillInput} onChange={(e) => setSkillInput(e.target.value)} />
-                    <Button type="button" variant="outline" size="icon" onClick={addSkill}><Plus className="w-4 h-4" /></Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {formData.skills.map(s => (
-                      <Badge key={s} variant="secondary" className="gap-1">
-                        {s} <X className="w-3 h-3 cursor-pointer" onClick={() => removeSkill(s)} />
-                      </Badge>
-                    ))}
-                  </div>
+                  <Label className="font-bold">Contact Method</Label>
+                  <Select value={formData.contactPreference} onValueChange={(val) => setFormData({ ...formData, contactPreference: val })}>
+                    <SelectTrigger className="h-12 rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      <SelectItem value="in-app">💬 In-App Chat</SelectItem>
+                      <SelectItem value="call">📞 Phone Call</SelectItem>
+                      <SelectItem value="whatsapp">📱 WhatsApp</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            )}
 
-            {step === 2 && (
-              <div className="space-y-8">
-                <div className="p-6 bg-primary/5 rounded-2xl border border-primary/20 flex flex-col items-center text-center space-y-4">
-                  <MapPin className="w-12 h-12 text-primary" />
-                  <div>
-                    <h3 className="font-bold text-lg">Auto-Detect Location</h3>
-                    <p className="text-sm text-slate-500">Capture your current coordinates for faster help</p>
-                  </div>
-                  <Button onClick={handleGeoLocation} disabled={isLocating} className="bg-primary hover:bg-primary/90 rounded-full px-8">
-                    {isLocating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <MapPin className="w-4 h-4 mr-2" />}
-                    {formData.lat ? "Update Coordinates" : "Use GPS"}
+              <div className="space-y-3">
+                <Label className="font-bold">Urgency Level</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {urgencyOptions.map((level) => (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, urgency: level.id as any })}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all duration-200 text-center",
+                        formData.urgency === level.id 
+                          ? level.color 
+                          : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-200"
+                      )}
+                    >
+                      <span className="text-xl mb-1">{level.icon}</span>
+                      <span className="text-[10px] font-black uppercase tracking-tighter">{level.label}</span>
+                      <span className="text-[9px] text-slate-400 font-bold hidden xs:block">{level.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="description" className="font-bold">Detailed Description</Label>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-primary h-7 px-2 font-bold gap-1 hover:bg-primary/5" 
+                    onClick={handleAIDraft} 
+                    disabled={isDrafting}
+                  >
+                    {isDrafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-amber-500" />}
+                    AI Optimize
                   </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="area">Service Area / Landmark</Label>
-                  <Input id="area" placeholder="e.g. Main Library, Floor 3" value={formData.area} onChange={(e) => setFormData({ ...formData, area: e.target.value })} />
-                </div>
-              </div>
-            )}
-
-            {step === 3 && (
-              <div className="space-y-6">
-                <div className="bg-slate-50 p-6 rounded-2xl border-2 border-dashed border-slate-200 space-y-4">
-                  <div>
-                    <Badge variant="outline" className="mb-2 uppercase">{formData.urgency} Priority</Badge>
-                    <h2 className="text-2xl font-headline font-bold text-secondary">{formData.title}</h2>
-                  </div>
-                  <p className="text-sm text-slate-600 italic leading-relaxed">"{formData.description}"</p>
-                  <div className="grid grid-cols-2 gap-4 text-xs font-bold text-slate-500">
-                    <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> {formData.area}</div>
-                    <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> {formData.urgency === 'high' ? '2h exp.' : formData.urgency === 'medium' ? '12h exp.' : '24h exp.'}</div>
+                <div className="relative">
+                  <Textarea
+                    id="description"
+                    placeholder="Provide enough detail for someone to help..."
+                    className="min-h-[140px] rounded-2xl resize-none pr-4 pb-8"
+                    value={formData.description}
+                    maxLength={MAX_DESC_LENGTH}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
+                  <div className={cn(
+                    "absolute bottom-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full",
+                    formData.description.length >= MAX_DESC_LENGTH ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-400"
+                  )}>
+                    {formData.description.length} / {MAX_DESC_LENGTH}
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-xl text-amber-700 border border-amber-200">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  <p className="text-xs">Once broadcasted, local volunteers will be notified immediately.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="area" className="font-bold">Precise Location / Landmark</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="area"
+                    placeholder="e.g. Science Block, Room 204"
+                    value={formData.area}
+                    onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                    className="pl-11 h-12 rounded-xl"
+                  />
                 </div>
               </div>
-            )}
-          </CardContent>
+            </CardContent>
+            <CardFooter className="bg-slate-50/50 dark:bg-slate-950/50 p-6 border-t dark:border-slate-800">
+              <Button 
+                className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-xl shadow-primary/20 transition-all active:scale-[0.98]"
+                onClick={handleSubmit}
+                disabled={!isValid || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                ) : (
+                  <Send className="w-5 h-5 mr-2" />
+                )}
+                {isSubmitting ? "Broadcasting..." : "Confirm & Broadcast"}
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
 
-          <CardFooter className="bg-slate-50/50 border-t p-6 gap-4">
-            {step > 1 && <Button variant="outline" onClick={() => setStep((s) => (s - 1) as Step)} className="flex-1">Back</Button>}
-            {step < 3 ? (
-              <Button className="flex-1 bg-secondary text-white font-bold" onClick={() => setStep((s) => (s + 1) as Step)} disabled={step === 1 ? !isStep1Valid : !isStep2Valid}>
-                Next Step <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button className="flex-1 bg-primary text-white font-bold h-12" onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <Send className="w-5 h-5 mr-2" />}
-                Broadcast Now
-              </Button>
-            )}
-          </CardFooter>
-        </Card>
+        {/* Live Preview Section */}
+        <div className="sticky top-24 space-y-6">
+          <div className="space-y-1">
+            <h2 className="text-xl font-headline font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Clock className="w-5 h-5 text-secondary" /> Feed Preview
+            </h2>
+            <p className="text-slate-500 text-sm">This is how your request will appear to neighbors.</p>
+          </div>
+
+          <div className="relative group perspective-1000">
+            {/* Animated background glow */}
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-[2.5rem] blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
+            
+            <Card className={cn(
+              "relative overflow-hidden transition-all duration-500 bg-white dark:bg-slate-900 rounded-[2rem] border-2 shadow-2xl flex flex-col min-h-[380px]",
+              formData.urgency === 'high' ? "border-red-500/30 animate-pulse-red" : "border-slate-100 dark:border-slate-800"
+            )}>
+              <CardHeader className="pb-4">
+                <div className="flex justify-between items-start mb-4">
+                  <Badge className={cn(
+                    "capitalize px-4 py-1.5 font-black text-[10px] rounded-full border-2",
+                    formData.urgency === 'high' ? "border-red-500/50 bg-red-50 text-red-600" :
+                    formData.urgency === 'medium' ? "border-amber-500/50 bg-amber-50 text-amber-600" :
+                    "border-emerald-500/50 bg-emerald-50 text-emerald-600"
+                  )}>
+                    {formData.urgency === 'high' ? 'critical' : formData.urgency === 'medium' ? 'medium' : 'normal'}
+                  </Badge>
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Just Now
+                  </span>
+                </div>
+                <CardTitle className="text-2xl font-headline font-bold text-slate-900 dark:text-white leading-tight min-h-[3rem]">
+                  {formData.title || "Help Needed"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow space-y-4">
+                <div className="min-h-[80px]">
+                  <p className="text-slate-500 text-sm leading-relaxed whitespace-pre-wrap">
+                    {formData.description || "Start typing your description to see it appear here..."}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 pt-4 border-t border-slate-50 dark:border-slate-800">
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    <span>{formData.area || "Location TBD"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-black text-secondary dark:text-indigo-400 uppercase">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Community Verified Member</span>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter className="p-6 bg-slate-50/80 dark:bg-slate-950/50 flex justify-between items-center mt-auto border-t dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                   <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-xs">
+                     {user?.displayName?.[0] || user?.email?.[0] || "?"}
+                   </div>
+                   <span className="text-xs font-bold text-slate-700 dark:text-slate-400">
+                    {user?.displayName || "You"}
+                   </span>
+                </div>
+                <Button size="sm" className="bg-slate-200 dark:bg-slate-800 text-slate-400 rounded-full font-bold h-9 px-5 pointer-events-none opacity-50">
+                  Accept <ChevronRight className="ml-1 w-3 h-3" />
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-950/20 p-6 rounded-3xl border-2 border-dashed border-amber-200 dark:border-amber-900/50 flex gap-4">
+            <Info className="w-6 h-6 text-amber-500 shrink-0" />
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-amber-800 dark:text-amber-400">Broadcast Guidelines</h4>
+              <p className="text-[11px] text-amber-700/70 dark:text-amber-500/70 leading-relaxed">
+                Your request will be visible to all verified neighbors within 5km. Be clear about your needs and stay safe by meeting in public campus areas when possible.
+              </p>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
