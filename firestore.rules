@@ -13,11 +13,14 @@ service cloud.firestore {
 
     // Help Requests - Open to all signed-in users for browsing the mission feed
     match /requests/{requestId} {
+      // Explicitly allow list and get for the community feed
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      // Only the creator can modify or delete their own request
+      
+      // Only the creator or an admin can modify or delete their own request
       allow update, delete: if isSignedIn() 
-        && resource.data.createdBy == request.auth.uid;
+        && (resource.data.createdBy == request.auth.uid || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
     }
 
     // User Profiles
@@ -28,10 +31,10 @@ service cloud.firestore {
       allow create, update: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Notifications
-    match /notifications/{userId}/items/{notificationId} {
+    // Notifications - Recursive match for subcollections
+    match /notifications/{userId}/{document=**} {
       // Users can only access their own notification stream
-      allow get, list, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Ratings
