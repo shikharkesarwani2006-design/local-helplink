@@ -11,25 +11,21 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // User Profiles
-    match /users/{userId} {
-      // Anyone signed in can view basic profiles for trust
-      allow get, list: if isSignedIn();
-      // Only the user themselves can edit their profile
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Help Requests
+    // Help Requests - Open to all signed-in users for browsing the mission feed
     match /requests/{requestId} {
-      // All authenticated users can browse and search the mission feed
-      allow get, list: if isSignedIn();
-      
-      // Any authenticated user can create a request
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      
       // Only the creator can modify or delete their own request
       allow update, delete: if isSignedIn() 
         && resource.data.createdBy == request.auth.uid;
+    }
+
+    // User Profiles
+    match /users/{userId} {
+      // Anyone signed in can view basic profiles for trust/community features
+      allow read: if isSignedIn();
+      // Only the user themselves can edit their profile
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Notifications
@@ -41,7 +37,7 @@ service cloud.firestore {
     // Ratings
     match /ratings/{ratingId} {
       // Ratings are public for transparency within the community
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       // Any signed in user can submit a rating
       allow create: if isSignedIn();
       // Ratings cannot be modified or deleted to prevent manipulation
