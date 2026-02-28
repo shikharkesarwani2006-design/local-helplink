@@ -3,13 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * LOCAL HELPLINK SECURITY RULES
-     * 
-     * Core Principles:
-     * 1. Authentication is required for all read/write operations.
-     * 2. Help requests can be viewed by any authenticated user (listing support).
-     * 3. Only the creator of a request can modify or delete it.
-     * 4. Users can only modify their own profile documents.
+     * LOCAL HELPLINK SECURITY RULES (Simplified for Stability)
      */
 
     function isSignedIn() {
@@ -22,31 +16,25 @@ service cloud.firestore {
 
     // User Profiles
     match /users/{userId} {
-      // Any authenticated user can view profiles
-      allow get, list: if isSignedIn();
-      
-      // Users can only create or update their own profile
+      allow read: if isSignedIn();
       allow create, update: if isOwner(userId);
-      
-      // Deletion is restricted
-      allow delete: if false;
     }
 
     // Help Requests
     match /requests/{requestId} {
-      // All authenticated users can read and list help requests
-      allow get, list: if isSignedIn();
+      // Allow any signed-in user to read (get/list)
+      allow read: if isSignedIn();
       
-      // Any authenticated user can create a help request
+      // Allow creation if the user claims to be the creator
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid;
       
-      // Only the creator can update or delete the request
+      // Only the creator can modify or delete
       allow update, delete: if isSignedIn() 
         && resource.data.createdBy == request.auth.uid;
     }
 
-    // Notifications (Strict Owner Only)
+    // Notifications
     match /notifications/{userId}/items/{notificationId} {
       allow read, write: if isOwner(userId);
     }

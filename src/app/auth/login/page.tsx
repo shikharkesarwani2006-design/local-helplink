@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  const auth = useAuth();
+  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -44,12 +46,10 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      // Check if the user document exists in Firestore
       const userDocRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userDocRef);
 
       if (!userSnap.exists()) {
-        // Create new user profile for first-time Google login
         await setDoc(userDocRef, {
           id: user.uid,
           name: user.displayName || "Member",
@@ -57,7 +57,7 @@ export default function LoginPage() {
           phone: user.phoneNumber || "",
           role: "user",
           skills: [],
-          rating: 0,
+          rating: 5.0,
           totalHelped: 0,
           verified: false,
           area: "",

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +23,9 @@ export default function RegisterPage() {
     phone: "",
   });
   const [loading, setLoading] = useState(false);
+  
+  const auth = useAuth();
+  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -34,8 +36,6 @@ export default function RegisterPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       const user = userCredential.user;
 
-      // Create user document in Firestore immediately after auth creation
-      // Using user.uid as the document ID as requested
       await setDoc(doc(db, "users", user.uid), {
         id: user.uid,
         name: formData.name,
@@ -43,7 +43,7 @@ export default function RegisterPage() {
         phone: formData.phone || "",
         role: formData.role || "user",
         skills: [],
-        rating: 0,
+        rating: 5.0,
         totalHelped: 0,
         verified: false,
         area: "",
