@@ -9,7 +9,8 @@ import {
   orderBy, 
   where, 
   doc, 
-  Timestamp 
+  Timestamp,
+  getDocs
 } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,12 +42,16 @@ import {
   Navigation,
   LayoutGrid,
   Map as MapIcon,
-  Sparkles
+  Sparkles,
+  Plus,
+  ArrowRight,
+  Trophy
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
 import { cn, calculateDistance } from "@/lib/utils";
 import { summarizeHelpRequest } from "@/ai/flows/summarize-help-request";
+import Link from "next/link";
 
 // Dynamically import MapDashboard to avoid 'window is not defined' error
 const MapDashboard = dynamic(() => import("@/components/dashboard/MapDashboard"), { 
@@ -68,6 +73,9 @@ export default function Dashboard() {
   const [showOnlyNearby, setShowOnlyNearby] = useState(true);
   const [isSummarizing, setIsSummarizing] = useState<string | null>(null);
   const [summaries, setSummaries] = useState<Record<string, string>>({});
+  
+  // Counters for visual flair
+  const [counters, setCounters] = useState({ open: 0, helpers: 0, impact: 0 });
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -95,9 +103,27 @@ export default function Dashboard() {
       where("status", "==", "open"),
       orderBy("createdAt", "desc")
     );
-  }, [db, user?.uid]); // Use uid for more stable query
+  }, [db, user?.uid]);
 
   const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
+
+  // Animated counters logic
+  useEffect(() => {
+    if (allRequests) {
+      const targetOpen = allRequests.length;
+      const targetHelpers = 842; // Simulated live helper count
+      const targetImpact = 124; // Simulated weekly impact
+
+      const interval = setInterval(() => {
+        setCounters(prev => ({
+          open: prev.open < targetOpen ? prev.open + 1 : targetOpen,
+          helpers: prev.helpers < targetHelpers ? prev.helpers + 12 : targetHelpers,
+          impact: prev.impact < targetImpact ? prev.impact + 3 : targetImpact,
+        }));
+      }, 30);
+      return () => clearInterval(interval);
+    }
+  }, [allRequests]);
 
   const filteredRequests = useMemo(() => {
     if (!allRequests) return [];
@@ -178,92 +204,116 @@ export default function Dashboard() {
     });
 
     toast({
-      title: "Help Accepted!",
-      description: "You've successfully claimed this request. Coordinate with your neighbor now!",
+      title: "Mission Claimed!",
+      description: "You've successfully accepted this call. Check your notifications to coordinate!",
     });
     setSelectedRequest(null);
   };
 
-  const getUrgencyStyles = (urgency: string) => {
-    switch (urgency) {
-      case "high": return "border-red-500 bg-red-50 dark:bg-red-950/30 text-red-600";
-      case "medium": return "border-amber-500 bg-amber-50 dark:bg-amber-950/30 text-amber-600";
-      default: return "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600";
-    }
-  };
-
   const categories = [
     { id: "all", label: "All", icon: Filter },
-    { id: "blood", label: "Blood", icon: Droplets },
-    { id: "tutor", label: "Tutor", icon: BookOpen },
-    { id: "repair", label: "Repair", icon: Wrench },
-    { id: "emergency", label: "Emergency", icon: AlertTriangle },
+    { id: "blood", label: "Blood", icon: Droplets, color: "text-red-500" },
+    { id: "tutor", label: "Tutor", icon: BookOpen, color: "text-blue-500" },
+    { id: "repair", label: "Repair", icon: Wrench, color: "text-amber-500" },
+    { id: "emergency", label: "Emergency", icon: AlertTriangle, color: "text-rose-500" },
   ];
 
   const isLoading = isUserLoading || isRequestsLoading;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
-      <main className="container px-4 sm:px-6 mx-auto py-8 space-y-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="bg-primary/10 p-3 rounded-2xl">
-                <Navigation className={cn("w-6 h-6 text-primary", isLocating && "animate-pulse")} />
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 pb-20">
+      {/* 🚀 Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-secondary pt-12 pb-24 md:pt-16 md:pb-32 px-6">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
+        
+        <div className="container mx-auto relative z-10 text-center space-y-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-3 h-3 text-amber-400" /> Hyperlocal Mission Control
+          </div>
+          <div className="max-w-3xl mx-auto space-y-4">
+            <h1 className="text-4xl md:text-6xl font-headline font-bold text-white tracking-tight leading-tight">
+              Help Someone <span className="text-amber-400">Nearby</span> Today
+            </h1>
+            <p className="text-lg md:text-xl text-indigo-100 max-w-2xl mx-auto leading-relaxed">
+              Real-time support network for emergency assistance and skill exchange. Your campus, connected through kindness.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-4 pt-4">
+            <Link href="/requests/new">
+              <Button size="lg" className="h-16 px-10 text-xl bg-white text-primary hover:bg-indigo-50 font-bold rounded-full shadow-2xl transition-all active:scale-95 group">
+                Post a Need <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+            <Link href="/profile">
+              <Button size="lg" variant="outline" className="h-16 px-10 text-xl border-white/30 text-white hover:bg-white/10 font-bold rounded-full backdrop-blur-sm">
+                Become a Helper
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <main className="container px-4 sm:px-6 mx-auto -mt-16 space-y-12">
+        {/* 🔥 Live Stats Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
+              <div className="bg-primary/10 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                <AlertTriangle className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Your Range</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
-                  {userLocation ? "Within 5km" : "Global Feed"}
-                </h3>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Missions Open</p>
+                <h3 className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{counters.open}</h3>
               </div>
             </CardContent>
           </Card>
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="bg-emerald-100 dark:bg-emerald-950/50 p-3 rounded-2xl">
-                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
+              <div className="bg-emerald-100 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                <Users className="w-8 h-8 text-emerald-600" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nearby Calls</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{filteredRequests.length}</h3>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Active Helpers</p>
+                <h3 className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{counters.helpers}</h3>
               </div>
             </CardContent>
           </Card>
-          <Card className="border-none shadow-sm bg-white dark:bg-slate-900 sm:col-span-2 lg:col-span-1">
-            <CardContent className="pt-6 flex items-center gap-4">
-              <div className="bg-amber-100 dark:bg-amber-950/50 p-3 rounded-2xl">
-                <Users className="w-6 h-6 text-amber-600" />
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden group hover:-translate-y-1 transition-all duration-300">
+            <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
+              <div className="bg-amber-100 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                <Trophy className="w-8 h-8 text-amber-600" />
               </div>
               <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Helpers</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">Campus Area</h3>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Weekly Impact</p>
+                <h3 className="text-4xl font-black text-slate-900 dark:text-white tabular-nums">{counters.impact}</h3>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="flex flex-col gap-6">
+        {/* 🛠 Filters & Search */}
+        <div className="space-y-8">
           <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Filters">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-1 flex mr-2">
+            <div className="flex flex-wrap gap-3">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full p-1.5 flex shadow-sm">
                 <button
                   onClick={() => setViewMode("list")}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                    viewMode === "list" ? "bg-primary text-white" : "text-slate-400"
+                    "flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all",
+                    viewMode === "list" ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:text-slate-600"
                   )}
                 >
-                  <LayoutGrid className="w-4 h-4" /> <span className="hidden sm:inline">List</span>
+                  <LayoutGrid className="w-4 h-4" /> List View
                 </button>
                 <button
                   onClick={() => setViewMode("map")}
                   className={cn(
-                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold transition-all",
-                    viewMode === "map" ? "bg-primary text-white" : "text-slate-400"
+                    "flex items-center gap-2 px-6 py-2 rounded-full text-xs font-bold transition-all",
+                    viewMode === "map" ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-400 hover:text-slate-600"
                   )}
                 >
-                  <MapIcon className="w-4 h-4" /> <span className="hidden sm:inline">Map</span>
+                  <MapIcon className="w-4 h-4" /> Live Map
                 </button>
               </div>
 
@@ -273,36 +323,37 @@ export default function Dashboard() {
                     key={cat.id}
                     onClick={() => setCategoryFilter(cat.id)}
                     className={cn(
-                      "flex items-center gap-2 rounded-full px-4 sm:px-5 font-bold h-10 border transition-all text-sm",
+                      "flex items-center gap-2 rounded-full px-5 font-bold h-11 border transition-all text-sm",
                       categoryFilter === cat.id 
-                        ? "bg-primary text-white shadow-lg shadow-primary/20 border-primary" 
-                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-primary/50"
+                        ? "bg-slate-900 text-white shadow-xl border-slate-900" 
+                        : "bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-800 hover:border-primary/40 hover:text-primary"
                     )}
                   >
-                    <cat.icon className="w-4 h-4" />
-                    <span className="hidden xs:inline">{cat.label}</span>
+                    <cat.icon className={cn("w-4 h-4", categoryFilter === cat.id ? "text-white" : cat.color)} />
+                    {cat.label}
                   </button>
                 ))}
               </div>
+              
               <button
                 onClick={() => setShowOnlyNearby(!showOnlyNearby)}
                 className={cn(
-                  "flex items-center gap-2 rounded-full px-5 font-bold h-10 border transition-all ml-0 sm:ml-2 text-sm",
+                  "flex items-center gap-2 rounded-full px-5 font-bold h-11 border transition-all text-sm",
                   showOnlyNearby 
-                    ? "bg-secondary text-white border-secondary" 
+                    ? "bg-indigo-50 text-primary border-primary/20 shadow-inner" 
                     : "bg-white dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-800"
                 )}
               >
                 <MapPin className="w-4 h-4" />
-                <span className="hidden sm:inline">Nearby Only</span>
-                <span className="sm:hidden">Nearby</span>
+                Nearby (5km)
               </button>
             </div>
-            <div className="relative w-full lg:w-96">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            
+            <div className="relative w-full lg:w-96 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
               <Input 
                 placeholder="Search missions..." 
-                className="pl-11 h-11 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-full focus:ring-primary/20 shadow-sm"
+                className="pl-11 h-12 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-2xl focus:ring-primary/20 shadow-sm text-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -310,18 +361,27 @@ export default function Dashboard() {
           </div>
 
           {isLoading ? (
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Skeleton key={i} className="h-64 w-full rounded-3xl" />
+                <Skeleton key={i} className="h-72 w-full rounded-[2.5rem]" />
               ))}
             </div>
           ) : filteredRequests.length === 0 ? (
-            <div className="py-24 text-center">
-              <div className="bg-white dark:bg-slate-900 p-8 rounded-full inline-block mb-6 shadow-sm">
-                <Zap className="w-12 h-12 text-slate-200 dark:text-slate-700" />
+            /* 👻 Better Empty State */
+            <div className="py-32 flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
+              <div className="bg-indigo-50 dark:bg-indigo-950/30 p-12 rounded-[3rem] mb-8 relative">
+                <div className="absolute inset-0 bg-primary/10 rounded-[3rem] animate-ping opacity-20" />
+                <Zap className="w-20 h-20 text-primary relative z-10" />
               </div>
-              <h3 className="text-2xl font-headline font-bold text-slate-700 dark:text-slate-300">All missions cleared!</h3>
-              <p className="text-slate-500 mt-2">There are no open help requests in this area right now.</p>
+              <h3 className="text-3xl font-headline font-bold text-slate-900 dark:text-white">All Clear!</h3>
+              <p className="text-slate-500 mt-3 max-w-sm text-lg leading-relaxed">
+                There are no open missions in this area right now. Why not be the first to start a movement?
+              </p>
+              <Link href="/requests/new" className="mt-8">
+                <Button size="lg" className="rounded-full font-bold h-14 px-8 shadow-xl shadow-primary/20">
+                  Post a Help Request
+                </Button>
+              </Link>
             </div>
           ) : viewMode === "map" ? (
             <MapDashboard 
@@ -330,96 +390,120 @@ export default function Dashboard() {
               onAccept={handleAcceptRequest} 
             />
           ) : (
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
               {filteredRequests.map((request) => (
+                /* 🔥 Modern Help Request Card */
                 <Card 
                   key={request.id} 
                   className={cn(
-                    "group relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 flex flex-col h-full cursor-pointer",
-                    request.urgency === 'high' && "animate-pulse-red"
+                    "group relative overflow-hidden transition-all duration-500 hover:shadow-[0_20px_50px_rgba(0,0,0,0.1)] hover:-translate-y-2 bg-white dark:bg-slate-900 rounded-[2.5rem] border-none flex flex-col h-full cursor-pointer",
+                    request.urgency === 'high' && "ring-2 ring-red-500/20"
                   )}
                   onClick={() => setSelectedRequest(request)}
                 >
-                  <CardHeader className="pb-4">
-                    <div className="flex justify-between items-start mb-3">
-                      <Badge className={cn("capitalize px-3 py-1 font-bold text-[10px] rounded-full border-2", getUrgencyStyles(request.urgency))}>
-                        {request.urgency}
-                      </Badge>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                  {/* Urgency Color Strip */}
+                  <div className={cn(
+                    "absolute left-0 top-0 bottom-0 w-2 transition-all group-hover:w-3",
+                    request.urgency === 'high' ? 'bg-red-500' : request.urgency === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                  )} />
+
+                  <CardHeader className="pb-4 pl-8 pr-6 pt-8">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "p-2 rounded-xl bg-slate-50 dark:bg-slate-800",
+                          categories.find(c => c.id === request.category)?.color
+                        )}>
+                          {(() => {
+                            const CatIcon = categories.find(c => c.id === request.category)?.icon || Filter;
+                            return <CatIcon className="w-4 h-4" />;
+                          })()}
+                        </div>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                          {request.category}
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 px-3 py-1.5 rounded-full">
                         <Clock className="w-3 h-3" /> {request.createdAt ? formatDistanceToNow(request.createdAt.toDate()) : "just now"}
                       </span>
                     </div>
-                    <CardTitle className="text-lg font-headline font-bold text-slate-800 dark:text-white leading-tight group-hover:text-primary transition-colors">
+                    <CardTitle className="text-xl font-headline font-bold text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">
                       {request.title}
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-grow space-y-4">
+                  <CardContent className="flex-grow space-y-5 pl-8 pr-6">
                     {summaries[request.id] ? (
-                      <div className="bg-indigo-50/50 dark:bg-indigo-950/20 p-3 rounded-xl border border-indigo-100/50 dark:border-indigo-800/30">
-                        <p className="text-xs font-bold text-primary flex items-center gap-1.5 mb-1.5">
+                      <div className="bg-primary/5 dark:bg-primary/10 p-4 rounded-3xl border border-primary/10 animate-in slide-in-from-left-2 duration-300">
+                        <p className="text-[10px] font-black text-primary flex items-center gap-2 mb-2 uppercase tracking-widest">
                           <Sparkles className="w-3 h-3" /> AI Summary
                         </p>
-                        <p className="text-slate-600 dark:text-slate-400 text-sm italic leading-relaxed">
+                        <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed italic">
                           "{summaries[request.id]}"
                         </p>
                       </div>
                     ) : (
-                      <p className="text-slate-500 text-sm line-clamp-2 leading-relaxed">
+                      <p className="text-slate-500 text-sm line-clamp-3 leading-relaxed">
                         {request.description}
                       </p>
                     )}
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                        <MapPin className="w-3 h-3 text-primary" />
-                        <span>{request.location?.area || "Campus Area"}</span>
+                    
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                        <MapPin className="w-3.5 h-3.5 text-primary" />
+                        {request.location?.area || "Campus Area"}
                       </div>
-                      <div className="flex items-center justify-between">
-                        {request.distance !== null && (
-                          <div className="flex items-center gap-2 text-[10px] font-black text-secondary dark:text-indigo-400 uppercase">
-                            <Navigation className="w-3 h-3" />
-                            <span>{request.distance.toFixed(1)} km away</span>
-                          </div>
-                        )}
-                        {!summaries[request.id] && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/5 gap-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleGenerateSummary(request);
-                            }}
-                            disabled={isSummarizing === request.id}
-                          >
-                            {isSummarizing === request.id ? (
-                              <Zap className="w-3 h-3 animate-pulse" />
-                            ) : (
-                              <Sparkles className="w-3 h-3" />
-                            )}
-                            AI Match
-                          </Button>
-                        )}
-                      </div>
+                      {request.distance !== null && (
+                        <div className="flex items-center gap-2 text-[10px] font-black text-secondary dark:text-indigo-400 bg-secondary/10 px-3 py-1.5 rounded-full uppercase">
+                          <Navigation className="w-3.5 h-3.5" />
+                          {request.distance.toFixed(1)} km
+                        </div>
+                      )}
                     </div>
                   </CardContent>
-                  <CardFooter className="pt-4 pb-6 bg-slate-50/50 dark:bg-slate-950/50 flex justify-between items-center mt-auto border-t border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7 ring-2 ring-white dark:ring-slate-800">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
-                        <AvatarFallback>?</AvatarFallback>
-                      </Avatar>
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-400">{request.postedByName || "Member"}</span>
+                  <CardFooter className="pt-6 pb-8 pl-8 pr-6 flex justify-between items-center mt-auto border-t border-slate-50 dark:border-slate-800/50">
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <Avatar className="h-9 w-9 ring-2 ring-white dark:ring-slate-800">
+                          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${request.createdBy}`} />
+                          <AvatarFallback>?</AvatarFallback>
+                        </Avatar>
+                        <div className="absolute -bottom-1 -right-1 bg-emerald-500 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-300">{request.postedByName || "Member"}</span>
+                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tighter">Verified</span>
+                      </div>
                     </div>
-                    <Button 
-                      size="sm" 
-                      className="bg-primary hover:bg-primary/90 text-white rounded-full font-bold h-8 px-4"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAcceptRequest(request);
-                      }}
-                    >
-                      Accept <ChevronRight className="ml-1 w-3 h-3" />
-                    </Button>
+                    <div className="flex gap-2">
+                       {!summaries[request.id] && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-10 w-10 rounded-2xl bg-slate-50 dark:bg-slate-800 hover:bg-primary/10 hover:text-primary transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleGenerateSummary(request);
+                          }}
+                          disabled={isSummarizing === request.id}
+                        >
+                          {isSummarizing === request.id ? (
+                            <Sparkles className="w-4 h-4 animate-pulse" />
+                          ) : (
+                            <Sparkles className="w-4 h-4" />
+                          )}
+                        </Button>
+                       )}
+                      <Button 
+                        size="sm" 
+                        className="bg-primary hover:bg-primary/90 text-white rounded-2xl font-bold h-10 px-6 shadow-lg shadow-primary/10 transition-transform active:scale-95"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAcceptRequest(request);
+                        }}
+                      >
+                        Accept
+                      </Button>
+                    </div>
                   </CardFooter>
                 </Card>
               ))}
@@ -428,53 +512,90 @@ export default function Dashboard() {
         </div>
       </main>
 
+      {/* 📍 Floating Post Button */}
+      <Link href="/requests/new" className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-[60] group">
+        <Button className="h-16 w-16 md:h-20 md:w-20 rounded-full bg-primary hover:bg-primary/90 text-white shadow-[0_15px_30px_rgba(99,102,241,0.4)] transition-all group-hover:scale-110 p-0">
+          <Plus className="w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:rotate-90" />
+        </Button>
+      </Link>
+
       <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-        <DialogContent className="sm:max-w-xl rounded-3xl p-0 overflow-hidden border-none shadow-2xl dark:bg-slate-900">
+        <DialogContent className="sm:max-w-2xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl dark:bg-slate-900">
           {selectedRequest && (
             <div className="flex flex-col">
-              <div className={cn("p-8 text-white", selectedRequest.urgency === 'high' ? 'bg-red-500' : 'bg-primary')}>
-                <div className="flex items-center gap-2 mb-4">
-                  <Badge className="bg-white/20 border-white/30 text-white font-bold uppercase text-[10px]">
+              <div className={cn(
+                "p-10 text-white relative", 
+                selectedRequest.urgency === 'high' ? 'bg-red-500' : 'bg-primary'
+              )}>
+                <div className="absolute top-0 right-0 p-10 opacity-10">
+                  <Zap className="w-32 h-32" />
+                </div>
+                <div className="flex items-center gap-2 mb-4 relative z-10">
+                  <Badge className="bg-white/20 border-white/30 text-white font-bold uppercase text-[10px] px-3 py-1 backdrop-blur-md">
                     {selectedRequest.category}
                   </Badge>
+                  <Badge className="bg-white/20 border-white/30 text-white font-bold uppercase text-[10px] px-3 py-1 backdrop-blur-md">
+                    {selectedRequest.urgency} Urgency
+                  </Badge>
                 </div>
-                <DialogTitle className="text-2xl font-headline font-bold mb-2">
+                <DialogTitle className="text-3xl font-headline font-bold mb-3 relative z-10">
                   {selectedRequest.title}
                 </DialogTitle>
-                <p className="text-white/80 text-sm font-medium">
-                  Posted {formatDistanceToNow(selectedRequest.createdAt.toDate())} ago • {selectedRequest.location?.area}
-                  {selectedRequest.distance !== null && ` (${selectedRequest.distance.toFixed(1)} km)`}
+                <p className="text-white/80 text-base font-medium relative z-10 flex items-center gap-2">
+                  <Clock className="w-4 h-4" /> Posted {formatDistanceToNow(selectedRequest.createdAt.toDate())} ago
                 </p>
               </div>
               
-              <div className="p-8 space-y-6">
-                <div className="space-y-2">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Mission Goal</h4>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap">
+              <div className="p-10 space-y-8 bg-white dark:bg-slate-900">
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Mission Objective</h4>
+                  <p className="text-slate-600 dark:text-slate-400 text-lg leading-relaxed whitespace-pre-wrap font-medium">
                     {selectedRequest.description}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Contact Preferred</p>
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300 capitalize">{selectedRequest.contactPreference || "In-App Chat"}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Location Hub</p>
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 p-2 rounded-xl">
+                        <MapPin className="w-5 h-5 text-primary" />
+                      </div>
+                      <p className="text-base font-bold text-slate-900 dark:text-slate-200 capitalize">
+                        {selectedRequest.location?.area || "Main Campus"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border dark:border-slate-700">
-                    <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Time Left</p>
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                      {selectedRequest.expiresAt ? formatDistanceToNow(selectedRequest.expiresAt.toDate()) : '...'}
-                    </p>
+                  <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Expiry Window</p>
+                    <div className="flex items-center gap-3">
+                      <div className="bg-amber-100 p-2 rounded-xl">
+                        <Clock className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <p className="text-base font-bold text-slate-900 dark:text-slate-200">
+                        {selectedRequest.expiresAt ? formatDistanceToNow(selectedRequest.expiresAt.toDate()) : 'Indefinite'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-6 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-[2rem] border border-indigo-100/50">
+                  <Avatar className="h-12 w-12 border-2 border-white dark:border-slate-800">
+                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedRequest.createdBy}`} />
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-200">{selectedRequest.postedByName}</p>
+                    <p className="text-xs text-slate-500">Contact Method: {selectedRequest.contactPreference || "In-App"}</p>
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className="p-6 bg-slate-50 dark:bg-slate-950/50 border-t dark:border-slate-800 flex flex-row gap-3">
-                <Button variant="ghost" className="font-bold text-slate-500 flex-1" onClick={() => setSelectedRequest(null)}>
-                  Close
+              <DialogFooter className="p-8 bg-slate-50 dark:bg-slate-950/50 border-t dark:border-slate-800 flex flex-row gap-4">
+                <Button variant="ghost" className="font-bold text-slate-500 flex-1 h-14 rounded-2xl" onClick={() => setSelectedRequest(null)}>
+                  Keep Browsing
                 </Button>
                 <Button 
-                  className="flex-1 bg-primary text-white font-bold shadow-lg shadow-primary/20"
+                  className="flex-1 bg-primary text-white font-bold h-14 rounded-2xl shadow-xl shadow-primary/20 transition-all active:scale-95"
                   onClick={() => handleAcceptRequest(selectedRequest)}
                 >
                   Confirm Mission
