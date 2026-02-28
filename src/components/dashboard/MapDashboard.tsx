@@ -1,8 +1,6 @@
-
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,9 +8,6 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Clock, Navigation, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-
-// Leaflet markers and logic need window to be defined.
-// We handle this by only importing 'leaflet' inside the client-side lifecycle.
 
 interface MapDashboardProps {
   requests: any[];
@@ -22,12 +17,17 @@ interface MapDashboardProps {
 
 export default function MapDashboard({ requests, userLocation, onAccept }: MapDashboardProps) {
   const [L, setL] = useState<any>(null);
+  const [leafletComponents, setLeafletComponents] = useState<any>(null);
 
   useEffect(() => {
-    // Dynamic import of Leaflet on client-side only
+    // Dynamic import of Leaflet on client-side only to avoid SSR issues
     if (typeof window !== "undefined") {
-      import("leaflet").then((leaflet) => {
+      Promise.all([
+        import("leaflet"),
+        import("react-leaflet")
+      ]).then(([leaflet, reactLeaflet]) => {
         setL(leaflet.default);
+        setLeafletComponents(reactLeaflet);
       });
     }
   }, []);
@@ -88,14 +88,16 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
     });
   };
 
-  if (!L) {
-    return <Card className="w-full h-[600px] flex items-center justify-center bg-slate-50">Loading Map Engine...</Card>;
+  if (!L || !leafletComponents) {
+    return (
+      <Card className="w-full h-[600px] flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Initializing Map Engine...</p>
+      </Card>
+    );
   }
 
-  // We must import MapContainer, TileLayer etc. dynamically or ensures they only render on client
-  // Since this whole file is 'use client', we just need to be careful with L.
-  
-  const { MapContainer, TileLayer, Marker, Popup } = require("react-leaflet");
+  const { MapContainer, TileLayer, Marker, Popup } = leafletComponents;
 
   return (
     <Card className="w-full h-[600px] rounded-3xl overflow-hidden border-none shadow-xl bg-white relative">
