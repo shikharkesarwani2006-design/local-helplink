@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * LOCAL HELPLINK SECURITY RULES
-     * Optimized for stability and real-time community feed access.
+     * Explicitly granting list permissions to resolve dashboard access issues.
      */
 
     function isSignedIn() {
@@ -13,16 +13,15 @@ service cloud.firestore {
 
     // User Profiles
     match /users/{userId} {
-      // Allow any signed-in user to see profiles (needed for request details)
-      allow read: if isSignedIn();
-      // Only the user themselves can edit their profile
+      allow get, list: if isSignedIn();
       allow create, update: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Help Requests
     match /requests/{requestId} {
-      // Critical: Allow all signed-in users to list and read requests
-      allow read: if isSignedIn();
+      // Allow all signed-in users to list the collection and read individual documents
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
       
       // Allow creation if the user is signed in
       allow create: if isSignedIn();
@@ -34,14 +33,13 @@ service cloud.firestore {
 
     // Notifications
     match /notifications/{userId}/items/{notificationId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow get, list, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Ratings
     match /ratings/{ratingId} {
-      allow read: if isSignedIn();
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      // Ratings are typically permanent
       allow update, delete: if false;
     }
 
