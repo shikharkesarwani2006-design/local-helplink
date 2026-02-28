@@ -6,10 +6,10 @@ service cloud.firestore {
      * LOCAL HELPLINK SECURITY RULES
      * 
      * Core Principles:
-     * 1. Only authenticated users can access any data.
-     * 2. Field-level protection: Users cannot verify themselves or change their roles.
-     * 3. Mission integrity: Only open missions can be accepted, and only by one person.
-     * 4. Privacy: Notifications are strictly owner-only.
+     * 1. Authentication is required for all read/write operations.
+     * 2. Help requests can be viewed by any authenticated user (listing support).
+     * 3. Only the creator of a request can modify or delete it.
+     * 4. Users can only modify their own profile documents.
      */
 
     function isSignedIn() {
@@ -20,69 +20,47 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
+    // User Profiles
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn(); 
+      // Any authenticated user can view profiles
+      allow get, list: if isSignedIn();
       
-      allow create: if isOwner(userId) 
-        && request.resource.data.verified == false
-        && request.resource.data.role == 'user';
-        
-      allow update: if (isOwner(userId) && (
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified', 'role', 'rating', 'totalHelped', 'totalRatingsCount'])
-      )) || isAdmin();
+      // Users can only create or update their own profile
+      allow create, update: if isOwner(userId);
       
-      allow delete: if isAdmin();
+      // Deletion is restricted
+      allow delete: if false;
     }
 
+    // Help Requests
     match /requests/{requestId} {
-      // Allow all authenticated users to list and get help requests
-      allow read: if isSignedIn();
+      // All authenticated users can read and list help requests
+      allow get, list: if isSignedIn();
       
+      // Any authenticated user can create a help request
       allow create: if isSignedIn() 
-        && request.resource.data.createdBy == request.auth.uid 
-        && request.resource.data.status == 'open';
+        && request.resource.data.createdBy == request.auth.uid;
       
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        // Owners can edit details only if mission is still open
-        (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
-        // Neighbors can accept an open mission
-        (
-          resource.data.status == 'open' && 
-          request.resource.data.status == 'accepted' && 
-          request.resource.data.acceptedBy == request.auth.uid
-        ) ||
-        // Mark as completed
-        (
-          resource.data.status == 'accepted' &&
-          request.resource.data.status == 'completed' && 
-          (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
-        )
-      );
-      
-      allow delete: if (isSignedIn() && resource.data.createdBy == request.auth.uid && resource.data.status == 'open') || isAdmin();
+      // Only the creator can update or delete the request
+      allow update, delete: if isSignedIn() 
+        && resource.data.createdBy == request.auth.uid;
     }
 
+    // Notifications (Strict Owner Only)
+    match /notifications/{userId}/items/{notificationId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // Ratings
     match /ratings/{ratingId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() 
-        && request.resource.data.fromUser == request.auth.uid;
-      allow update: if false; // Ratings are immutable
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.fromUser == request.auth.uid;
+      allow update, delete: if false;
     }
 
-    match /notifications/{userId}/items/{notificationId} {
-      allow read: if isOwner(userId);
-      allow create: if isSignedIn();
-      allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow delete: if isOwner(userId) || isAdmin();
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
