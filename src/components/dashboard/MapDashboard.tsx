@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { 
   MapContainer, 
   TileLayer, 
@@ -12,10 +12,9 @@ import "leaflet/dist/leaflet.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Navigation, ChevronRight, Droplets, BookOpen, Wrench, AlertTriangle, MessageSquare } from "lucide-react";
+import { MapPin, Clock, Navigation, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-import L from "leaflet";
 
 interface MapDashboardProps {
   requests: any[];
@@ -24,6 +23,15 @@ interface MapDashboardProps {
 }
 
 export default function MapDashboard({ requests, userLocation, onAccept }: MapDashboardProps) {
+  const [L, setL] = useState<any>(null);
+
+  useEffect(() => {
+    // Import Leaflet only on the client
+    import("leaflet").then((leaflet) => {
+      setL(leaflet.default);
+    });
+  }, []);
+
   const center: [number, number] = userLocation ? [userLocation.lat, userLocation.lng] : [20.5937, 78.9629];
 
   const getUrgencyColor = (urgency: string) => {
@@ -34,7 +42,20 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
     }
   };
 
+  const userIcon = useMemo(() => {
+    if (!L) return null;
+    return new L.Icon({
+      iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+  }, [L]);
+
   const createCustomIcon = (urgency: string) => {
+    if (!L) return null;
     const color = getUrgencyColor(urgency);
     const html = `
       <div style="
@@ -67,17 +88,9 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
     });
   };
 
-  const userIcon = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    return new L.Icon({
-      iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
-      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
-    });
-  }, []);
+  if (!L) {
+    return <Card className="w-full h-[600px] flex items-center justify-center bg-slate-50">Loading Map...</Card>;
+  }
 
   return (
     <Card className="w-full h-[600px] rounded-3xl overflow-hidden border-none shadow-xl bg-white relative">
@@ -95,12 +108,13 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
           </Marker>
         )}
 
-        {requests.map((request) => (
-          request.location?.lat && request.location?.lng && (
+        {requests.map((request) => {
+          const icon = createCustomIcon(request.urgency);
+          return request.location?.lat && request.location?.lng && icon ? (
             <Marker 
               key={request.id} 
               position={[request.location.lat, request.location.lng]}
-              icon={createCustomIcon(request.urgency)}
+              icon={icon}
             >
               <Popup className="custom-popup">
                 <div className="w-64 p-2 space-y-3">
@@ -145,8 +159,8 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
                 </div>
               </Popup>
             </Marker>
-          )
-        ))}
+          ) : null;
+        })}
       </MapContainer>
       
       <div className="absolute bottom-6 left-6 z-[1000] bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-slate-100 flex flex-col gap-2">

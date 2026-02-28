@@ -95,7 +95,7 @@ export default function Dashboard() {
       where("status", "==", "open"),
       orderBy("createdAt", "desc")
     );
-  }, [db, user]);
+  }, [db, user?.uid]); // Use uid for more stable query
 
   const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
 

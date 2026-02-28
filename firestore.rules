@@ -21,10 +21,14 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function isAdmin() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+             getUserData().role == 'admin';
     }
 
     match /users/{userId} {
@@ -41,7 +45,7 @@ service cloud.firestore {
 
     match /requests/{requestId} {
       // Allow read/list for all authenticated neighbors
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
@@ -68,7 +72,7 @@ service cloud.firestore {
     }
 
     match /ratings/{ratingId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() 
         && request.resource.data.fromUser == request.auth.uid;
       allow update: if false; // Ratings are immutable
@@ -76,7 +80,7 @@ service cloud.firestore {
     }
 
     match /notifications/{userId}/items/{notificationId} {
-      allow get, list: if isOwner(userId);
+      allow read: if isOwner(userId);
       allow create: if isSignedIn();
       allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isOwner(userId) || isAdmin();
