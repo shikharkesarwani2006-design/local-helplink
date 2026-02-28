@@ -1,23 +1,20 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
-import dynamic from "next/dynamic";
+import { useMemo } from "react";
+import { 
+  MapContainer, 
+  TileLayer, 
+  Marker, 
+  Popup 
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Clock, Navigation, ChevronRight, Droplets, BookOpen, Wrench, AlertTriangle, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-
-// Dynamically import Leaflet components to avoid SSR errors
-const MapContainer = dynamic(() => import("react-leaflet").then(mod => mod.MapContainer), { ssr: false });
-const TileLayer = dynamic(() => import("react-leaflet").then(mod => mod.TileLayer), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then(mod => mod.Marker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then(mod => mod.Popup), { ssr: false });
-
-// Workaround for Leaflet icons not appearing correctly in Next.js
 import L from "leaflet";
 
 interface MapDashboardProps {
@@ -34,16 +31,6 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
       case "high": return "#ef4444";
       case "medium": return "#f59e0b";
       default: return "#10b981";
-    }
-  };
-
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case "blood": return <Droplets className="w-4 h-4" />;
-      case "tutor": return <BookOpen className="w-4 h-4" />;
-      case "repair": return <Wrench className="w-4 h-4" />;
-      case "emergency": return <AlertTriangle className="w-4 h-4" />;
-      default: return <MessageSquare className="w-4 h-4" />;
     }
   };
 
@@ -80,6 +67,18 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
     });
   };
 
+  const userIcon = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return new L.Icon({
+      iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+  }, []);
+
   return (
     <Card className="w-full h-[600px] rounded-3xl overflow-hidden border-none shadow-xl bg-white relative">
       <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} scrollWheelZoom={true}>
@@ -88,15 +87,8 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        {userLocation && (
-          <Marker position={[userLocation.lat, userLocation.lng]} icon={new L.Icon({
-            iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
-            shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png",
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-          })}>
+        {userLocation && userIcon && (
+          <Marker position={[userLocation.lat, userLocation.lng]} icon={userIcon}>
             <Popup>
               <div className="text-center font-bold">You are here</div>
             </Popup>
@@ -157,7 +149,6 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
         ))}
       </MapContainer>
       
-      {/* Map Legend overlay */}
       <div className="absolute bottom-6 left-6 z-[1000] bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-lg border border-slate-100 flex flex-col gap-2">
         <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mission Urgency</h5>
         <div className="flex items-center gap-2">

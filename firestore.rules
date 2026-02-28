@@ -27,12 +27,6 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    function isVerified() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true;
-    }
-
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isOwner(userId) 
@@ -46,7 +40,7 @@ service cloud.firestore {
     }
 
     match /requests/{requestId} {
-      // Explicitly allow both single-doc 'get' and collection-wide 'list'
+      // Allow read/list for all authenticated neighbors
       allow get, list: if isSignedIn();
       
       allow create: if isSignedIn() 
@@ -57,14 +51,13 @@ service cloud.firestore {
         isAdmin() ||
         // Owners can edit details only if mission is still open
         (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') ||
-        // Any user can accept an open mission they didn't create
+        // Neighbors can accept an open mission
         (
           resource.data.status == 'open' && 
           request.resource.data.status == 'accepted' && 
-          request.resource.data.acceptedBy == request.auth.uid &&
-          resource.data.createdBy != request.auth.uid
+          request.resource.data.acceptedBy == request.auth.uid
         ) ||
-        // Either party can mark as completed
+        // Mark as completed
         (
           resource.data.status == 'accepted' &&
           request.resource.data.status == 'completed' && 
@@ -84,7 +77,7 @@ service cloud.firestore {
 
     match /notifications/{userId}/items/{notificationId} {
       allow get, list: if isOwner(userId);
-      allow create: if isSignedIn(); // Allow system or users to send notifications
+      allow create: if isSignedIn();
       allow update: if isOwner(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isOwner(userId) || isAdmin();
     }

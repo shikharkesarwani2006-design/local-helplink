@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { 
   collection, 
   query, 
@@ -45,8 +46,13 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
 import { cn, calculateDistance } from "@/lib/utils";
-import MapDashboard from "@/components/dashboard/MapDashboard";
 import { summarizeHelpRequest } from "@/ai/flows/summarize-help-request";
+
+// Dynamically import MapDashboard to avoid 'window is not defined' error
+const MapDashboard = dynamic(() => import("@/components/dashboard/MapDashboard"), { 
+  ssr: false,
+  loading: () => <Skeleton className="h-[600px] w-full rounded-3xl" />
+});
 
 export default function Dashboard() {
   const { user, isUserLoading } = useUser();
@@ -83,7 +89,6 @@ export default function Dashboard() {
   }, []);
 
   const requestsQuery = useMemoFirebase(() => {
-    // Only query if the user is authenticated to prevent early permission errors
     if (!db || !user) return null;
     return query(
       collection(db, "requests"),
