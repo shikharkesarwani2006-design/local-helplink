@@ -60,17 +60,17 @@ export default function AdminDashboard() {
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
   const usersQuery = useMemoFirebase(() => {
-    // Only query if the user is verified as an admin to prevent permission errors
+    // CRITICAL: Only query once we are SURE the user is an admin
     if (!db || !user || !profile || profile.role !== 'admin') return null;
     return query(collection(db, "users"), orderBy("createdAt", "desc"));
-  }, [db, user, profile]);
+  }, [db, user?.uid, profile?.role]);
   const { data: allUsers } = useCollection(usersQuery);
 
   const requestsQuery = useMemoFirebase(() => {
-    // Only query if the user is verified as an admin to prevent permission errors
+    // CRITICAL: Only query once we are SURE the user is an admin
     if (!db || !user || !profile || profile.role !== 'admin') return null;
     return query(collection(db, "requests"), orderBy("createdAt", "desc"));
-  }, [db, user, profile]);
+  }, [db, user?.uid, profile?.role]);
   const { data: allRequests } = useCollection(requestsQuery);
 
   const stats = useMemo(() => {
@@ -118,8 +118,8 @@ export default function AdminDashboard() {
   const filteredUsers = useMemo(() => {
     if (!allUsers) return [];
     return allUsers.filter(u => 
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      u.email.toLowerCase().includes(searchQuery.toLowerCase())
+      u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [allUsers, searchQuery]);
 
@@ -284,7 +284,7 @@ export default function AdminDashboard() {
                       <span className="text-xs font-black text-slate-300 w-4">{idx + 1}</span>
                       <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
                         <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${h.email}`} />
-                        <AvatarFallback className="bg-primary/10 text-primary">{h.name[0]}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-primary">{h.name?.[0] || '?'}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
                         <span className="text-sm font-bold text-slate-900">{h.name}</span>
@@ -362,7 +362,7 @@ export default function AdminDashboard() {
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9">
                           <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.email}`} />
-                          <AvatarFallback className="bg-primary/10 text-primary font-bold">{u.name[0]}</AvatarFallback>
+                          <AvatarFallback className="bg-primary/10 text-primary font-bold">{u.name?.[0] || '?'}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col">
                           <span className="font-bold text-slate-900">{u.name}</span>

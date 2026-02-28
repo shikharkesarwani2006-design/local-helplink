@@ -21,31 +21,37 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // Helper to check if a user document exists and get its data
+    function getUserData(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
     }
 
     function isAdmin() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             getUserData().role == 'admin';
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Allow listing for admin dashboard and search
+      
       allow create: if isOwner(userId) 
         && request.resource.data.verified == false
         && request.resource.data.role == 'user';
+        
       allow update: if (isOwner(userId) && (
-        // Prevent owners from verifying themselves or changing their role/rating
+        // Prevent owners from verifying themselves or changing their role/rating/impact stats
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verified', 'role', 'rating', 'totalHelped', 'totalRatingsCount'])
       )) || isAdmin();
+      
       allow delete: if isAdmin();
     }
 
     match /requests/{requestId} {
-      // Allow read/list for all authenticated neighbors
-      allow read: if isSignedIn();
+      // Explicitly allow list and get for all authenticated neighbors
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
       
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
@@ -68,6 +74,7 @@ service cloud.firestore {
           (resource.data.createdBy == request.auth.uid || resource.data.acceptedBy == request.auth.uid)
         )
       );
+      
       allow delete: if (resource.data.createdBy == request.auth.uid && resource.data.status == 'open') || isAdmin();
     }
 

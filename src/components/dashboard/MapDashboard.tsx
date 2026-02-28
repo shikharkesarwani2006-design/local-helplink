@@ -2,12 +2,7 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { 
-  MapContainer, 
-  TileLayer, 
-  Marker, 
-  Popup 
-} from "react-leaflet";
+import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Clock, Navigation, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+
+// Leaflet markers and logic need window to be defined.
+// We handle this by only importing 'leaflet' inside the client-side lifecycle.
 
 interface MapDashboardProps {
   requests: any[];
@@ -26,10 +24,12 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
   const [L, setL] = useState<any>(null);
 
   useEffect(() => {
-    // Import Leaflet only on the client
-    import("leaflet").then((leaflet) => {
-      setL(leaflet.default);
-    });
+    // Dynamic import of Leaflet on client-side only
+    if (typeof window !== "undefined") {
+      import("leaflet").then((leaflet) => {
+        setL(leaflet.default);
+      });
+    }
   }, []);
 
   const center: [number, number] = userLocation ? [userLocation.lat, userLocation.lng] : [20.5937, 78.9629];
@@ -89,8 +89,13 @@ export default function MapDashboard({ requests, userLocation, onAccept }: MapDa
   };
 
   if (!L) {
-    return <Card className="w-full h-[600px] flex items-center justify-center bg-slate-50">Loading Map...</Card>;
+    return <Card className="w-full h-[600px] flex items-center justify-center bg-slate-50">Loading Map Engine...</Card>;
   }
+
+  // We must import MapContainer, TileLayer etc. dynamically or ensures they only render on client
+  // Since this whole file is 'use client', we just need to be careful with L.
+  
+  const { MapContainer, TileLayer, Marker, Popup } = require("react-leaflet");
 
   return (
     <Card className="w-full h-[600px] rounded-3xl overflow-hidden border-none shadow-xl bg-white relative">
