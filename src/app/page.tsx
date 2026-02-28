@@ -9,10 +9,12 @@ import { Heart, Shield, Zap, Users, ArrowRight, CheckCircle2, MessageSquare, Glo
 import { useEffect, useState } from "react";
 
 export default function LandingPage() {
+  const [mounted, setMounted] = useState(false);
   const heroImage = PlaceHolderImages.find((img) => img.id === "hero-community");
   const [counts, setCounts] = useState({ resolved: 0, users: 0, time: 0 });
 
   useEffect(() => {
+    setMounted(true);
     // Simple animated counter effect
     const interval = setInterval(() => {
       setCounts(prev => ({
@@ -110,15 +112,15 @@ export default function LandingPage() {
       <section id="impact" className="py-20 bg-slate-900 text-white overflow-hidden">
         <div className="container px-6 mx-auto grid md:grid-cols-3 gap-12 text-center">
           <div className="space-y-2">
-            <h3 className="text-6xl font-headline font-bold text-indigo-400">{counts.resolved}+</h3>
+            <h3 className="text-6xl font-headline font-bold text-indigo-400">{mounted ? counts.resolved : 0}+</h3>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Requests Resolved</p>
           </div>
           <div className="space-y-2">
-            <h3 className="text-6xl font-headline font-bold text-indigo-400">{counts.users}+</h3>
+            <h3 className="text-6xl font-headline font-bold text-indigo-400">{mounted ? counts.users : 0}+</h3>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Verified Members</p>
           </div>
           <div className="space-y-2">
-            <h3 className="text-6xl font-headline font-bold text-indigo-400">{counts.time}m</h3>
+            <h3 className="text-6xl font-headline font-bold text-indigo-400">{mounted ? counts.time : 0}m</h3>
             <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Avg Response Time</p>
           </div>
         </div>
@@ -132,7 +134,6 @@ export default function LandingPage() {
             <p className="text-xl text-slate-500">How we turn community needs into neighborhood action.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-16 relative">
-             {/* Connector line for desktop */}
             <div className="hidden md:block absolute top-1/3 left-0 w-full h-px bg-slate-100 -z-10" />
             
             {[

@@ -11,43 +11,37 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Help Requests - Open to all signed-in users for browsing the mission feed
-    match /requests/{requestId} {
-      // Explicitly allow list and get for the community feed
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      
-      // Only the creator or an admin can modify or delete their own request
-      allow update, delete: if isSignedIn() 
-        && (resource.data.createdBy == request.auth.uid || 
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
-    }
-
     // User Profiles
     match /users/{userId} {
-      // Anyone signed in can view basic profiles for trust/community features
       allow read: if isSignedIn();
       // Only the user themselves can edit their profile
       allow create, update: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Notifications - Recursive match for subcollections
+    // Help Requests
+    match /requests/{requestId} {
+      // Allow individual get and collection list for the mission feed
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn();
+      
+      // Only the creator or an admin can modify/delete
+      allow update, delete: if isSignedIn() 
+        && (resource.data.createdBy == request.auth.uid || 
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+
+    // Notifications
     match /notifications/{userId}/{document=**} {
-      // Users can only access their own notification stream
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Ratings
     match /ratings/{ratingId} {
-      // Ratings are public for transparency within the community
-      allow read: if isSignedIn();
-      // Any signed in user can submit a rating
-      allow create: if isSignedIn();
-      // Ratings cannot be modified or deleted to prevent manipulation
+      allow read, create: if isSignedIn();
       allow update, delete: if false;
     }
 
-    // Global Deny
+    // Catch-all deny
     match /{document=**} {
       allow read, write: if false;
     }

@@ -64,6 +64,7 @@ export default function Dashboard() {
   const db = useFirestore();
   const { toast } = useToast();
 
+  const [mounted, setMounted] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -78,6 +79,7 @@ export default function Dashboard() {
   const [counters, setCounters] = useState({ open: 0, helpers: 0, impact: 0 });
 
   useEffect(() => {
+    setMounted(true);
     if ("geolocation" in navigator) {
       setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
@@ -109,10 +111,10 @@ export default function Dashboard() {
 
   // Animated counters logic
   useEffect(() => {
-    if (allRequests) {
+    if (allRequests && mounted) {
       const targetOpen = allRequests.length;
-      const targetHelpers = 842; // Simulated live helper count
-      const targetImpact = 124; // Simulated weekly impact
+      const targetHelpers = 842; 
+      const targetImpact = 124; 
 
       const interval = setInterval(() => {
         setCounters(prev => ({
@@ -123,7 +125,7 @@ export default function Dashboard() {
       }, 30);
       return () => clearInterval(interval);
     }
-  }, [allRequests]);
+  }, [allRequests, mounted]);
 
   const filteredRequests = useMemo(() => {
     if (!allRequests) return [];
@@ -219,6 +221,10 @@ export default function Dashboard() {
   ];
 
   const isLoading = isUserLoading || isRequestsLoading;
+
+  if (!mounted) {
+    return <div className="min-h-screen bg-[#F8FAFC]" />;
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 pb-20">
@@ -367,7 +373,6 @@ export default function Dashboard() {
               ))}
             </div>
           ) : filteredRequests.length === 0 ? (
-            /* 👻 Better Empty State */
             <div className="py-32 flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
               <div className="bg-indigo-50 dark:bg-indigo-950/30 p-12 rounded-[3rem] mb-8 relative">
                 <div className="absolute inset-0 bg-primary/10 rounded-[3rem] animate-ping opacity-20" />
@@ -392,7 +397,6 @@ export default function Dashboard() {
           ) : (
             <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
               {filteredRequests.map((request) => (
-                /* 🔥 Modern Help Request Card */
                 <Card 
                   key={request.id} 
                   className={cn(
@@ -401,7 +405,6 @@ export default function Dashboard() {
                   )}
                   onClick={() => setSelectedRequest(request)}
                 >
-                  {/* Urgency Color Strip */}
                   <div className={cn(
                     "absolute left-0 top-0 bottom-0 w-2 transition-all group-hover:w-3",
                     request.urgency === 'high' ? 'bg-red-500' : request.urgency === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
