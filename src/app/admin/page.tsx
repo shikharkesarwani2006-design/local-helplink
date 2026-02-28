@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -59,15 +60,17 @@ export default function AdminDashboard() {
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
   const usersQuery = useMemoFirebase(() => {
-    if (!db || !user || profile?.role !== 'admin') return null;
+    // Only query if the user is verified as an admin to prevent permission errors
+    if (!db || !user || !profile || profile.role !== 'admin') return null;
     return query(collection(db, "users"), orderBy("createdAt", "desc"));
-  }, [db, user, profile?.role]);
+  }, [db, user, profile]);
   const { data: allUsers } = useCollection(usersQuery);
 
   const requestsQuery = useMemoFirebase(() => {
-    if (!db || !user || profile?.role !== 'admin') return null;
+    // Only query if the user is verified as an admin to prevent permission errors
+    if (!db || !user || !profile || profile.role !== 'admin') return null;
     return query(collection(db, "requests"), orderBy("createdAt", "desc"));
-  }, [db, user, profile?.role]);
+  }, [db, user, profile]);
   const { data: allRequests } = useCollection(requestsQuery);
 
   const stats = useMemo(() => {
@@ -146,7 +149,7 @@ export default function AdminDashboard() {
     return <div className="flex h-screen items-center justify-center"><Activity className="animate-spin h-8 w-8 text-primary" /></div>;
   }
 
-  if (profile?.role !== 'admin') return null;
+  if (!user || profile?.role !== 'admin') return null;
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">

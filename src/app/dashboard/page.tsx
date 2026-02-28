@@ -49,7 +49,7 @@ import MapDashboard from "@/components/dashboard/MapDashboard";
 import { summarizeHelpRequest } from "@/ai/flows/summarize-help-request";
 
 export default function Dashboard() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
 
@@ -83,6 +83,7 @@ export default function Dashboard() {
   }, []);
 
   const requestsQuery = useMemoFirebase(() => {
+    // Only query if the user is authenticated to prevent early permission errors
     if (!db || !user) return null;
     return query(
       collection(db, "requests"),
@@ -91,7 +92,7 @@ export default function Dashboard() {
     );
   }, [db, user]);
 
-  const { data: allRequests, isLoading } = useCollection(requestsQuery);
+  const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
 
   const filteredRequests = useMemo(() => {
     if (!allRequests) return [];
@@ -193,6 +194,8 @@ export default function Dashboard() {
     { id: "repair", label: "Repair", icon: Wrench },
     { id: "emergency", label: "Emergency", icon: AlertTriangle },
   ];
+
+  const isLoading = isUserLoading || isRequestsLoading;
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">

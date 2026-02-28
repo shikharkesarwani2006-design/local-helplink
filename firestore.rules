@@ -22,12 +22,14 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isVerified() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true;
     }
 
@@ -44,7 +46,9 @@ service cloud.firestore {
     }
 
     match /requests/{requestId} {
-      allow read: if isSignedIn();
+      // Explicitly allow both single-doc 'get' and collection-wide 'list'
+      allow get, list: if isSignedIn();
+      
       allow create: if isSignedIn() 
         && request.resource.data.createdBy == request.auth.uid 
         && request.resource.data.status == 'open';
@@ -71,7 +75,7 @@ service cloud.firestore {
     }
 
     match /ratings/{ratingId} {
-      allow read: if isSignedIn();
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() 
         && request.resource.data.fromUser == request.auth.uid;
       allow update: if false; // Ratings are immutable
