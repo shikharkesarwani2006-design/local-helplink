@@ -11,33 +11,47 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
     // User Profiles
     match /users/{userId} {
+      // Authenticated users can read profiles (needed for dashboard and networking)
       allow read: if isSignedIn();
-      // Only the user themselves can edit their profile
-      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      // Users can only manage their own profile data
+      allow write: if isOwner(userId);
     }
 
     // Help Requests
     match /requests/{requestId} {
-      // Allow individual get and collection list for the mission feed
-      allow read, list: if isSignedIn();
+      // Authenticated users can browse the community feed
+      allow read: if isSignedIn();
+      // Authenticated users can create a new request
       allow create: if isSignedIn();
       
       // Only the creator or an admin can modify/delete
-      allow update, delete: if isSignedIn() 
-        && (resource.data.createdBy == request.auth.uid || 
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow update, delete: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid || 
+        isAdmin()
+      );
     }
 
-    // Notifications
+    // Notifications - strictly private to the recipient
     match /notifications/{userId}/{document=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
 
     // Ratings
     match /ratings/{ratingId} {
+      // Anyone signed in can see ratings or leave one
       allow read, create: if isSignedIn();
+      // Ratings are generally immutable to maintain trust
       allow update, delete: if false;
     }
 

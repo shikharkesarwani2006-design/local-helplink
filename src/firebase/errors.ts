@@ -66,17 +66,21 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
-  try {
-    // CRITICAL: Only attempt to get Auth if an app exists to avoid "Pending promise" errors
-    if (typeof window !== 'undefined' && getApps().length > 0) {
-      const firebaseAuth = getAuth();
-      const currentUser = firebaseAuth.currentUser;
-      if (currentUser) {
-        authObject = buildAuthObject(currentUser);
+  
+  // Safely attempt to get Auth state only if an app is initialized and we are on the client
+  if (typeof window !== 'undefined') {
+    try {
+      const apps = getApps();
+      if (apps.length > 0) {
+        const firebaseAuth = getAuth(apps[0]);
+        const currentUser = firebaseAuth.currentUser;
+        if (currentUser) {
+          authObject = buildAuthObject(currentUser);
+        }
       }
+    } catch (e) {
+      // Silence errors during construction to prevent crash loops
     }
-  } catch (e) {
-    // Silence error, continue without auth context for the error message
   }
 
   return {
