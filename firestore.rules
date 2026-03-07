@@ -21,39 +21,31 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // User Profiles
+    // User Profiles: Anyone signed in can view profiles; only owners can edit
     match /users/{userId} {
-      // Authenticated users can read profiles and list the directory
       allow read: if isSignedIn();
-      // Users can only manage their own profile data
       allow write: if isOwner(userId);
     }
 
-    // Help Requests
+    // Help Requests: Authenticated users can browse (get/list) and create.
+    // Only the creator or an admin can modify or delete.
     match /requests/{requestId} {
-      // Authenticated users can browse the community feed (get and list)
-      allow read: if isSignedIn();
-      // Authenticated users can create a new request
-      allow create: if isSignedIn();
-      
-      // Only the creator or an admin can modify/delete
+      allow read, create: if isSignedIn();
       allow update, delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || 
         isAdmin()
       );
     }
 
-    // Notifications - strictly private to the recipient
+    // Notifications: Strictly private to the recipient
     match /notifications/{userId}/{document=**} {
       allow read, write: if isOwner(userId);
     }
 
-    // Ratings
+    // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      // Anyone signed in can see ratings or leave one
       allow read, create: if isSignedIn();
-      // Ratings are immutable
-      allow update, delete: if false;
+      allow update, delete: if false; // Ratings are immutable
     }
 
     // Catch-all deny
