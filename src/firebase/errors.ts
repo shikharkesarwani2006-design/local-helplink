@@ -73,8 +73,8 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
       const apps = getApps();
       if (apps.length > 0) {
         // Use the first initialized app to minimize potential internal assertion errors
-        // during application handshake/hydration cycles.
         const firebaseAuth = getAuth(apps[0]);
+        // Only access currentUser if the auth promise hasn't been interrupted
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
@@ -82,6 +82,7 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
       }
     } catch (e) {
       // Silence internal auth errors during permission error construction
+      console.warn('Firebase error utility failed to capture auth context:', e);
     }
   }
 

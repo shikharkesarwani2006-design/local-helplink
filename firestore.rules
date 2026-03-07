@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * LOCAL HELPLINK SECURITY RULES
-     * Updated to ensure 'list' operations are explicitly permitted for authenticated users.
+     * Ensures robust 'read' and 'list' access for authenticated users.
      */
 
     function isSignedIn() {
@@ -15,23 +15,22 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
+    // Helper to check for admin role safely
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin';
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // User Profiles: Anyone signed in can view profiles; only owners or admins can edit
+    // User Profiles: Authenticated users can view profiles; only owners or admins can edit
     match /users/{userId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow write: if isOwner(userId) || isAdmin();
     }
 
     // Help Requests: Authenticated users can browse (get/list) and create missions.
     match /requests/{requestId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
@@ -48,9 +47,8 @@ service cloud.firestore {
 
     // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if false; // Ratings remain immutable for integrity
     }
 
     // Catch-all deny to ensure no unauthorized access
