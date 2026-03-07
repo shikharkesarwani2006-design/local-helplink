@@ -28,9 +28,9 @@ service cloud.firestore {
     }
 
     // Help Requests: Authenticated users can browse (get/list) and create.
-    // Only the creator or an admin can modify or delete.
+    // Explicitly defining list, get ensures no ambiguity for collection queries.
     match /requests/{requestId} {
-      allow read, create: if isSignedIn();
+      allow list, get, create: if isSignedIn();
       allow update, delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || 
         isAdmin()
