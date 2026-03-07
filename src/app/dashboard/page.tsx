@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -10,7 +9,6 @@ import {
   where, 
   doc, 
   Timestamp,
-  getDocs
 } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,7 +221,7 @@ export default function Dashboard() {
   const isLoading = isUserLoading || isRequestsLoading;
 
   if (!mounted) {
-    return <div className="min-h-screen bg-[#F8FAFC]" />;
+    return <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950" />;
   }
 
   return (
@@ -451,7 +449,7 @@ export default function Dashboard() {
                     )}
                     
                     <div className="flex flex-wrap gap-3">
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full">
                         <MapPin className="w-3.5 h-3.5 text-primary" />
                         {request.location?.area || "Campus Area"}
                       </div>

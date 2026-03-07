@@ -73,13 +73,14 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
       const apps = getApps();
       if (apps.length > 0) {
         const firebaseAuth = getAuth(apps[0]);
+        // Avoid potentially blocking properties if auth is in a middle state
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
         }
       }
     } catch (e) {
-      // Silence errors during construction to prevent crash loops
+      // Silence internal auth errors during permission error construction
     }
   }
 

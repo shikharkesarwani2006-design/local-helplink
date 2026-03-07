@@ -22,16 +22,16 @@ service cloud.firestore {
 
     // User Profiles
     match /users/{userId} {
-      // Authenticated users can read profiles (needed for dashboard and networking)
-      allow read: if isSignedIn();
+      // Authenticated users can read profiles and list the directory
+      allow get, list: if isSignedIn();
       // Users can only manage their own profile data
       allow write: if isOwner(userId);
     }
 
     // Help Requests
     match /requests/{requestId} {
-      // Authenticated users can browse the community feed
-      allow read: if isSignedIn();
+      // Authenticated users can browse the community feed (get and list)
+      allow get, list: if isSignedIn();
       // Authenticated users can create a new request
       allow create: if isSignedIn();
       
@@ -50,8 +50,8 @@ service cloud.firestore {
     // Ratings
     match /ratings/{ratingId} {
       // Anyone signed in can see ratings or leave one
-      allow read, create: if isSignedIn();
-      // Ratings are generally immutable to maintain trust
+      allow get, list, create: if isSignedIn();
+      // Ratings are immutable
       allow update, delete: if false;
     }
 
