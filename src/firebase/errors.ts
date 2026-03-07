@@ -71,17 +71,17 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   if (typeof window !== 'undefined') {
     try {
       const apps = getApps();
+      // Only call getAuth if there's at least one app initialized
       if (apps.length > 0) {
-        // Use the first initialized app to minimize potential internal assertion errors
         const firebaseAuth = getAuth(apps[0]);
-        // Only access currentUser if the auth promise hasn't been interrupted
+        // currentUser is safe to access synchronously
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
         }
       }
     } catch (e) {
-      // Silence internal auth errors during permission error construction
+      // Silence internal auth errors during permission error construction to avoid loops
       console.warn('Firebase error utility failed to capture auth context:', e);
     }
   }

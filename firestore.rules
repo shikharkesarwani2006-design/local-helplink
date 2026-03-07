@@ -11,11 +11,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Helper to check for admin role safely
+    // Helper to check for admin role safely without causing evaluation loops
     function isAdmin() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
@@ -25,12 +21,13 @@ service cloud.firestore {
     // User Profiles: Authenticated users can view profiles; only owners or admins can edit
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId) || isAdmin();
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
     // Help Requests: Authenticated users can browse (get/list) and create missions.
     match /requests/{requestId} {
-      allow read: if isSignedIn();
+      // Explicitly allow list and get for the community feed
+      allow read, list, get: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
@@ -42,12 +39,12 @@ service cloud.firestore {
 
     // Notifications: Strictly private to the recipient
     match /notifications/{userId}/{document=**} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      allow read: if isSignedIn();
+      allow read, list: if isSignedIn();
       allow create: if isSignedIn();
     }
 
