@@ -1,9 +1,8 @@
-
 'use client';
 import { getAuth, type User } from 'firebase/auth';
 import { getApps } from 'firebase/app';
 
-type SecurityRuleContext = {
+export type SecurityRuleContext = {
   path: string;
   operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
   requestResourceData?: any;
@@ -68,8 +67,8 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   try {
-    // Check if Firebase is initialized before calling getAuth()
-    if (getApps().length > 0) {
+    // CRITICAL: Only attempt to get Auth if an app exists to avoid "Pending promise" errors
+    if (typeof window !== 'undefined' && getApps().length > 0) {
       const firebaseAuth = getAuth();
       const currentUser = firebaseAuth.currentUser;
       if (currentUser) {
@@ -77,13 +76,13 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
       }
     }
   } catch (e) {
-    // Silence error, continue without auth context
+    // Silence error, continue without auth context for the error message
   }
 
   return {
     auth: authObject,
     method: context.operation,
-    path: `/databases/(default)/documents/${context.path}`,
+    path: context.path.startsWith('/') ? `/databases/(default)/documents${context.path}` : `/databases/(default)/documents/${context.path}`,
     resource: context.requestResourceData ? { data: context.requestResourceData } : undefined,
   };
 }

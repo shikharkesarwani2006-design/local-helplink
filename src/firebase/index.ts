@@ -1,13 +1,13 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 /**
  * Initializes Firebase with the provided configuration.
- * Uses the existing app instance if already initialized to avoid duplicate app errors.
+ * Uses the existing app instance if already initialized.
  */
 export function initializeFirebase() {
   const existingApp = getApps().at(0);
@@ -27,6 +27,7 @@ export function getSdks(firebaseApp: FirebaseApp) {
   };
 }
 
+// Barrel exports
 export * from './provider';
 export * from './client-provider';
 export * from './firestore/use-collection';
