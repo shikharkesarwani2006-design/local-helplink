@@ -72,8 +72,8 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
     try {
       const apps = getApps();
       if (apps.length > 0) {
+        // Use the default app if it exists. Avoid getAuth() if it might block.
         const firebaseAuth = getAuth(apps[0]);
-        // Avoid potentially blocking properties if auth is in a middle state
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
@@ -105,5 +105,8 @@ export class FirestorePermissionError extends Error {
     super(buildErrorMessage(requestObject));
     this.name = 'FirebaseError';
     this.request = requestObject;
+    
+    // Set the prototype explicitly for custom error classes in TS/ES
+    Object.setPrototypeOf(this, FirestorePermissionError.prototype);
   }
 }

@@ -25,13 +25,14 @@ service cloud.firestore {
 
     // User Profiles: Anyone signed in can view profiles; only owners can edit
     match /users/{userId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow write: if isOwner(userId);
     }
 
-    // Help Requests: Authenticated users can browse (get/list) and create.
+    // Help Requests: Authenticated users can browse and create.
     match /requests/{requestId} {
-      allow get, list, create: if isSignedIn();
+      allow read: if isSignedIn(); // Explicitly allows both get and list
+      allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
       );
@@ -44,7 +45,8 @@ service cloud.firestore {
 
     // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      allow get, list, create: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
       allow update, delete: if false; // Ratings are immutable
     }
 
