@@ -72,7 +72,8 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
     try {
       const apps = getApps();
       if (apps.length > 0) {
-        // Use the default app if it exists. Avoid getAuth() if it might block.
+        // Use the first initialized app to minimize potential internal assertion errors
+        // during application handshake/hydration cycles.
         const firebaseAuth = getAuth(apps[0]);
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {

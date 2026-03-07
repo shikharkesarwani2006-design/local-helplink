@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * LOCAL HELPLINK SECURITY RULES
-     * Secure access for a hyperlocal help network.
+     * Updated to ensure 'list' operations are explicitly permitted for authenticated users.
      */
 
     function isSignedIn() {
@@ -23,17 +23,20 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().role == 'admin';
     }
 
-    // User Profiles: Anyone signed in can view profiles; only owners can edit
+    // User Profiles: Anyone signed in can view profiles; only owners or admins can edit
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow get, list: if isSignedIn();
+      allow write: if isOwner(userId) || isAdmin();
     }
 
-    // Help Requests: Authenticated users can browse and create.
+    // Help Requests: Authenticated users can browse (get/list) and create missions.
     match /requests/{requestId} {
-      allow read: if isSignedIn(); // Explicitly allows both get and list
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (
+      allow update: if isSignedIn() && (
+        resource.data.createdBy == request.auth.uid || isAdmin()
+      );
+      allow delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
       );
     }
@@ -45,12 +48,12 @@ service cloud.firestore {
 
     // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      allow read: if isSignedIn();
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if false; // Ratings are immutable
+      allow update, delete: if false; // Ratings remain immutable for integrity
     }
 
-    // Catch-all deny
+    // Catch-all deny to ensure no unauthorized access
     match /{document=**} {
       allow read, write: if false;
     }
