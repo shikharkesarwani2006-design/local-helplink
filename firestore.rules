@@ -15,12 +15,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAdmin() {
-      return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
     // User Profiles: Anyone signed in can view profiles; only owners can edit
     match /users/{userId} {
       allow read: if isSignedIn();
@@ -28,12 +22,12 @@ service cloud.firestore {
     }
 
     // Help Requests: Authenticated users can browse (get/list) and create.
-    // Explicitly defining list, get ensures no ambiguity for collection queries.
+    // Explicitly allow read (get/list) for all authenticated users.
     match /requests/{requestId} {
-      allow list, get, create: if isSignedIn();
+      allow read, create: if isSignedIn();
       allow update, delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || 
-        isAdmin()
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
     }
 
