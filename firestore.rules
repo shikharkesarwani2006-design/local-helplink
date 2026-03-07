@@ -17,13 +17,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     // User Profiles
     match /users/{userId} {
       // Authenticated users can read profiles and list the directory
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       // Users can only manage their own profile data
       allow write: if isOwner(userId);
     }
@@ -31,7 +32,7 @@ service cloud.firestore {
     // Help Requests
     match /requests/{requestId} {
       // Authenticated users can browse the community feed (get and list)
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       // Authenticated users can create a new request
       allow create: if isSignedIn();
       
@@ -50,7 +51,7 @@ service cloud.firestore {
     // Ratings
     match /ratings/{ratingId} {
       // Anyone signed in can see ratings or leave one
-      allow get, list, create: if isSignedIn();
+      allow read, create: if isSignedIn();
       // Ratings are immutable
       allow update, delete: if false;
     }
