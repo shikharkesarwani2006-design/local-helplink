@@ -1,4 +1,3 @@
-
 "use client";
 
 import { 
@@ -71,7 +70,7 @@ export function AppSidebar() {
       return [
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Browse Missions", href: "/volunteer/missions", icon: Search },
-        { label: "My Active Missions", href: "/dashboard?tab=active", icon: CheckCircle2 },
+        { label: "My Active Missions", href: "/volunteer/active", icon: CheckCircle2 },
         { label: "Mission History", href: "/profile?tab=helped", icon: History },
       ];
     }
