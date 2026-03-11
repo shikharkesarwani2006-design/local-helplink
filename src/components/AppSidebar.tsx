@@ -38,7 +38,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUser();
-  const auth = useAuth();
+  const { auth } = useAuth();
   const db = useFirestore();
   const { isMobile, setOpenMobile } = useSidebar();
 
@@ -51,9 +51,13 @@ export function AppSidebar() {
   if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 
   const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
-    if (isMobile) setOpenMobile(false);
+    try {
+      await signOut(auth);
+      router.push("/");
+      if (isMobile) setOpenMobile(false);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const mainLinks = [

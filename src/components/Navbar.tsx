@@ -36,7 +36,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function Navbar() {
   const { user } = useUser();
-  const auth = useAuth();
+  const { auth } = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const pathname = usePathname();
@@ -51,8 +51,12 @@ export default function Navbar() {
   if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 
   const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/");
+    try {
+      await signOut(auth);
+      router.push("/");
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
   };
 
   const getPageTitle = () => {

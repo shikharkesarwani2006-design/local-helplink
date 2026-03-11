@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -18,7 +19,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   
-  const auth = useAuth();
+  const { auth } = useAuth();
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
