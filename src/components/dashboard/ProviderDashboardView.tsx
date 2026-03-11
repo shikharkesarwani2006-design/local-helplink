@@ -42,7 +42,8 @@ import {
   History,
   Loader2,
   FileUp,
-  Ban
+  Ban,
+  Zap
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
