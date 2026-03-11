@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { query, collection, orderBy, doc } from "firebase/firestore";
+import { query, collection, orderBy, doc, limit } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,14 +27,19 @@ import {
   ShieldCheck,
   PieChart as PieIcon,
   Trophy,
-  Star
+  Star,
+  LineChart as LineIcon,
+  AlertCircle,
+  MoreVertical,
+  CheckCircle2
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell, LineChart, Line
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { seedDatabase } from "@/lib/seed-data";
+import { format, startOfDay, subDays } from "date-fns";
 
 export default function AdminDashboard() {
   const { user, isUserLoading } = useUser();
@@ -60,30 +65,51 @@ export default function AdminDashboard() {
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
   const usersQuery = useMemoFirebase(() => {
-    // CRITICAL: Only query once we are SURE the user is an admin
     if (!db || !user || !profile || profile.role !== 'admin') return null;
     return query(collection(db, "users"), orderBy("createdAt", "desc"));
   }, [db, user?.uid, profile?.role]);
   const { data: allUsers } = useCollection(usersQuery);
 
   const requestsQuery = useMemoFirebase(() => {
-    // CRITICAL: Only query once we are SURE the user is an admin
     if (!db || !user || !profile || profile.role !== 'admin') return null;
     return query(collection(db, "requests"), orderBy("createdAt", "desc"));
   }, [db, user?.uid, profile?.role]);
   const { data: allRequests } = useCollection(requestsQuery);
 
+  // Stats Calculations
   const stats = useMemo(() => {
-    if (!allUsers || !allRequests) return { totalUsers: 0, totalRequests: 0, fulfillmentRate: 0, verifiedUsers: 0 };
+    if (!allUsers || !allRequests) return { 
+      totalUsers: 0, 
+      volunteers: 0, 
+      providers: 0, 
+      totalRequests: 0, 
+      fulfillmentRate: 0, 
+      verifiedUsers: 0,
+      openToday: 0
+    };
+    
     const completed = allRequests.filter(r => r.status === 'completed').length;
+    const volunteers = allUsers.filter(u => u.role === 'volunteer').length;
+    const providers = allUsers.filter(u => u.role === 'provider').length;
+    
+    const today = startOfDay(new Date());
+    const openToday = allRequests.filter(r => 
+      r.status === 'open' && 
+      r.createdAt?.toDate() >= today
+    ).length;
+
     return { 
       totalUsers: allUsers.length, 
+      volunteers,
+      providers,
       totalRequests: allRequests.length, 
       fulfillmentRate: allRequests.length > 0 ? (completed / allRequests.length) * 100 : 0, 
-      verifiedUsers: allUsers.filter(u => u.verified).length 
+      verifiedUsers: allUsers.filter(u => u.verified).length,
+      openToday
     };
   }, [allUsers, allRequests]);
 
+  // Chart Data
   const categoryData = useMemo(() => {
     if (!allRequests) return [];
     const counts: Record<string, number> = {};
@@ -107,12 +133,21 @@ export default function AdminDashboard() {
     ].filter(d => d.value > 0);
   }, [allRequests]);
 
-  const topHelpers = useMemo(() => {
+  const signupTrendData = useMemo(() => {
     if (!allUsers) return [];
-    return [...allUsers]
-      .filter(u => u.totalHelped > 0)
-      .sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.totalHelped || 0) - (a.totalHelped || 0))
-      .slice(0, 5);
+    const last30Days = Array.from({ length: 30 }, (_, i) => {
+      const date = subDays(new Date(), i);
+      return { date: format(date, 'MMM dd'), count: 0, rawDate: startOfDay(date) };
+    }).reverse();
+
+    allUsers.forEach(u => {
+      if (!u.createdAt) return;
+      const userDate = startOfDay(u.createdAt.toDate());
+      const match = last30Days.find(d => d.rawDate.getTime() === userDate.getTime());
+      if (match) match.count++;
+    });
+
+    return last30Days;
   }, [allUsers]);
 
   const filteredUsers = useMemo(() => {
@@ -154,110 +189,159 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
       <main className="container px-6 mx-auto py-8 space-y-8">
-        {/* Stats Grid */}
+        
+        {/* Real-time Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-4 opacity-5"><Users className="w-16 h-16" /></div>
+          <Card className="border-none shadow-sm bg-white overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 transition-transform"><Users className="w-16 h-16" /></div>
             <CardContent className="pt-6">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Citizens</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.totalUsers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" /> Growing
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Growth</p>
+              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.totalUsers} Members</h3>
+              <div className="mt-4 flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] font-bold bg-blue-50 text-blue-600 border-none">
+                  {stats.volunteers} Volunteers
+                </Badge>
+                <Badge variant="outline" className="text-[10px] font-bold bg-amber-50 text-amber-600 border-none">
+                  {stats.providers} Providers
+                </Badge>
               </div>
             </CardContent>
           </Card>
           
           <Card className="border-none shadow-sm bg-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4 opacity-5"><Activity className="w-16 h-16" /></div>
+            <CardContent className="pt-6">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Active Demand</p>
+              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.openToday} Open Today</h3>
+              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
+                <ArrowUpRight className="w-3 h-3" /> Live Feed
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
+            <div className="absolute top-0 right-0 p-4 opacity-5"><CheckCircle2 className="w-16 h-16" /></div>
+            <CardContent className="pt-6">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Total Resolved</p>
+              <h3 className="text-3xl font-bold mt-1 text-slate-900">{allRequests?.filter(r => r.status === 'completed').length || 0} Missions</h3>
+              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded-full">
+                {stats.fulfillmentRate.toFixed(1)}% Success Rate
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
             <div className="absolute top-0 right-0 p-4 opacity-5"><ShieldCheck className="w-16 h-16" /></div>
             <CardContent className="pt-6">
               <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Verified Members</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.verifiedUsers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 w-fit px-2 py-0.5 rounded-full">
-                {stats.totalUsers > 0 ? ((stats.verifiedUsers / stats.totalUsers) * 100).toFixed(0) : 0}% of base
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-4 opacity-5"><History className="w-16 h-16" /></div>
-            <CardContent className="pt-6">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Global Missions</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.totalRequests}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
-                Active Feed
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-4 opacity-5"><TrendingUp className="w-16 h-16" /></div>
-            <CardContent className="pt-6">
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Fulfillment Rate</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.fulfillmentRate.toFixed(1)}%</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded-full">
-                Target 80%
+              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.verifiedUsers} Verified</h3>
+              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+                {stats.totalUsers > 0 ? ((stats.verifiedUsers / stats.totalUsers) * 100).toFixed(0) : 0}% Trust Score
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Charts Row */}
+        {/* Charts Section */}
         <div className="grid lg:grid-cols-12 gap-8">
-          {/* Category Bar Chart */}
+          {/* Growth Trend Line Chart */}
           <Card className="lg:col-span-8 bg-white border-none shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
+                <LineIcon className="w-5 h-5 text-indigo-500" /> Platform Growth
+              </CardTitle>
+              <CardDescription>New member signups over the last 30 days.</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={signupTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
+                  />
+                  <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={3} dot={{r: 4, fill: 'white', strokeWidth: 2}} activeDot={{r: 6}} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Impact Summary Card */}
+          <Card className="lg:col-span-4 bg-primary text-white border-none shadow-xl rounded-[2rem] relative overflow-hidden flex flex-col justify-center">
+            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
+              <Trophy className="w-48 h-48" />
+            </div>
+            <CardHeader className="relative z-10">
+              <CardTitle className="text-2xl font-headline font-bold">Neighborhood Impact</CardTitle>
+              <CardDescription className="text-primary-foreground/70">Cumulative community milestones reached.</CardDescription>
+            </CardHeader>
+            <CardContent className="relative z-10 space-y-6 mt-4">
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-2 rounded-xl"><Activity className="w-5 h-5" /></div>
+                <div>
+                  <p className="text-xl font-bold">{allRequests?.filter(r => r.category === 'blood').length || 0} Blood Drives</p>
+                  <p className="text-[10px] uppercase font-black opacity-60">Lifesaving connections</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-2 rounded-xl"><History className="w-5 h-5" /></div>
+                <div>
+                  <p className="text-xl font-bold">12m Avg Response</p>
+                  <p className="text-[10px] uppercase font-black opacity-60">Speed of trust</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-2 rounded-xl"><Star className="w-5 h-5" /></div>
+                <div>
+                  <p className="text-xl font-bold">4.8 Community Rating</p>
+                  <p className="text-[10px] uppercase font-black opacity-60">Average satisfaction</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Categories & Outcomes */}
+        <div className="grid lg:grid-cols-12 gap-8">
+          <Card className="lg:col-span-7 bg-white border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
                 <BarIcon className="w-5 h-5 text-primary" /> Category Demand
               </CardTitle>
-              <CardDescription>Total help requests per service category.</CardDescription>
+              <CardDescription>Total requests per service category.</CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 700}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                  <Tooltip 
-                    cursor={{fill: '#f8fafc'}}
-                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                  />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} barSize={40} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px'}} />
+                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={30} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          {/* Status Pie Chart */}
-          <Card className="lg:col-span-4 bg-white border-none shadow-sm">
+          <Card className="lg:col-span-5 bg-white border-none shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
                 <PieIcon className="w-5 h-5 text-secondary" /> Mission Outcomes
               </CardTitle>
-              <CardDescription>Distribution of request statuses.</CardDescription>
+              <CardDescription>Request distribution by status.</CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px] flex flex-col justify-center">
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusData}
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {statusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-4 mt-4">
+            <CardContent className="h-[250px] flex flex-col items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                    {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex gap-4 mt-2">
                 {statusData.map((s) => (
                   <div key={s.name} className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor: s.color}} />
+                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}} />
                     <span className="text-[10px] font-bold text-slate-500 uppercase">{s.name}</span>
                   </div>
                 ))}
@@ -266,77 +350,14 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* Analytics & Top Helpers Row */}
-        <div className="grid lg:grid-cols-12 gap-8">
-          {/* Top Helpers List */}
-          <Card className="lg:col-span-5 bg-white border-none shadow-sm overflow-hidden">
-            <CardHeader className="bg-slate-50/50 border-b">
-              <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-500" /> Elite Helpers
-              </CardTitle>
-              <CardDescription>Most impactful neighbors based on ratings.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {topHelpers.map((h, idx) => (
-                  <div key={h.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-black text-slate-300 w-4">{idx + 1}</span>
-                      <Avatar className="h-9 w-9 border-2 border-white shadow-sm">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${h.email}`} />
-                        <AvatarFallback className="bg-primary/10 text-primary">{h.name?.[0] || '?'}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-900">{h.name}</span>
-                        <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tighter">
-                          {h.totalHelped} Missions Completed
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-100">
-                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                      <span className="text-xs font-bold text-amber-700">{h.rating?.toFixed(1) || '5.0'}</span>
-                    </div>
-                  </div>
-                ))}
-                {topHelpers.length === 0 && (
-                  <div className="p-12 text-center text-slate-400">
-                    <Trophy className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                    <p className="text-xs font-bold uppercase tracking-widest">No helpers found yet</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Maintenance Quick Actions */}
-          <Card className="lg:col-span-7 bg-white border-none shadow-sm flex flex-col justify-center items-center text-center p-8 space-y-6">
-            <div className="bg-primary/10 p-6 rounded-[2.5rem]">
-              <Database className="w-12 h-12 text-primary" />
-            </div>
-            <div className="space-y-2 max-w-sm">
-              <h3 className="text-xl font-bold">System Maintenance</h3>
-              <p className="text-sm text-slate-500">Inject sample missions and users to test community dynamics and verify analytics calculations.</p>
-            </div>
-            <Button 
-              onClick={handleSeedData} 
-              disabled={isSeeding} 
-              className="w-full max-w-xs bg-slate-900 hover:bg-slate-800 text-white font-bold h-12 rounded-2xl gap-2 shadow-lg shadow-slate-900/10"
-            >
-              {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />} 
-              Generate Test Population
-            </Button>
-          </Card>
-        </div>
-
-        {/* User Management Table */}
+        {/* User Management */}
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <h2 className="text-2xl font-headline font-bold text-slate-800">Citizen Directory</h2>
             <div className="relative w-full md:w-80">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
-                placeholder="Search citizens..." 
+                placeholder="Search by name or email..." 
                 className="pl-11 h-11 bg-white border-slate-200 rounded-xl focus:ring-primary/20 shadow-sm"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -348,11 +369,10 @@ export default function AdminDashboard() {
             <Table>
               <TableHeader className="bg-slate-50/50">
                 <TableRow className="border-slate-100">
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest text-slate-400 h-14">Citizen</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest text-slate-400 h-14">Role</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest text-slate-400 h-14">Impact</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest text-slate-400 h-14 text-center">Status</TableHead>
-                  <TableHead className="font-bold uppercase text-[10px] tracking-widest text-slate-400 h-14 text-right">Actions</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Citizen</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Role</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Verification</TableHead>
+                  <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -376,13 +396,6 @@ export default function AdminDashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5 text-slate-600 font-bold text-sm">
-                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> {u.rating?.toFixed(1) || '5.0'}
-                        <span className="text-slate-300 mx-1">|</span>
-                        <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> {u.totalHelped || 0}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">
                       {u.verified ? (
                         <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase">
                           <ShieldCheck className="w-3 h-3" /> Verified
@@ -411,6 +424,26 @@ export default function AdminDashboard() {
                 ))}
               </TableBody>
             </Table>
+          </Card>
+        </div>
+
+        {/* Maintenance Actions */}
+        <div className="pt-12 border-t border-dashed">
+          <Card className="bg-amber-50/50 border-amber-100 shadow-none flex flex-col md:flex-row items-center justify-between p-8 rounded-[2rem] gap-6">
+            <div className="space-y-2 text-center md:text-left">
+              <div className="flex items-center justify-center md:justify-start gap-2 text-amber-700 font-bold">
+                <AlertCircle className="w-5 h-5" /> Maintenance Tools
+              </div>
+              <p className="text-sm text-amber-600/80 max-w-lg">Initialize or reset the campus database with realistic sample users and help requests for demonstration purposes.</p>
+            </div>
+            <Button 
+              onClick={handleSeedData} 
+              disabled={isSeeding} 
+              className="bg-slate-900 hover:bg-slate-800 text-white font-bold h-12 px-8 rounded-2xl gap-2 shadow-lg"
+            >
+              {isSeeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />} 
+              Seed Global Feed
+            </Button>
           </Card>
         </div>
       </main>

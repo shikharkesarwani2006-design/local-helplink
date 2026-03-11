@@ -54,6 +54,7 @@
         "createdBy": { "type": "string" },
         "postedByName": { "type": "string" },
         "acceptedBy": { "type": "string" },
+        "reported": { "type": "boolean", "default": false },
         "responseTime": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
         "expiresAt": { "type": "string", "format": "date-time" }
