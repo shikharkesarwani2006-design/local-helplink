@@ -9,7 +9,8 @@ import {
   where, 
   orderBy, 
   doc, 
-  runTransaction 
+  runTransaction,
+  serverTimestamp
 } from "firebase/firestore";
 import { 
   useFirestore, 
@@ -34,7 +35,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
   Search, 
-  Filter, 
   Zap, 
   Clock, 
   MapPin, 
@@ -42,23 +42,26 @@ import {
   AlertTriangle,
   Loader2,
   Inbox,
-  Star,
-  ArrowUpDown
+  Phone,
+  MessageSquare,
+  Smartphone
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { sendNotification } from "@/firebase/notifications";
+import { useToast } from "@/hooks/use-toast";
 
 export default function BrowseMissionsPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
-  const [sortBy, setSortBy] = useState<"newest" | "urgency" | "match">("skill");
+  const [sortBy, setSortBy] = useState<"newest" | "urgency" | "match">("match");
   const [acceptingRequest, setAcceptingRequest] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -66,7 +69,14 @@ export default function BrowseMissionsPage() {
   const profileRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Open Missions
+  // 2. Fetch Requester Profile for Modal
+  const requesterRef = useMemoFirebase(() => 
+    (db && acceptingRequest?.createdBy ? doc(db, "users", acceptingRequest.createdBy) : null), 
+    [db, acceptingRequest?.createdBy]
+  );
+  const { data: requesterProfile } = useDoc(requesterRef);
+
+  // 3. Fetch Open Missions
   const missionsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
@@ -77,7 +87,7 @@ export default function BrowseMissionsPage() {
   }, [db]);
   const { data: missions, isLoading: isMissionsLoading } = useCollection(missionsQuery);
 
-  // 3. Filtering & Sorting Logic
+  // 4. Filtering & Sorting Logic
   const filteredMissions = useMemo(() => {
     if (!missions) return [];
 
@@ -85,7 +95,6 @@ export default function BrowseMissionsPage() {
 
     return missions
       .map(m => {
-        // Skill matching logic
         const isMatch = userSkills.some((skill: string) => 
           m.title?.toLowerCase().includes(skill.toLowerCase()) || 
           m.description?.toLowerCase().includes(skill.toLowerCase()) ||
@@ -128,6 +137,7 @@ export default function BrowseMissionsPage() {
         transaction.update(reqRef, {
           status: "accepted",
           acceptedBy: user.uid,
+          acceptedAt: serverTimestamp(),
           responseTime: responseTime
         });
       });
@@ -139,10 +149,19 @@ export default function BrowseMissionsPage() {
         link: "/requests/my"
       });
 
+      toast({
+        title: "Mission Accepted! 🎉",
+        description: "Go help your neighbor. Coordinate using their contact preference.",
+      });
+
       setAcceptingRequest(null);
       router.push("/dashboard?tab=active");
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      toast({
+        variant: "destructive",
+        title: "Acceptance Failed",
+        description: e.message || "Could not accept mission right now.",
+      });
     } finally {
       setLoading(false);
     }
@@ -204,7 +223,6 @@ export default function BrowseMissionsPage() {
             </div>
           </div>
 
-          {/* ⚡ Skill Match Banner */}
           {profile?.skills?.length > 0 && (
             <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -235,7 +253,7 @@ export default function BrowseMissionsPage() {
             <Inbox className="w-16 h-16 text-slate-200 mx-auto" />
             <div className="space-y-1">
               <h3 className="text-xl font-bold text-slate-900">No open missions found</h3>
-              <p className="text-slate-500">Try adjusting your filters or checking back later. We'll notify you when new requests arrive.</p>
+              <p className="text-slate-500">Try adjusting your filters or checking back later.</p>
             </div>
             <Button variant="outline" className="rounded-full font-bold" onClick={() => {
               setCategoryFilter("all");
@@ -255,7 +273,6 @@ export default function BrowseMissionsPage() {
                   m.urgency === 'high' ? "animate-pulse-red ring-2 ring-red-500/20" : ""
                 )}
               >
-                {/* Urgency indicator bar */}
                 <div className={cn(
                   "absolute left-0 top-0 bottom-0 w-1.5",
                   m.urgency === 'high' ? "bg-red-500" : m.urgency === 'medium' ? "bg-amber-500" : "bg-emerald-500"
@@ -265,7 +282,7 @@ export default function BrowseMissionsPage() {
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest bg-slate-50 border-none">
-                        {m.category === 'blood' ? '🩸' : m.category === 'tutor' ? '📚' : m.category === 'repair' ? '🔧' : '🚨'} {m.category}
+                        {m.category}
                       </Badge>
                       {m.isMatch && (
                         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
@@ -277,7 +294,7 @@ export default function BrowseMissionsPage() {
                       "text-[9px] font-black uppercase tracking-widest",
                       m.urgency === 'high' ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600"
                     )}>
-                      {m.urgency} Urgency
+                      {m.urgency}
                     </Badge>
                   </div>
                   <CardTitle className="text-xl font-headline font-bold leading-tight group-hover:text-primary transition-colors">
@@ -310,7 +327,7 @@ export default function BrowseMissionsPage() {
 
                 <CardFooter className="pt-4 pb-8 pl-8 pr-6">
                   <Button 
-                    className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold h-12 transition-all active:scale-95 group-hover:scale-[1.02]"
+                    className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold h-12 transition-all group-hover:scale-[1.02]"
                     onClick={() => setAcceptingRequest(m)}
                   >
                     Accept Mission <ChevronRight className="ml-2 w-4 h-4" />
@@ -324,37 +341,85 @@ export default function BrowseMissionsPage() {
 
       {/* 🚀 Accept Confirmation Modal */}
       <Dialog open={!!acceptingRequest} onOpenChange={(open) => !open && setAcceptingRequest(null)}>
-        <DialogContent className="rounded-3xl p-8">
+        <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[500px]">
           <DialogHeader>
             <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
               <Zap className="w-8 h-8 text-primary" />
             </div>
-            <DialogTitle className="text-2xl font-bold">Accept this Mission?</DialogTitle>
+            <DialogTitle className="text-2xl font-headline font-bold">Accept Mission?</DialogTitle>
             <DialogDescription className="text-slate-500 font-medium">
-              You are committing to help with <strong>"{acceptingRequest?.title}"</strong>.
+              You are committing to help with this neighborhood mission.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-6 space-y-4">
-            <div className="p-4 bg-slate-50 rounded-2xl space-y-2 border">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requester Info</p>
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm"><AvatarFallback>{acceptingRequest?.postedByName?.[0]}</AvatarFallback></Avatar>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{acceptingRequest?.postedByName}</p>
-                  <p className="text-xs text-slate-500">Coordinate via {acceptingRequest?.contactPreference || 'in-app'}</p>
-                </div>
+
+          <div className="py-6 space-y-6">
+            <div className="space-y-2">
+              <h4 className="text-lg font-bold text-slate-900 leading-tight">{acceptingRequest?.title}</h4>
+              <p className="text-sm text-slate-500 line-clamp-2">{acceptingRequest?.description}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Category</p>
+                <p className="text-sm font-bold capitalize">{acceptingRequest?.category}</p>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Urgency</p>
+                <p className={cn(
+                  "text-sm font-bold capitalize",
+                  acceptingRequest?.urgency === 'high' ? 'text-red-600' : 'text-emerald-600'
+                )}>{acceptingRequest?.urgency}</p>
               </div>
             </div>
+
+            <div className="p-5 bg-slate-50 rounded-3xl space-y-4 border border-slate-100">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10 ring-2 ring-white shadow-sm">
+                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${acceptingRequest?.createdBy}`} />
+                    <AvatarFallback>{acceptingRequest?.postedByName?.[0]}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Requester</p>
+                    <p className="text-sm font-bold text-slate-900">{acceptingRequest?.postedByName}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preference</p>
+                  <Badge variant="outline" className="bg-white border-slate-200 text-[10px] font-bold gap-1.5 h-6">
+                    {acceptingRequest?.contactPreference === 'whatsapp' ? <Smartphone className="w-3 h-3" /> : 
+                     acceptingRequest?.contactPreference === 'call' ? <Phone className="w-3 h-3" /> : 
+                     <MessageSquare className="w-3 h-3" />}
+                    {acceptingRequest?.contactPreference || 'In-App'}
+                  </Badge>
+                </div>
+              </div>
+
+              {requesterProfile?.phone && acceptingRequest?.contactPreference !== 'in-app' && (
+                <div className="flex items-center justify-between gap-3 p-3 bg-white rounded-xl border border-slate-100 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                    <Phone className="w-4 h-4 text-emerald-500" /> {requesterProfile.phone}
+                  </div>
+                  <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase">Direct Contact</span>
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
                <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                 Safety first: Only coordinate in public campus areas and let a friend know before you meet someone new.
+                 Safety reminder: Coordinate in public areas and verify identity before meeting.
                </p>
             </div>
           </div>
+
           <DialogFooter className="gap-3 sm:gap-0">
-            <Button variant="ghost" className="flex-1 rounded-xl font-bold h-12" onClick={() => setAcceptingRequest(null)}>Not Now</Button>
-            <Button className="flex-[2] rounded-xl bg-primary text-white font-bold h-12 shadow-lg shadow-primary/20" onClick={handleAcceptMission} disabled={loading}>
+            <Button variant="ghost" className="flex-1 rounded-2xl font-bold h-12 text-slate-500" onClick={() => setAcceptingRequest(null)}>Not Now</Button>
+            <Button 
+              className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12 shadow-lg shadow-emerald-500/20" 
+              onClick={handleAcceptMission} 
+              disabled={loading}
+            >
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
               Confirm & Help
             </Button>
