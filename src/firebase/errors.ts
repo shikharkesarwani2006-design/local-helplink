@@ -1,4 +1,3 @@
-
 'use client';
 import { getAuth, type User } from 'firebase/auth';
 import { getApps } from 'firebase/app';
@@ -82,8 +81,7 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
       const apps = getApps();
       if (apps.length > 0) {
         const firebaseAuth = getAuth(apps[0]);
-        // Only access currentUser if auth has been initialized.
-        // We avoid calling await here to keep construction synchronous where possible.
+        // Safety check: only attempt to access currentUser if auth service is definitely initialized.
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);

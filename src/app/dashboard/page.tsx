@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -60,7 +59,7 @@ const MapDashboard = dynamic(() => import("@/components/dashboard/MapDashboard")
 });
 
 export default function Dashboard() {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading, authInitialized } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
 
@@ -109,7 +108,7 @@ export default function Dashboard() {
 
   // CRITICAL: Only enable the collection listener once we have a user to avoid permission races
   const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery, { 
-    enabled: !!user 
+    enabled: !!user && authInitialized 
   });
 
   // Animated counters logic
@@ -223,9 +222,9 @@ export default function Dashboard() {
     { id: "emergency", label: "Emergency", icon: AlertTriangle, color: "text-rose-500" },
   ];
 
-  const isLoading = isUserLoading || isRequestsLoading;
+  const isLoading = isUserLoading || isRequestsLoading || !authInitialized;
 
-  if (!mounted || isUserLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -236,7 +235,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 pb-20">
       {/* 🚀 Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-secondary pt-12 pb-24 md:pt-16 md:pb-32 px-6">
+      <section className="relative overflow-hidden bg-gradient-to-br from-primary via-primary/90 to-secondary pt-16 pb-32 md:pt-24 md:pb-48 px-6">
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-secondary/20 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2" />
         
@@ -267,7 +266,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <main className="container px-4 sm:px-6 mx-auto -mt-16 space-y-12">
+      <main className="container px-4 sm:px-6 mx-auto -mt-24 relative z-20 space-y-12">
         {/* 🔥 Live Stats Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden group hover:-translate-y-1 transition-all duration-300">

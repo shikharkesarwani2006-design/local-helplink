@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
@@ -44,17 +43,18 @@ export interface FirebaseServicesAndUser {
 
 export interface UserHookResult {
   user: User | null;
-  currentUser: User | null; // Alias for user
+  currentUser: User | null;
   isUserLoading: boolean;
   userError: Error | null;
   isAuthInitialized: boolean;
-  authInitialized: boolean; // Alias for isAuthInitialized
+  authInitialized: boolean;
 }
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 /**
  * Main Firebase Provider that gates the application until Auth state is determined.
+ * This prevents race conditions where Firestore listeners start before Auth is ready.
  */
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
@@ -76,6 +76,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
+    // CRITICAL: onAuthStateChanged is used to determine when the initial auth check is done.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -105,8 +106,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [firebaseApp, firestore, auth, userAuthState, isAuthInitialized]);
 
-  // Loading Gate: Prevent rendering children (and Firestore listeners) 
-  // until the initial auth state is known.
+  // Loading Gate: Do NOT render children until the initial auth state is known.
+  // This ensures all hooks (like useCollection) start with a known auth state.
   if (!isAuthInitialized) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background z-[9999]">
@@ -152,6 +153,7 @@ export const useAuth = () => {
   const { auth, user, isAuthInitialized } = useFirebase();
   return {
     auth,
+    user,
     currentUser: user,
     authInitialized: isAuthInitialized,
   };

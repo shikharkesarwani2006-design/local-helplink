@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect, type ReactNode } from 'react';
@@ -11,8 +10,7 @@ interface FirebaseClientProviderProps {
 
 /**
  * Ensures Firebase is initialized once on the client and handles hydration mismatch.
- * It returns null on the server and the first client-side pass to ensure 
- * the DOM remains consistent before hydration.
+ * Guards the entire tree until client-side mounting is complete.
  */
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
   const [mounted, setMounted] = useState(false);
