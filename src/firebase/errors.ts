@@ -76,19 +76,20 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   
-  // Hardened check: Ensure we are on client and apps are initialized before calling getAuth
   if (typeof window !== 'undefined') {
     try {
       const apps = getApps();
       if (apps.length > 0) {
         const firebaseAuth = getAuth(apps[0]);
+        // Only access currentUser if auth has been initialized.
+        // We avoid calling await here to keep construction synchronous where possible.
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
         }
       }
     } catch (e) {
-      // Silence errors during error-object construction to prevent infinite loops.
+      // Construction failed, fallback to null auth.
     }
   }
 
