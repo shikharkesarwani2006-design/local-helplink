@@ -39,12 +39,16 @@ export interface FirebaseServicesAndUser {
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  isAuthInitialized: boolean;
 }
 
 export interface UserHookResult {
   user: User | null;
+  currentUser: User | null; // Alias for user
   isUserLoading: boolean;
   userError: Error | null;
+  isAuthInitialized: boolean;
+  authInitialized: boolean; // Alias for isAuthInitialized
 }
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
@@ -72,8 +76,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    // This listener handles the initial auth state resolution.
-    // We only set isAuthInitialized to true after the first callback fires.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -142,12 +144,17 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     user: context.user,
     isUserLoading: context.isUserLoading,
     userError: context.userError,
+    isAuthInitialized: context.isAuthInitialized,
   };
 };
 
-export const useAuth = (): Auth => {
-  const { auth } = useFirebase();
-  return auth;
+export const useAuth = () => {
+  const { auth, user, isAuthInitialized } = useFirebase();
+  return {
+    auth,
+    currentUser: user,
+    authInitialized: isAuthInitialized,
+  };
 };
 
 export const useFirestore = (): Firestore => {
@@ -172,6 +179,13 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
 }
 
 export const useUser = (): UserHookResult => {
-  const { user, isUserLoading, userError } = useFirebase();
-  return { user, isUserLoading, userError };
+  const { user, isUserLoading, userError, isAuthInitialized } = useFirebase();
+  return { 
+    user, 
+    currentUser: user,
+    isUserLoading, 
+    userError, 
+    isAuthInitialized,
+    authInitialized: isAuthInitialized 
+  };
 };
