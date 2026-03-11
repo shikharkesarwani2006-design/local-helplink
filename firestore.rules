@@ -11,10 +11,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper to check for admin role safely without causing evaluation loops
+    // Helper to check for admin role safely
     function isAdmin() {
       return isSignedIn() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
@@ -27,7 +26,9 @@ service cloud.firestore {
     // Help Requests: Authenticated users can browse (get/list) and create missions.
     match /requests/{requestId} {
       // Explicitly allow list and get for the community feed
-      allow read, list, get: if isSignedIn();
+      // Using individual methods ensures no ambiguity in permission checks
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
@@ -38,13 +39,13 @@ service cloud.firestore {
     }
 
     // Notifications: Strictly private to the recipient
-    match /notifications/{userId}/{document=**} {
+    match /notifications/{userId}/{allPaths=**} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      allow read, list: if isSignedIn();
+      allow read, list, get: if isSignedIn();
       allow create: if isSignedIn();
     }
 

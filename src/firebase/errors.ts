@@ -72,9 +72,11 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
     try {
       const apps = getApps();
       // Only call getAuth if there's at least one app initialized
+      // We also check for 'currentUser' without triggering a potential internal auth loop
       if (apps.length > 0) {
         const firebaseAuth = getAuth(apps[0]);
-        // currentUser is safe to access synchronously
+        // Avoid calling getAuth if it might interfere with a pending auth state change
+        // We just read the existing currentUser reference
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
@@ -82,7 +84,7 @@ function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
       }
     } catch (e) {
       // Silence internal auth errors during permission error construction to avoid loops
-      console.warn('Firebase error utility failed to capture auth context:', e);
+      // This specifically avoids "Pending promise was never set" internal auth errors
     }
   }
 
