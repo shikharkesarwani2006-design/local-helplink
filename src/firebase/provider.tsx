@@ -48,6 +48,9 @@ export interface UserHookResult {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
+/**
+ * Main Firebase Provider that gates the application until Auth state is determined.
+ */
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
   firebaseApp,
@@ -68,6 +71,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
+    // This listener handles the initial auth state resolution.
+    // We only set isAuthInitialized to true after the first callback fires.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -97,6 +102,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     };
   }, [firebaseApp, firestore, auth, userAuthState, isAuthInitialized]);
 
+  // Loading Gate: Prevent rendering children (and Firestore listeners) 
+  // until the initial auth state is known.
   if (!isAuthInitialized) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background z-[9999]">

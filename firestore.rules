@@ -25,10 +25,8 @@ service cloud.firestore {
 
     // Help Requests: Authenticated users can browse (get/list) and create missions.
     match /requests/{requestId} {
-      // Explicitly allow list and get for the community feed
-      // Using individual methods ensures no ambiguity in permission checks
-      allow list: if isSignedIn();
-      allow get: if isSignedIn();
+      // Explicitly allow read (get and list) for authenticated members
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
@@ -45,7 +43,7 @@ service cloud.firestore {
 
     // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
-      allow read, list, get: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
     }
 

@@ -2,6 +2,9 @@
 import { getAuth, type User } from 'firebase/auth';
 import { getApps } from 'firebase/app';
 
+/**
+ * Defines the context for a security rule denial.
+ */
 export type SecurityRuleContext = {
   path: string;
   operation: 'get' | 'list' | 'create' | 'update' | 'delete' | 'write';
@@ -35,6 +38,9 @@ interface SecurityRuleRequest {
   };
 }
 
+/**
+ * Builds a representation of the Firebase Auth object for error context.
+ */
 function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   if (!currentUser) {
     return null;
@@ -64,27 +70,25 @@ function buildAuthObject(currentUser: User | null): FirebaseAuthObject | null {
   };
 }
 
+/**
+ * Builds the simulated request object that caused the denial.
+ */
 function buildRequestObject(context: SecurityRuleContext): SecurityRuleRequest {
   let authObject: FirebaseAuthObject | null = null;
   
-  // Safely attempt to get Auth state only if an app is initialized and we are on the client
+  // Hardened check: Ensure we are on client and apps are initialized before calling getAuth
   if (typeof window !== 'undefined') {
     try {
       const apps = getApps();
-      // Only call getAuth if there's at least one app initialized
-      // We also check for 'currentUser' without triggering a potential internal auth loop
       if (apps.length > 0) {
         const firebaseAuth = getAuth(apps[0]);
-        // Avoid calling getAuth if it might interfere with a pending auth state change
-        // We just read the existing currentUser reference
         const currentUser = firebaseAuth.currentUser;
         if (currentUser) {
           authObject = buildAuthObject(currentUser);
         }
       }
     } catch (e) {
-      // Silence internal auth errors during permission error construction to avoid loops
-      // This specifically avoids "Pending promise was never set" internal auth errors
+      // Silence errors during error-object construction to prevent infinite loops.
     }
   }
 
@@ -101,6 +105,10 @@ function buildErrorMessage(requestObject: SecurityRuleRequest): string {
 ${JSON.stringify(requestObject, null, 2)}`;
 }
 
+/**
+ * A specialized error class for Firestore permission denials.
+ * Surfacing these during development provides rich context for debugging rules.
+ */
 export class FirestorePermissionError extends Error {
   public readonly request: SecurityRuleRequest;
 
@@ -110,7 +118,6 @@ export class FirestorePermissionError extends Error {
     this.name = 'FirebaseError';
     this.request = requestObject;
     
-    // Set the prototype explicitly for custom error classes in TS/ES
     Object.setPrototypeOf(this, FirestorePermissionError.prototype);
   }
 }
