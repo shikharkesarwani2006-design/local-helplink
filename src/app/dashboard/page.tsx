@@ -105,7 +105,10 @@ export default function Dashboard() {
     );
   }, [db, user?.uid]);
 
-  const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
+  // CRITICAL: Only enable the collection listener once we have a user to avoid permission races
+  const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery, { 
+    enabled: !!user 
+  });
 
   // Animated counters logic
   useEffect(() => {
@@ -220,8 +223,12 @@ export default function Dashboard() {
 
   const isLoading = isUserLoading || isRequestsLoading;
 
-  if (!mounted) {
-    return <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950" />;
+  if (!mounted || isUserLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (

@@ -9,10 +9,15 @@ interface FirebaseClientProviderProps {
 }
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
+  // Use a ref-like memo to ensure initialization only happens once on the client.
   const firebaseServices = useMemo(() => {
-    // Initialize Firebase on the client side, once per component mount.
+    if (typeof window === 'undefined') return null;
     return initializeFirebase();
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
+
+  if (!firebaseServices) {
+    return null; // Don't render anything on the server.
+  }
 
   return (
     <FirebaseProvider
