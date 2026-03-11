@@ -1,4 +1,3 @@
-
 'use client';
     
 import { useState, useEffect } from 'react';
@@ -8,6 +7,7 @@ import {
   DocumentData,
   FirestoreError,
   DocumentSnapshot,
+  refEqual
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -21,15 +21,15 @@ type WithId<T> = T & { id: string };
  * @template T Type of the document data.
  */
 export interface UseDocResult<T> {
-  data: WithId<T> | null; // Document data with ID, or null.
-  isLoading: boolean;       // True if loading.
-  loading: boolean;         // Alias for isLoading
-  error: FirestoreError | Error | null; // Error object, or null.
+  data: WithId<T> | null;
+  isLoading: boolean;
+  loading: boolean;
+  error: FirestoreError | Error | null;
 }
 
 /**
  * React hook to subscribe to a single Firestore document in real-time.
- * Gated by authentication state to prevent race conditions.
+ * Gated by authentication state and reference stability.
  */
 export function useDoc<T = any>(
   memoizedDocRef: DocumentReference<DocumentData> | null | undefined,
@@ -40,22 +40,26 @@ export function useDoc<T = any>(
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
+  // Stabilize reference
+  const [stableRef, setStableRef] = useState(memoizedDocRef);
   useEffect(() => {
-    // CRITICAL: Don't run until auth is fully initialized
+    if (!memoizedDocRef) {
+      if (stableRef) setStableRef(null);
+      return;
+    }
+    const isSame = stableRef && refEqual(memoizedDocRef, stableRef);
+    if (!isSame) {
+      setStableRef(memoizedDocRef);
+    }
+  }, [memoizedDocRef, stableRef]);
+
+  useEffect(() => {
     if (!authInitialized) {
       setIsLoading(true);
       return;
     }
     
-    // CRITICAL: Don't run if user is not logged in
-    if (!currentUser) {
-      setData(null);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
-    if (!memoizedDocRef) {
+    if (!currentUser || !stableRef) {
       setData(null);
       setIsLoading(false);
       setError(null);
@@ -66,7 +70,7 @@ export function useDoc<T = any>(
     setError(null);
 
     const unsubscribe = onSnapshot(
-      memoizedDocRef,
+      stableRef,
       (snapshot: DocumentSnapshot<DocumentData>) => {
         if (snapshot.exists()) {
           setData({ ...(snapshot.data() as T), id: snapshot.id });
@@ -77,22 +81,24 @@ export function useDoc<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        console.error('Firestore doc error:', err);
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: memoizedDocRef.path,
-        });
-
-        setError(contextualError);
+        if (err.code === 'permission-denied') {
+          const contextualError = new FirestorePermissionError({
+            operation: 'get',
+            path: stableRef.path,
+          });
+          errorEmitter.emit('permission-error', contextualError);
+          setError(contextualError);
+        } else {
+          console.error('Firestore doc error:', err);
+          setError(err);
+        }
         setData(null);
         setIsLoading(false);
-
-        errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [authInitialized, currentUser, memoizedDocRef]);
+  }, [authInitialized, currentUser, stableRef]);
 
   return { 
     data, 

@@ -1,45 +1,33 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, query, where, orderBy, onSnapshot, doc, runTransaction, increment } from "firebase/firestore";
-import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { useState } from "react";
+import { collection, query, where, orderBy, doc, runTransaction, increment } from "firebase/firestore";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Inbox, CheckCircle2, Clock, MessageSquare } from "lucide-react";
+import { Loader2, Inbox, CheckCircle2, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { RatingModal } from "@/components/profile/RatingModal";
 import { sendNotification } from "@/firebase/notifications";
 
 export default function MyRequests() {
-  const [myRequests, setMyRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!user || !db) {
-      setLoading(false);
-      return;
-    }
-
-    const q = query(
+  const myRequestsQuery = useMemoFirebase(() => {
+    if (!user || !db) return null;
+    return query(
       collection(db, "requests"),
       where("createdBy", "==", user.uid),
       orderBy("createdAt", "desc")
     );
+  }, [user?.uid, db]);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMyRequests(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user, db]);
+  const { data: myRequests, isLoading } = useCollection(myRequestsQuery);
 
   const handleCompleteRequest = async (request: any) => {
     if (!db || !user) return;
@@ -94,9 +82,9 @@ export default function MyRequests() {
       </header>
 
       <main className="container px-6 mx-auto mt-8">
-        {loading ? (
+        {isLoading ? (
           <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary h-12 w-12" /></div>
-        ) : myRequests.length === 0 ? (
+        ) : !myRequests || myRequests.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-secondary/30">
             <Inbox className="w-16 h-16 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-500">You haven't posted any help requests yet.</p>
