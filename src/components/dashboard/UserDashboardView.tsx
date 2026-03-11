@@ -8,7 +8,9 @@ import {
   query, 
   orderBy, 
   where, 
-  doc, 
+  doc,
+  increment,
+  runTransaction
 } from "firebase/firestore";
 import { 
   useFirestore, 
@@ -43,11 +45,12 @@ import {
   Wrench, 
   AlertTriangle, 
   XCircle,
-  User as UserIcon
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { User } from "firebase/auth";
+import { sendNotification } from "@/firebase/notifications";
 
 function HelperInfo({ helperId }: { helperId: string }) {
   const db = useFirestore();
@@ -74,6 +77,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [loading, setLoading] = useState(false);
 
   const myRequestsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -113,19 +117,55 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
     toast({ title: "Request Cancelled" });
   };
 
-  const handleCompleteRequest = (requestId: string) => {
-    if (!db) return;
-    updateDocumentNonBlocking(doc(db, "requests", requestId), { status: "completed" });
-    toast({ title: "Mission Completed!" });
+  const handleCompleteRequest = async (request: any) => {
+    if (!db || !user) return;
+    setLoading(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const reqRef = doc(db, "requests", request.id);
+        transaction.update(reqRef, { status: "completed" });
+        
+        if (request.acceptedBy) {
+          const volunteerRef = doc(db, "users", request.acceptedBy);
+          transaction.update(volunteerRef, { totalHelped: increment(1) });
+        }
+      });
+
+      if (request.acceptedBy) {
+        await sendNotification(db, request.acceptedBy, {
+          title: "Mission Completed! 🏆",
+          message: `The neighbor you helped has marked the mission as complete. Thank you!`,
+          type: "completed",
+          link: "/profile"
+        });
+      }
+
+      toast({ title: "Mission Completed!", description: "Thank you for strengthening the network." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to update mission." });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleOfferHelp = (request: any) => {
+  const handleOfferHelp = async (request: any) => {
     if (!db || !user) return;
+    const responseTime = Date.now() - request.createdAt.toDate().getTime();
+    
     updateDocumentNonBlocking(doc(db, "requests", request.id), {
       status: "accepted",
       acceptedBy: user.uid,
+      responseTime: responseTime
     });
-    toast({ title: "Help Offered!" });
+
+    await sendNotification(db, request.createdBy, {
+      title: "Help is on the way! 🚀",
+      message: `${profile.name} has accepted your request: "${request.title}"`,
+      type: "accepted",
+      link: "/requests/my"
+    });
+
+    toast({ title: "Help Offered!", description: "Coordinate with the requester." });
   };
 
   const categories = [
@@ -233,8 +273,9 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
                         <XCircle className="w-4 h-4 mr-2" /> Cancel
                       </Button>
                     ) : (
-                      <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 text-white font-bold" onClick={() => handleCompleteRequest(req.id)}>
-                        <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Complete
+                      <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 text-white font-bold" onClick={() => handleCompleteRequest(req)} disabled={loading}>
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                        Mark Complete
                       </Button>
                     )}
                   </CardFooter>

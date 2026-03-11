@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -33,7 +34,8 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
     setLoading(true);
     
     try {
-      // 1. ATOMIC TRANSACTION: Update helper stats and record review
+      // 1. ATOMIC TRANSACTION: Update helper rating and record review
+      // Note: totalHelped is now incremented on completion, not here.
       await runTransaction(db, async (transaction) => {
         const targetUserRef = doc(db, "users", toUser);
         const userDoc = await transaction.get(targetUserRef);
@@ -62,18 +64,17 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
           createdAt: Timestamp.now(),
         });
 
-        // Update Target User Profile
+        // Update Target User Profile Rating metadata
         transaction.update(targetUserRef, {
           rating: Number(newAverage.toFixed(2)),
-          totalRatingsCount: newCount,
-          totalHelped: (data.totalHelped || 0) + 1
+          totalRatingsCount: newCount
         });
       });
 
       // 2. Trigger System Notification
       sendNotification(db, toUser, {
-        title: "Mission High-Five!",
-        message: `A neighbor left you a ${score}-star review!`,
+        title: "New 5-Star Rating! ⭐",
+        message: `A neighbor left you a ${score}-star review for your help!`,
         type: "rated",
         link: "/profile"
       });

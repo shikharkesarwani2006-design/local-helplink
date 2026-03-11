@@ -7,7 +7,7 @@ export interface Notification {
   id?: string;
   title: string;
   message: string;
-  type: 'accepted' | 'completed' | 'rated' | 'system';
+  type: 'accepted' | 'completed' | 'rated' | 'system' | 'cancelled';
   link?: string;
   read: boolean;
   createdAt: Timestamp;

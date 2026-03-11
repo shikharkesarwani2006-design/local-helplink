@@ -8,7 +8,10 @@ import {
   query, 
   orderBy, 
   where, 
-  doc, 
+  doc,
+  increment,
+  runTransaction,
+  Timestamp
 } from "firebase/firestore";
 import { 
   useFirestore, 
@@ -17,13 +20,21 @@ import {
   useMemoFirebase, 
   updateDocumentNonBlocking,
 } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { 
   MapPin, 
   Clock, 
@@ -35,25 +46,33 @@ import {
   Heart, 
   TrendingUp, 
   MessageSquare, 
-  Wrench, 
-  BookOpen, 
-  Droplets, 
-  AlertTriangle,
   ChevronRight,
   Shield,
-  Plus
+  Phone,
+  Mail,
+  AlertTriangle,
+  XCircle,
+  Loader2,
+  PartyPopper
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { User } from "firebase/auth";
+import { sendNotification } from "@/firebase/notifications";
 
 export function VolunteerDashboardView({ profile, user }: { profile: any; user: User }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [skillFilter, setSkillFilter] = useState<string | null>(null);
+  
+  // Lifecycle States
+  const [acceptingRequest, setAcceptingRequest] = useState<any>(null);
+  const [completingRequest, setCompletingRequest] = useState<any>(null);
+  const [cancellingRequest, setCancellingRequest] = useState<any>(null);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // 1. My Active Help (Accepted by me)
   const activeHelpQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(
@@ -65,7 +84,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   }, [db, user?.uid]);
   const { data: activeMissions, isLoading: isActiveLoading } = useCollection(activeHelpQuery);
 
-  // 2. Available Request Feed (Open missions)
   const availableQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
@@ -81,7 +99,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
     
     return availableMissions
       .map(req => {
-        // Calculate match score based on volunteer skills
         const userSkills = profile?.skills || [];
         const isMatch = userSkills.some((s: string) => 
           req.title.toLowerCase().includes(s.toLowerCase()) || 
@@ -97,26 +114,94 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         return isNotMine && matchesSearch && matchesSkill;
       })
       .sort((a, b) => {
-        // Sort: Match First, then Urgency High First, then Date
         if (a.isMatch !== b.isMatch) return a.isMatch ? -1 : 1;
         if (a.urgency !== b.urgency) return a.urgency === 'high' ? -1 : 1;
         return 0;
       });
   }, [availableMissions, profile?.skills, searchQuery, skillFilter, user?.uid]);
 
-  const handleCompleteMission = (requestId: string) => {
-    if (!db) return;
-    updateDocumentNonBlocking(doc(db, "requests", requestId), { status: "completed" });
-    toast({ title: "Mission Completed!", description: "Thank you for your impact!" });
+  const handleAcceptMission = async () => {
+    if (!db || !user || !acceptingRequest) return;
+    setLoading(true);
+    try {
+      const responseTime = Date.now() - acceptingRequest.createdAt.toDate().getTime();
+      
+      await runTransaction(db, async (transaction) => {
+        const reqRef = doc(db, "requests", acceptingRequest.id);
+        transaction.update(reqRef, {
+          status: "accepted",
+          acceptedBy: user.uid,
+          responseTime: responseTime
+        });
+      });
+
+      await sendNotification(db, acceptingRequest.createdBy, {
+        title: "Mission Accepted! 🚀",
+        message: `${profile.name} is coming to help with "${acceptingRequest.title}"!`,
+        type: "accepted",
+        link: "/requests/my"
+      });
+
+      toast({ title: "Mission Accepted!", description: "Coordinate with the requester now." });
+      setAcceptingRequest(null);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to accept mission." });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAcceptMission = (request: any) => {
-    if (!db || !user) return;
-    updateDocumentNonBlocking(doc(db, "requests", request.id), {
-      status: "accepted",
-      acceptedBy: user.uid,
-    });
-    toast({ title: "Mission Accepted!", description: "Contact the requester to coordinate." });
+  const handleCompleteMission = async () => {
+    if (!db || !user || !completingRequest) return;
+    setLoading(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const reqRef = doc(db, "requests", completingRequest.id);
+        const volunteerRef = doc(db, "users", user.uid);
+        
+        transaction.update(reqRef, { status: "completed" });
+        transaction.update(volunteerRef, { totalHelped: increment(1) });
+      });
+
+      await sendNotification(db, completingRequest.createdBy, {
+        title: "Mission Completed! 🎉",
+        message: `Your request "${completingRequest.title}" has been marked as complete. Please rate your neighbor!`,
+        type: "completed",
+        link: "/profile"
+      });
+
+      setShowSuccess(true);
+      setCompletingRequest(null);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to complete mission." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelMission = async () => {
+    if (!db || !user || !cancellingRequest) return;
+    setLoading(true);
+    try {
+      await updateDocumentNonBlocking(doc(db, "requests", cancellingRequest.id), {
+        status: "open",
+        acceptedBy: null
+      });
+
+      await sendNotification(db, cancellingRequest.createdBy, {
+        title: "Volunteer Cancelled",
+        message: `The volunteer had to cancel your request "${cancellingRequest.title}". It is back in the open feed.`,
+        type: "cancelled",
+        link: "/requests/my"
+      });
+
+      toast({ title: "Mission Cancelled", description: "The request is back in the public feed." });
+      setCancellingRequest(null);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to cancel mission." });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getRank = (helped: number) => {
@@ -146,11 +231,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                   {skill}
                 </Badge>
               ))}
-              <Link href="/profile">
-                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-primary-foreground hover:bg-white/10 uppercase font-black">
-                  Manage Skills <ChevronRight className="w-3 h-3 ml-1" />
-                </Button>
-              </Link>
             </div>
           </div>
           
@@ -168,12 +248,11 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
       </section>
 
       <main className="container px-4 sm:px-6 mx-auto -mt-12 relative z-20 space-y-12">
-        {/* 📊 Volunteer Stats Card */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { label: "Total Helped", value: profile?.totalHelped || 0, icon: Heart, color: "bg-emerald-100 text-emerald-600" },
-            { label: "This Week", value: "3", icon: TrendingUp, color: "bg-blue-100 text-blue-600" },
-            { label: "Avg Response", value: "12m", icon: Clock, color: "bg-purple-100 text-purple-600" },
+            { label: "Weekly Progress", value: "3", icon: TrendingUp, color: "bg-blue-100 text-blue-600" },
+            { label: "Avg Response", value: profile?.responseTime ? `${(profile.responseTime / 60000).toFixed(0)}m` : "12m", icon: Clock, color: "bg-purple-100 text-purple-600" },
             { label: "Rating", value: profile?.rating?.toFixed(1) || "5.0", icon: Star, color: "bg-amber-100 text-amber-600" },
           ].map((stat, i) => (
             <Card key={i} className="border-none shadow-xl bg-white rounded-3xl group">
@@ -216,25 +295,29 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                     <CardTitle className="text-lg font-headline font-bold leading-tight">{req.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="flex-grow space-y-4">
-                    <div className="p-3 bg-slate-50 rounded-2xl flex items-center justify-between">
-                       <div className="flex items-center gap-2">
-                          <Avatar className="h-8 w-8">
+                    <div className="p-4 bg-slate-50 rounded-2xl space-y-3">
+                       <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
                              <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${req.createdBy}`} />
                              <AvatarFallback>?</AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col">
-                             <span className="text-xs font-bold">{req.postedByName}</span>
+                             <span className="text-sm font-bold">{req.postedByName}</span>
                              <span className="text-[10px] text-slate-400">{req.location?.area}</span>
                           </div>
                        </div>
-                       <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/10">
-                          <MessageSquare className="w-4 h-4" />
-                       </Button>
+                       <div className="pt-2 border-t flex flex-col gap-1">
+                          <div className="flex items-center gap-2 text-xs text-slate-600"><Phone className="w-3 h-3" /> Requester Phone: (Private)</div>
+                          <div className="flex items-center gap-2 text-xs text-slate-600"><Mail className="w-3 h-3" /> {req.postedByName.toLowerCase()}@university.edu</div>
+                       </div>
                     </div>
                   </CardContent>
                   <CardFooter className="pt-4 border-t border-slate-50 flex gap-2">
-                    <Button variant="default" className="w-full rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => handleCompleteMission(req.id)}>
-                      Mark as Completed
+                    <Button variant="ghost" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => setCancellingRequest(req)}>
+                      <XCircle className="w-4 h-4 mr-2" /> Cancel
+                    </Button>
+                    <Button variant="default" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => setCompletingRequest(req)}>
+                      Mark Complete
                     </Button>
                   </CardFooter>
                 </Card>
@@ -267,10 +350,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                 >
                   <Star className="w-3.5 h-3.5" /> Skill Matches
                 </button>
-              </div>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input placeholder="Filter title..." className="pl-11 h-10 bg-white rounded-full text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
             </div>
           </div>
@@ -329,7 +408,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                   <CardFooter className="pt-4 pb-8 pl-8 pr-6">
                     <Button 
                       className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold h-12 transition-all group-hover:scale-[1.02]"
-                      onClick={() => handleAcceptMission(request)}
+                      onClick={() => setAcceptingRequest(request)}
                     >
                       Accept & Help <ChevronRight className="ml-2 w-4 h-4" />
                     </Button>
@@ -340,6 +419,92 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
           )}
         </section>
       </main>
+
+      {/* Accept Confirmation Modal */}
+      <Dialog open={!!acceptingRequest} onOpenChange={(open) => !open && setAcceptingRequest(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Accept Mission?</DialogTitle>
+            <DialogDescription>
+              You are committing to help with <strong>"{acceptingRequest?.title}"</strong>.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="p-4 bg-slate-50 rounded-2xl space-y-2 border">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Requester Contact</p>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-8 w-8"><AvatarFallback>{acceptingRequest?.postedByName?.[0]}</AvatarFallback></Avatar>
+                <div>
+                  <p className="text-sm font-bold">{acceptingRequest?.postedByName}</p>
+                  <p className="text-xs text-slate-500">Member since 2024</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-amber-600 font-medium">
+               <AlertTriangle className="w-4 h-4" /> Please coordinate safely in public campus areas.
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setAcceptingRequest(null)}>Cancel</Button>
+            <Button className="flex-1 rounded-xl bg-primary text-white font-bold" onClick={handleAcceptMission} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Confirm & Help
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete Confirmation Modal */}
+      <Dialog open={!!completingRequest} onOpenChange={(open) => !open && setCompletingRequest(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Mark as Completed?</DialogTitle>
+            <DialogDescription>
+              Great job! This mission will be removed from your active list and your neighbor will be notified.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-6">
+            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCompletingRequest(null)}>Not Yet</Button>
+            <Button className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={handleCompleteMission} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Yes, Completed"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Confirmation Modal */}
+      <Dialog open={!!cancellingRequest} onOpenChange={(open) => !open && setCancellingRequest(null)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Cancel Mission?</DialogTitle>
+            <DialogDescription>
+              If you can't help anymore, cancelling will put this request back in the public feed for others.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 pt-6">
+            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCancellingRequest(null)}>Keep Helping</Button>
+            <Button variant="destructive" className="flex-1 rounded-xl font-bold" onClick={handleCancelMission} disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Cancel Mission"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success Screen */}
+      <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+        <DialogContent className="rounded-[3rem] p-12 text-center">
+           <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
+              <PartyPopper className="w-12 h-12 text-emerald-600" />
+           </div>
+           <h2 className="text-4xl font-headline font-bold text-slate-900 mb-4">Great job! 🎉</h2>
+           <p className="text-slate-500 mb-8 max-w-sm mx-auto">
+              You've successfully helped a neighbor. Your impact points have been updated and your community rank is growing!
+           </p>
+           <Button className="w-full h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => setShowSuccess(false)}>
+              Back to Dashboard
+           </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

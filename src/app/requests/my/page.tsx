@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, orderBy, onSnapshot, doc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, doc, runTransaction, increment } from "firebase/firestore";
 import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,10 +11,12 @@ import { Loader2, Inbox, CheckCircle2, Clock, MessageSquare } from "lucide-react
 import { formatDistanceToNow } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { RatingModal } from "@/components/profile/RatingModal";
+import { sendNotification } from "@/firebase/notifications";
 
 export default function MyRequests() {
   const [myRequests, setMyRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -25,7 +27,6 @@ export default function MyRequests() {
       return;
     }
 
-    // Requests I created
     const q = query(
       collection(db, "requests"),
       where("createdBy", "==", user.uid),
@@ -40,13 +41,38 @@ export default function MyRequests() {
     return () => unsubscribe();
   }, [user, db]);
 
-  const handleCompleteRequest = (requestId: string) => {
-    if (!db) return;
-    updateDocumentNonBlocking(doc(db, "requests", requestId), { status: "completed" });
-    toast({
-      title: "Mission Completed",
-      description: "Great job resolving this community need!",
-    });
+  const handleCompleteRequest = async (request: any) => {
+    if (!db || !user) return;
+    setActionLoading(true);
+    try {
+      await runTransaction(db, async (transaction) => {
+        const reqRef = doc(db, "requests", request.id);
+        transaction.update(reqRef, { status: "completed" });
+        
+        if (request.acceptedBy) {
+          const volunteerRef = doc(db, "users", request.acceptedBy);
+          transaction.update(volunteerRef, { totalHelped: increment(1) });
+        }
+      });
+
+      if (request.acceptedBy) {
+        await sendNotification(db, request.acceptedBy, {
+          title: "Mission Completed! 🏆",
+          message: `Your neighbor confirmed you completed the mission: "${request.title}"`,
+          type: "completed",
+          link: "/profile"
+        });
+      }
+
+      toast({
+        title: "Mission Completed",
+        description: "Great job resolving this community need!",
+      });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Error", description: "Failed to mark as complete." });
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -103,9 +129,10 @@ export default function MyRequests() {
                       <Button 
                         size="sm" 
                         className="bg-primary hover:bg-primary/90 text-white font-bold rounded-full"
-                        onClick={() => handleCompleteRequest(req.id)}
+                        onClick={() => handleCompleteRequest(req)}
+                        disabled={actionLoading}
                       >
-                        Mark Completed
+                        {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Mark Completed"}
                       </Button>
                     </div>
                   )}
