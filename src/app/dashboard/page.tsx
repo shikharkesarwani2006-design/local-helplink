@@ -43,7 +43,8 @@ import {
   Sparkles,
   Plus,
   ArrowRight,
-  Trophy
+  Trophy,
+  Loader2
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { sendNotification } from "@/firebase/notifications";
