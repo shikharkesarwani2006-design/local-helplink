@@ -53,19 +53,6 @@ export function AppSidebar() {
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userRef);
 
-  if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
-
-  const handleLogout = async () => {
-    try {
-      if (!auth) return;
-      await signOut(auth);
-      router.push("/");
-      if (isMobile) setOpenMobile(false);
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
-  };
-
   const mainLinks = useMemo(() => {
     if (profile?.role === 'volunteer') {
       return [
@@ -93,10 +80,24 @@ export function AppSidebar() {
     ];
   }, [profile?.role]);
 
-  const personalLinks = [
+  const personalLinks = useMemo(() => [
     { label: "My Profile", href: "/profile", icon: User },
     { label: "Leaderboard", href: "#", icon: Trophy },
-  ];
+  ], []);
+
+  // Early return must happen AFTER all hooks are called
+  if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
+
+  const handleLogout = async () => {
+    try {
+      if (!auth) return;
+      await signOut(auth);
+      router.push("/");
+      if (isMobile) setOpenMobile(false);
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+  };
 
   const handleLinkClick = () => {
     if (isMobile) setOpenMobile(false);
