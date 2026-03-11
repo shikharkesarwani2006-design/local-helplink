@@ -40,6 +40,7 @@ import {
   AlertTriangle,
   Zap,
   Plus,
+  PlusCircle,
   ArrowRight,
   Trophy,
   Loader2,
