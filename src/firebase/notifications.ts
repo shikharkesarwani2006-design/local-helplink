@@ -1,4 +1,3 @@
-
 'use client';
 
 import { collection, addDoc, Timestamp, Firestore } from 'firebase/firestore';
@@ -23,6 +22,7 @@ export async function sendNotification(
 ) {
   try {
     const notificationsRef = collection(db, 'notifications', recipientId, 'items');
+    // Using addDoc here within a utility. The caller handles the async flow.
     await addDoc(notificationsRef, {
       ...notification,
       read: false,

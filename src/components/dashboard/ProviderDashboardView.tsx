@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -118,6 +117,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         });
       });
 
+      // Notify Requester
       await sendNotification(db, request.createdBy, {
         title: "Professional Provider Assigned! 🔧",
         message: `${profile.name} (Service Provider) has accepted your request!`,
@@ -144,6 +144,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         transaction.update(providerRef, { totalHelped: increment(1) });
       });
 
+      // Notify Requester
       await sendNotification(db, request.createdBy, {
         title: "Service Completed! 🎉",
         message: `${profile.name} marked the service as complete. Please leave a rating!`,
@@ -324,7 +325,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {activeJobs?.map((req) => (
-                  <Card key={req.id} className="rounded-[2rem] border-none shadow-xl bg-white overflow-hidden flex flex-col border-l-4 border-l-amber-500">
+                  <Card key={req.id} className="rounded-3xl border-none shadow-xl bg-white overflow-hidden flex flex-col border-l-4 border-l-amber-500">
                     <CardHeader className="pb-4">
                       <div className="flex justify-between items-center mb-2">
                         <Badge className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase">Job in Progress</Badge>

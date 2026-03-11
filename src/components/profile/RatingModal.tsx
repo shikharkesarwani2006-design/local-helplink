@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -35,7 +34,6 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
     
     try {
       // 1. ATOMIC TRANSACTION: Update helper rating and record review
-      // Note: totalHelped is now incremented on completion, not here.
       await runTransaction(db, async (transaction) => {
         const targetUserRef = doc(db, "users", toUser);
         const userDoc = await transaction.get(targetUserRef);

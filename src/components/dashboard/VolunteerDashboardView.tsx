@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -135,6 +134,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         });
       });
 
+      // Notify Requester
       await sendNotification(db, acceptingRequest.createdBy, {
         title: "Mission Accepted! 🚀",
         message: `${profile.name} is coming to help with "${acceptingRequest.title}"!`,
@@ -163,6 +163,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         transaction.update(volunteerRef, { totalHelped: increment(1) });
       });
 
+      // Notify Requester
       await sendNotification(db, completingRequest.createdBy, {
         title: "Mission Completed! 🎉",
         message: `Your request "${completingRequest.title}" has been marked as complete. Please rate your neighbor!`,
@@ -188,6 +189,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         acceptedBy: null
       });
 
+      // Notify Requester
       await sendNotification(db, cancellingRequest.createdBy, {
         title: "Volunteer Cancelled",
         message: `The volunteer had to cancel your request "${cancellingRequest.title}". It is back in the open feed.`,
@@ -497,7 +499,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
               <PartyPopper className="w-12 h-12 text-emerald-600" />
            </div>
            <h2 className="text-4xl font-headline font-bold text-slate-900 mb-4">Great job! 🎉</h2>
-           <p className="text-slate-500 mb-8 max-w-sm mx-auto">
+           <p className="text-slate-500 mb-8 max-sm mx-auto">
               You've successfully helped a neighbor. Your impact points have been updated and your community rank is growing!
            </p>
            <Button className="w-full h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => setShowSuccess(false)}>

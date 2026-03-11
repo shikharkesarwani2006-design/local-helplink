@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -131,6 +130,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         }
       });
 
+      // Send notification to the volunteer
       if (request.acceptedBy) {
         await sendNotification(db, request.acceptedBy, {
           title: "Mission Completed! 🏆",
@@ -158,6 +158,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
       responseTime: responseTime
     });
 
+    // Notify Requester
     await sendNotification(db, request.createdBy, {
       title: "Help is on the way! 🚀",
       message: `${profile.name} has accepted your request: "${request.title}"`,

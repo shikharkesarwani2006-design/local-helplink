@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -41,12 +40,15 @@ export function NotificationDrawer() {
   const { data: notifications, isLoading } = useCollection(notificationsQuery);
   const unreadCount = notifications?.filter(n => !n.read).length || 0;
 
+  // Desktop Notifications & Haptics
   useEffect(() => {
     if (unreadCount > prevUnreadCount.current && !open) {
+      // Haptic feedback
       if ("vibrate" in navigator) {
         navigator.vibrate([100, 50, 100]);
       }
 
+      // Browser notification
       if ("Notification" in window && Notification.permission === "granted") {
         const lastNotif = notifications?.find(n => !n.read);
         if (lastNotif) {
@@ -74,6 +76,7 @@ export function NotificationDrawer() {
     unreadOnes.forEach(n => {
       batch.update(doc(db, "notifications", user.uid, "items", n.id), { read: true });
     });
+    // Batch commit is standard
     await batch.commit();
   };
 
@@ -160,4 +163,3 @@ export function NotificationDrawer() {
     </Sheet>
   );
 }
-
