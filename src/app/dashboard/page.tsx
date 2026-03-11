@@ -6,6 +6,7 @@ import { doc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
 import { UserDashboardView } from "@/components/dashboard/UserDashboardView";
 import { VolunteerDashboardView } from "@/components/dashboard/VolunteerDashboardView";
+import { ProviderDashboardView } from "@/components/dashboard/ProviderDashboardView";
 
 export default function Dashboard() {
   const { user, isUserLoading, authInitialized } = useUser();
@@ -25,6 +26,10 @@ export default function Dashboard() {
   // Route to the appropriate dashboard view based on role
   if (profile?.role === "volunteer") {
     return <VolunteerDashboardView profile={profile} user={user!} />;
+  }
+
+  if (profile?.role === "provider") {
+    return <ProviderDashboardView profile={profile} user={user!} />;
   }
 
   return <UserDashboardView profile={profile} user={user!} />;
