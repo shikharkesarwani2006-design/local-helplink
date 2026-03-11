@@ -8,6 +8,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import Navbar from '@/components/Navbar';
 import { ThemeProvider } from '@/components/ThemeProvider';
+import { CriticalAlertBanner } from '@/components/notifications/CriticalAlertBanner';
 
 export const metadata: Metadata = {
   title: 'Local HelpLink | Hyperlocal Emergency & Skill Exchange',
@@ -39,6 +40,7 @@ export default function RootLayout({
                 <AppSidebar />
                 <div className="flex flex-col flex-1 min-w-0">
                   <Navbar />
+                  <CriticalAlertBanner />
                   <main className="flex-1" role="main">
                     {children}
                   </main>

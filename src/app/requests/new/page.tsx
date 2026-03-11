@@ -1,9 +1,10 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import Link from "next/link";
+import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where } from "firebase/firestore";
 import { useFirestore, useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,14 +20,16 @@ import {
   Send, 
   MapPin, 
   Clock, 
-  AlertCircle,
   CheckCircle2,
   ChevronRight,
-  Info
+  Info,
+  X,
+  Plus,
+  History,
+  LayoutDashboard
 } from "lucide-react";
 import { draftHelpRequest } from "@/ai/flows/draft-help-request";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
 
 const MAX_DESC_LENGTH = 500;
 
@@ -40,10 +43,13 @@ export default function NewRequest() {
     lat: null as number | null,
     lng: null as number | null,
     contactPreference: "in-app",
+    skills: [] as string[],
   });
   
+  const [skillInput, setSkillInput] = useState("");
   const [isDrafting, setIsDrafting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successData, setSuccessData] = useState<{ notified: number } | null>(null);
   
   const db = useFirestore();
   const { user } = useUser();
@@ -89,6 +95,67 @@ export default function NewRequest() {
     }
   };
 
+  const notifyMatchingHelpers = async (requestId: string, request: any) => {
+    if (!db) return 0;
+
+    // 1. Query volunteers matching category or skills
+    const volunteerQueries = [
+      query(collection(db, 'users'), where('role', '==', 'volunteer'), where('skills', 'array-contains', request.category))
+    ];
+    
+    if (request.skills.length > 0) {
+      volunteerQueries.push(query(collection(db, 'users'), where('role', '==', 'volunteer'), where('skills', 'array-contains-any', request.skills)));
+    }
+
+    // 2. Query service providers matching category
+    const providersQuery = query(collection(db, 'users'), where('role', '==', 'provider'), where('serviceCategory', '==', request.category.charAt(0).toUpperCase() + request.category.slice(1)));
+
+    // 3. Special Case: Emergency/Blood/High Urgency - Notify ALL Volunteers
+    const allVolunteersQuery = query(collection(db, 'users'), where('role', '==', 'volunteer'));
+
+    const snaps = await Promise.all([
+      ...volunteerQueries.map(q => getDocs(q)),
+      getDocs(providersQuery)
+    ]);
+
+    let helpersToNotifyMap = new Map<string, any>();
+
+    if (request.urgency === 'high' || request.category === 'blood' || request.category === 'emergency') {
+      const allVolSnap = await getDocs(allVolunteersQuery);
+      allVolSnap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
+    } else {
+      snaps.forEach(snap => {
+        snap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
+      });
+    }
+
+    // Remove self if I am a helper
+    helpersToNotifyMap.delete(user!.uid);
+
+    const getNotifMessage = (req: any) => {
+      const urgencyEmoji = { high: '🔴', medium: '🟡', low: '🟢' }[req.urgency as 'high' | 'medium' | 'low'];
+      const categoryEmoji: Record<string, string> = { blood: '🩸', tutor: '📚', repair: '🔧', emergency: '🚨', other: '💬' };
+      return `${urgencyEmoji} ${categoryEmoji[req.category] || '💬'} New ${req.category} request near you: "${req.title}" — ${req.area}`;
+    };
+
+    const notifPromises = Array.from(helpersToNotifyMap.keys()).map(helperId => {
+      return addDoc(collection(db, 'notifications', helperId, 'items'), {
+        type: 'new_request',
+        category: request.category,
+        urgency: request.urgency,
+        requestId: requestId,
+        title: request.title,
+        area: request.area,
+        message: getNotifMessage(request),
+        read: false,
+        createdAt: serverTimestamp()
+      });
+    });
+
+    await Promise.all(notifPromises);
+    return notifPromises.length;
+  };
+
   const calculateExpiry = (urgency: string) => {
     const now = new Date();
     if (urgency === "high") now.setHours(now.getHours() + 2);
@@ -120,18 +187,20 @@ export default function NewRequest() {
           lat: formData.lat,
           lng: formData.lng,
         },
+        skills: formData.skills,
         postedByName: user.displayName || user.email?.split('@')[0] || "Member",
         contactPreference: formData.contactPreference,
       };
 
-      await addDoc(collection(db, "requests"), requestPayload);
+      const docRef = await addDoc(collection(db, "requests"), requestPayload);
+      const notifiedCount = await notifyMatchingHelpers(docRef.id, requestPayload);
 
+      setSuccessData({ notified: notifiedCount });
+      
       toast({
         title: "Mission Broadcasted!",
-        description: "Your neighbors have been notified of your request.",
+        description: `Notified ${notifiedCount} helpers in your area.`,
       });
-      
-      router.push("/dashboard");
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -141,6 +210,17 @@ export default function NewRequest() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const addSkillTag = () => {
+    if (skillInput.trim() && !formData.skills.includes(skillInput.trim())) {
+      setFormData({ ...formData, skills: [...formData.skills, skillInput.trim()] });
+      setSkillInput("");
+    }
+  };
+
+  const removeSkillTag = (tag: string) => {
+    setFormData({ ...formData, skills: formData.skills.filter(s => s !== tag) });
   };
 
   const isValid = 
@@ -153,6 +233,38 @@ export default function NewRequest() {
     { id: "medium", label: "Medium", icon: "🟡", color: "border-amber-500 bg-amber-50 dark:bg-amber-950/20 text-amber-600", desc: "12hr Response" },
     { id: "low", label: "Normal", icon: "🟢", color: "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600", desc: "24hr Response" }
   ];
+
+  if (successData) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+        <Card className="max-w-md w-full rounded-[3rem] p-12 text-center space-y-8 shadow-2xl border-none">
+          <div className="bg-emerald-100 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto animate-bounce">
+            <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-headline font-bold text-slate-900">Request Posted!</h2>
+            <p className="text-slate-500">
+              We've notified <span className="font-bold text-primary">{successData.notified} helpers</span> matching your needs.
+            </p>
+          </div>
+          <div className="bg-slate-50 p-6 rounded-3xl border space-y-1">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Next Step</p>
+            <p className="text-sm font-medium text-slate-600 leading-relaxed">
+              Helpers are reviewing your request. You'll receive a notification here as soon as someone accepts.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Button asChild className="h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg">
+              <Link href="/requests/my">View My Requests <History className="ml-2 w-5 h-5" /></Link>
+            </Button>
+            <Button variant="ghost" className="h-12 rounded-2xl font-bold text-slate-500" onClick={() => setSuccessData(null)}>
+              Post Another Need
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20 pt-8">
@@ -233,6 +345,30 @@ export default function NewRequest() {
                       <span className="text-[10px] font-black uppercase tracking-tighter">{level.label}</span>
                       <span className="text-[9px] text-slate-400 font-bold hidden xs:block">{level.desc}</span>
                     </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Targeted Skills (Optional Tags)</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="e.g. Python, Plumber, First Aid" 
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkillTag())}
+                    className="h-11 rounded-xl"
+                  />
+                  <Button type="button" size="icon" variant="secondary" className="rounded-xl" onClick={addSkillTag}>
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.skills.map(skill => (
+                    <Badge key={skill} className="bg-primary/10 text-primary hover:bg-primary/20 border-none gap-1 py-1 px-3">
+                      {skill}
+                      <X className="w-3 h-3 cursor-pointer" onClick={() => removeSkillTag(skill)} />
+                    </Badge>
                   ))}
                 </div>
               </div>

@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Sheet, 
   SheetContent, 
@@ -12,7 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bell, CheckCircle2, Star, Zap, Clock, Inbox, MoreHorizontal } from "lucide-react";
+import { Bell, CheckCircle2, Star, Zap, Clock, Inbox, MoreHorizontal, AlertCircle, MessageSquare } from "lucide-react";
 import { 
   useUser, 
   useFirestore, 
@@ -22,10 +24,12 @@ import {
 } from "@/firebase";
 import { query, collection, orderBy, doc, writeBatch } from "firebase/firestore";
 import { formatDistanceToNow } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export function NotificationDrawer() {
   const { user } = useUser();
   const db = useFirestore();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const prevUnreadCount = useRef(0);
 
@@ -52,7 +56,7 @@ export function NotificationDrawer() {
       if ("Notification" in window && Notification.permission === "granted") {
         const lastNotif = notifications?.find(n => !n.read);
         if (lastNotif) {
-          new Notification(lastNotif.title, {
+          new Notification(lastNotif.title || "New HelpLink Alert", {
             body: lastNotif.message,
           });
         }
@@ -76,12 +80,29 @@ export function NotificationDrawer() {
     unreadOnes.forEach(n => {
       batch.update(doc(db, "notifications", user.uid, "items", n.id), { read: true });
     });
-    // Batch commit is standard
     await batch.commit();
   };
 
-  const getNotificationIcon = (type: string) => {
+  const handleNotificationClick = (n: any) => {
+    if (!db || !user?.uid) return;
+    if (!n.read) {
+      updateDocumentNonBlocking(doc(db, "notifications", user.uid, "items", n.id), { read: true });
+    }
+    setOpen(false);
+    
+    // Intelligent Navigation
+    if (n.type === 'new_request') {
+      router.push(`/volunteer/missions?id=${n.requestId}`);
+    } else if (n.type === 'accepted' || n.type === 'completed') {
+      router.push('/profile');
+    } else if (n.type === 'rated') {
+      router.push('/profile?tab=reviews');
+    }
+  };
+
+  const getNotificationIcon = (type: string, urgency?: string) => {
     switch (type) {
+      case 'new_request': return <AlertCircle className={cn("w-4 h-4", urgency === 'high' ? "text-red-500" : "text-primary")} />;
       case 'accepted': return <Zap className="w-4 h-4 text-primary" />;
       case 'completed': return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       case 'rated': return <Star className="w-4 h-4 text-amber-500" />;
@@ -133,16 +154,21 @@ export function NotificationDrawer() {
               notifications?.map((n) => (
                 <div 
                   key={n.id} 
-                  className={`p-6 flex gap-4 transition-colors hover:bg-slate-50/50 cursor-pointer ${!n.read ? 'bg-indigo-50/30' : ''}`}
-                  onClick={() => !n.read && updateDocumentNonBlocking(doc(db, "notifications", user!.uid, "items", n.id), { read: true })}
+                  className={`p-6 flex gap-4 transition-colors hover:bg-slate-50/50 cursor-pointer ${!n.read ? 'bg-indigo-50/30 border-l-4 border-l-primary' : ''}`}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <div className={`mt-1 h-10 w-10 shrink-0 rounded-xl flex items-center justify-center ${!n.read ? 'bg-white shadow-sm ring-1 ring-indigo-100' : 'bg-slate-100'}`}>
-                    {getNotificationIcon(n.type)}
+                    {getNotificationIcon(n.type, n.urgency)}
                   </div>
-                  <div className="space-y-1">
-                    <p className={`text-sm leading-snug ${!n.read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
-                      {n.title}
-                    </p>
+                  <div className="space-y-1 flex-grow">
+                    <div className="flex justify-between items-start gap-2">
+                      <p className={`text-sm leading-snug ${!n.read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                        {n.title || (n.type === 'new_request' ? "Help Needed Nearby" : "Update")}
+                      </p>
+                      {n.urgency === 'high' && (
+                        <Badge className="bg-red-50 text-red-600 border-none text-[8px] font-black uppercase px-1.5 h-4">Critical</Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-500 line-clamp-2">{n.message}</p>
                     <div className="flex items-center gap-2 pt-1">
                       <Clock className="w-3 h-3 text-slate-400" />
