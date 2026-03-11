@@ -10,7 +10,9 @@ import {
   doc,
   increment,
   runTransaction,
-  Timestamp
+  Timestamp,
+  startAt,
+  endAt
 } from "firebase/firestore";
 import { 
   useFirestore, 
@@ -52,9 +54,10 @@ import {
   AlertTriangle,
   XCircle,
   Loader2,
-  PartyPopper
+  PartyPopper,
+  Medal
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { User } from "firebase/auth";
 import { sendNotification } from "@/firebase/notifications";
@@ -72,6 +75,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // 1. ACTIVE MISSIONS (In Progress)
   const activeHelpQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(
@@ -83,6 +87,19 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   }, [db, user?.uid]);
   const { data: activeMissions, isLoading: isActiveLoading } = useCollection(activeHelpQuery);
 
+  // 2. COMPLETED MISSIONS (For Stats)
+  const completedMissionsQuery = useMemoFirebase(() => {
+    if (!db || !user) return null;
+    return query(
+      collection(db, "requests"),
+      where("acceptedBy", "==", user.uid),
+      where("status", "==", "completed"),
+      orderBy("createdAt", "desc")
+    );
+  }, [db, user?.uid]);
+  const { data: completedMissions } = useCollection(completedMissionsQuery);
+
+  // 3. AVAILABLE MISSIONS (Global Feed)
   const availableQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
@@ -92,6 +109,32 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
     );
   }, [db]);
   const { data: availableMissions, isLoading: isAvailableLoading } = useCollection(availableQuery);
+
+  // Stats Calculations
+  const stats = useMemo(() => {
+    if (!completedMissions) return { weekly: 0, avgResponse: "0m" };
+    
+    const sevenDaysAgo = subDays(new Date(), 7);
+    const weeklyCount = completedMissions.filter(m => {
+      const completedDate = m.completedAt?.toDate() || m.createdAt.toDate();
+      return completedDate >= sevenDaysAgo;
+    }).length;
+
+    const responseTimes = completedMissions
+      .map(m => m.responseTime)
+      .filter(t => t !== undefined && t !== null);
+    
+    const avgMs = responseTimes.length > 0 
+      ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length 
+      : 0;
+    
+    const avgMins = Math.round(avgMs / 60000);
+
+    return {
+      weekly: weeklyCount,
+      avgResponse: avgMins > 0 ? `${avgMins}m` : profile?.responseTime ? `${(profile.responseTime / 60000).toFixed(0)}m` : "12m"
+    };
+  }, [completedMissions, profile?.responseTime]);
 
   const processedMissions = useMemo(() => {
     if (!availableMissions) return [];
@@ -130,6 +173,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         transaction.update(reqRef, {
           status: "accepted",
           acceptedBy: user.uid,
+          acceptedAt: serverTimestamp(),
           responseTime: responseTime
         });
       });
@@ -159,7 +203,10 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         const reqRef = doc(db, "requests", completingRequest.id);
         const volunteerRef = doc(db, "users", user.uid);
         
-        transaction.update(reqRef, { status: "completed" });
+        transaction.update(reqRef, { 
+          status: "completed",
+          completedAt: serverTimestamp()
+        });
         transaction.update(volunteerRef, { totalHelped: increment(1) });
       });
 
@@ -186,7 +233,8 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
     try {
       await updateDocumentNonBlocking(doc(db, "requests", cancellingRequest.id), {
         status: "open",
-        acceptedBy: null
+        acceptedBy: null,
+        acceptedAt: null
       });
 
       // Notify Requester
@@ -207,7 +255,8 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   };
 
   const getRank = (helped: number) => {
-    if (helped >= 50) return { label: "Gold", color: "text-amber-500", icon: Trophy };
+    if (helped >= 50) return { label: "Platinum", color: "text-indigo-400", icon: Medal };
+    if (helped >= 30) return { label: "Gold", color: "text-amber-500", icon: Trophy };
     if (helped >= 10) return { label: "Silver", color: "text-slate-400", icon: Shield };
     return { label: "Bronze", color: "text-orange-600", icon: Heart };
   };
@@ -253,9 +302,9 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { label: "Total Helped", value: profile?.totalHelped || 0, icon: Heart, color: "bg-emerald-100 text-emerald-600" },
-            { label: "Weekly Progress", value: "3", icon: TrendingUp, color: "bg-blue-100 text-blue-600" },
-            { label: "Avg Response", value: profile?.responseTime ? `${(profile.responseTime / 60000).toFixed(0)}m` : "12m", icon: Clock, color: "bg-purple-100 text-purple-600" },
-            { label: "Rating", value: profile?.rating?.toFixed(1) || "5.0", icon: Star, color: "bg-amber-100 text-amber-600" },
+            { label: "Weekly Progress", value: stats.weekly, icon: TrendingUp, color: "bg-blue-100 text-blue-600" },
+            { label: "Avg Response", value: stats.avgResponse, icon: Clock, color: "bg-purple-100 text-purple-600" },
+            { label: "Neighbor Rating", value: profile?.rating?.toFixed(1) || "5.0", icon: Star, color: "bg-amber-100 text-amber-600" },
           ].map((stat, i) => (
             <Card key={i} className="border-none shadow-xl bg-white rounded-3xl group">
               <CardContent className="pt-6 pb-6 flex items-center gap-4 px-6">
@@ -273,9 +322,18 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
 
         {/* 🛠 Active Help Section */}
         <section className="space-y-6">
-          <h2 className="text-2xl font-headline font-bold flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Missions In Progress
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-headline font-bold flex items-center gap-3">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500" /> Missions In Progress
+            </h2>
+            {activeMissions && activeMissions.length > 0 && (
+              <Link href="/volunteer/active">
+                <Button variant="ghost" className="text-primary font-bold gap-2">
+                  Manage Active <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
+            )}
+          </div>
           
           {isActiveLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -309,7 +367,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                           </div>
                        </div>
                        <div className="pt-2 border-t flex flex-col gap-1">
-                          <div className="flex items-center gap-2 text-xs text-slate-600"><Phone className="w-3 h-3" /> Requester Phone: (Private)</div>
+                          <div className="flex items-center gap-2 text-xs text-slate-600"><Phone className="w-3 h-3" /> Contact: {req.contactPreference || "In-App"}</div>
                           <div className="flex items-center gap-2 text-xs text-slate-600"><Mail className="w-3 h-3" /> {req.postedByName.toLowerCase()}@university.edu</div>
                        </div>
                     </div>
@@ -353,6 +411,10 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                   <Star className="w-3.5 h-3.5" /> Skill Matches
                 </button>
               </div>
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Input placeholder="Search titles..." className="pl-11 h-10 bg-white rounded-full text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              </div>
             </div>
           </div>
 
@@ -384,7 +446,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                     <div className="flex justify-between items-start mb-4">
                       {request.isMatch ? (
                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
-                            <Star className="w-3 h-3 fill-primary" /> Skill Match
+                            <Star className="w-3.5 h-3.5 fill-primary" /> Skill Match
                          </div>
                       ) : (
                          <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest">{request.category}</Badge>
