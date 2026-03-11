@@ -19,12 +19,14 @@ import {
   Award,
   MapPin,
   Mail,
-  Phone
+  Phone,
+  PlusCircle
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { RatingModal } from "@/components/profile/RatingModal";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
@@ -222,7 +224,7 @@ export default function ProfilePage() {
                           )}>
                             {req.status}
                           </Badge>
-                          <span className="text-[10px] font-bold text-slate-400">{formatDistanceToNow(req.createdAt.toDate())} ago</span>
+                          <span className="text-[10px] font-bold text-slate-400">{req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span>
                         </div>
                         <h4 className="font-bold text-slate-900 dark:text-white">{req.title}</h4>
                       </div>
@@ -275,7 +277,7 @@ export default function ProfilePage() {
                           ))}
                         </div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {formatDistanceToNow(r.createdAt.toDate())} ago
+                          {r.createdAt ? formatDistanceToNow(r.createdAt.toDate()) : "just now"} ago
                         </span>
                       </div>
                       <p className="text-slate-600 dark:text-slate-400 italic leading-relaxed font-medium">
