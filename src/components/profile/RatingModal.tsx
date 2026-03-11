@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -34,25 +33,24 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
     setLoading(true);
     
     try {
-      // 1. Transactional Average Rating Update
+      // 1. ATOMIC TRANSACTION: Update helper stats and record review
       await runTransaction(db, async (transaction) => {
         const targetUserRef = doc(db, "users", toUser);
         const userDoc = await transaction.get(targetUserRef);
         
         if (!userDoc.exists()) {
-          throw new Error("Target user profile not found");
+          throw new Error("Helper profile not found.");
         }
 
         const data = userDoc.data();
         const currentCount = data.totalRatingsCount || 0;
         const currentRating = data.rating || 5.0;
         
-        // Calculate new average
-        const newTotalScore = (currentRating * currentCount) + score;
+        // Calculate Weighted Average
         const newCount = currentCount + 1;
-        const newAverage = newTotalScore / newCount;
+        const newAverage = ((currentRating * currentCount) + score) / newCount;
 
-        // Add the Rating Document to the global collection
+        // Record Rating Document
         const ratingsRef = collection(db, "ratings");
         const ratingDocRef = doc(ratingsRef);
         transaction.set(ratingDocRef, {
@@ -64,34 +62,33 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
           createdAt: Timestamp.now(),
         });
 
-        // Update User Profile with new stats
+        // Update Target User Profile
         transaction.update(targetUserRef, {
           rating: Number(newAverage.toFixed(2)),
           totalRatingsCount: newCount,
-          // If this was a helper rating, increment their helped count too if not already done
           totalHelped: (data.totalHelped || 0) + 1
         });
       });
 
-      // 2. Trigger notification
+      // 2. Trigger System Notification
       sendNotification(db, toUser, {
-        title: "Community Appreciation",
-        message: `You received a ${score}-star review for your help!`,
+        title: "Mission High-Five!",
+        message: `A neighbor left you a ${score}-star review!`,
         type: "rated",
         link: "/profile"
       });
 
       toast({
-        title: "Feedback Shared!",
-        description: "Your review helps keep our community safe and high-quality.",
+        title: "Feedback Broadcasted!",
+        description: "Your appreciation strengthens our campus community.",
       });
       setOpen(false);
     } catch (error: any) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "Submission Error",
-        description: error.message || "Could not save your rating.",
+        title: "Rating Failed",
+        description: error.message || "We couldn't save your review. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -101,43 +98,44 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="text-primary hover:bg-primary/10 font-bold gap-2 rounded-full border-primary">
-          <Heart className="w-4 h-4 fill-primary" /> Rate Your Helper
+        <Button size="sm" variant="outline" className="text-primary hover:bg-primary/10 font-bold gap-2 rounded-full border-primary h-9 px-5">
+          <Heart className="w-4 h-4 fill-primary" /> Rate Neighbor
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px] rounded-3xl p-8">
-        <DialogHeader className="text-center space-y-3">
-          <div className="bg-primary/10 w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-2">
-            <Heart className="text-primary w-8 h-8 fill-primary" />
+      <DialogContent className="sm:max-w-[400px] rounded-[2.5rem] p-8">
+        <DialogHeader className="text-center space-y-4">
+          <div className="bg-primary/10 w-20 h-20 rounded-[2rem] flex items-center justify-center mx-auto transition-transform hover:scale-110">
+            <Heart className="text-primary w-10 h-10 fill-primary" />
           </div>
-          <DialogTitle className="font-headline text-3xl font-bold text-slate-900">Mission Feedback</DialogTitle>
+          <DialogTitle className="font-headline text-3xl font-bold text-slate-900">Mission Success!</DialogTitle>
           <DialogDescription className="text-slate-500 font-medium">
-            How helpful was your neighbor? Your honest review builds a trusted campus network.
+            How was your experience? Your feedback ensures a trusted neighborhood network for everyone.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-8 py-8 text-center">
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-center gap-2">
             {[1, 2, 3, 4, 5].map((s) => (
               <button
                 key={s}
+                type="button"
                 onClick={() => setScore(s)}
-                className="transition-all hover:scale-125 active:scale-95 focus:outline-none"
+                className="transition-all hover:scale-125 active:scale-95 focus:outline-none p-1"
               >
                 <Star
                   className={`w-12 h-12 transition-colors ${
-                    s <= score ? "text-amber-400 fill-amber-400" : "text-slate-100"
+                    s <= score ? "text-amber-400 fill-amber-400" : "text-slate-100 dark:text-slate-800"
                   }`}
                 />
               </button>
             ))}
           </div>
           <div className="space-y-3 text-left">
-            <Label htmlFor="comment" className="font-bold text-slate-700">A short note (Optional)</Label>
+            <Label htmlFor="comment" className="font-bold text-slate-700 ml-1">Write a short appreciation</Label>
             <Textarea
               id="comment"
-              placeholder="Tell others what made this experience great..."
-              className="min-h-[100px] rounded-2xl bg-slate-50 border-none resize-none"
+              placeholder="e.g., Quick response and very professional repair!"
+              className="min-h-[100px] rounded-2xl bg-slate-50 dark:bg-slate-800 border-none resize-none focus-visible:ring-primary/20"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
@@ -147,13 +145,13 @@ export function RatingModal({ requestId, toUser }: { requestId: string; toUser: 
           <Button 
             onClick={handleSubmitRating} 
             disabled={loading} 
-            className="bg-primary hover:bg-primary/90 text-white w-full h-14 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20"
+            className="bg-primary hover:bg-primary/90 text-white w-full h-14 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20 transition-all active:scale-95"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
-            Submit Review
+            Submit Appreciation
           </Button>
-          <Button variant="ghost" className="w-full font-bold text-slate-400 h-10" onClick={() => setOpen(false)}>
-            Maybe later
+          <Button variant="ghost" className="w-full font-bold text-slate-400 h-10 rounded-xl" onClick={() => setOpen(false)}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
