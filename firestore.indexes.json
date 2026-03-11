@@ -112,7 +112,7 @@
     },
     {
       "collectionGroup": "items",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "read",
@@ -126,7 +126,7 @@
     },
     {
       "collectionGroup": "items",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "read",
