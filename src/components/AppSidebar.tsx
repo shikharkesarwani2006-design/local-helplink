@@ -10,7 +10,11 @@ import {
   LogOut,
   Heart,
   Trophy,
-  Shield
+  Shield,
+  Search,
+  CheckCircle2,
+  Briefcase,
+  Zap
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -33,6 +37,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useMemo } from "react";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -52,6 +57,7 @@ export function AppSidebar() {
 
   const handleLogout = async () => {
     try {
+      if (!auth) return;
       await signOut(auth);
       router.push("/");
       if (isMobile) setOpenMobile(false);
@@ -60,11 +66,32 @@ export function AppSidebar() {
     }
   };
 
-  const mainLinks = [
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Post Request", href: "/requests/new", icon: PlusCircle },
-    { label: "My Requests", href: "/requests/my", icon: History },
-  ];
+  const mainLinks = useMemo(() => {
+    if (profile?.role === 'volunteer') {
+      return [
+        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Browse Missions", href: "/dashboard?tab=browse", icon: Search },
+        { label: "My Active Missions", href: "/dashboard?tab=active", icon: CheckCircle2 },
+        { label: "Mission History", href: "/profile?tab=helped", icon: History },
+      ];
+    }
+    
+    if (profile?.role === 'provider') {
+      return [
+        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Inquiries", href: "/dashboard?tab=incoming", icon: Zap },
+        { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
+        { label: "Job History", href: "/profile?tab=helped", icon: History },
+      ];
+    }
+
+    // Default Regular User Links
+    return [
+      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Post Request", href: "/requests/new", icon: PlusCircle },
+      { label: "My Requests", href: "/requests/my", icon: History },
+    ];
+  }, [profile?.role]);
 
   const personalLinks = [
     { label: "My Profile", href: "/profile", icon: User },
@@ -116,7 +143,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainLinks.map((item) => (
-                <SidebarMenuItem key={item.href}>
+                <SidebarMenuItem key={item.label + item.href}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === item.href}
@@ -142,12 +169,12 @@ export function AppSidebar() {
 
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
-            Personal
+            {profile?.role === 'volunteer' ? 'Community' : 'Personal'}
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {personalLinks.map((item) => (
-                <SidebarMenuItem key={item.href}>
+                <SidebarMenuItem key={item.label + item.href}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === item.href}
