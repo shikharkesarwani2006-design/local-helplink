@@ -102,6 +102,8 @@
           "title": { "type": "string" },
           "message": { "type": "string" },
           "type": { "type": "string" },
+          "urgency": { "type": "string" },
+          "requestId": { "type": "string" },
           "read": { "type": "boolean" },
           "createdAt": { "type": "string", "format": "date-time" }
         }
