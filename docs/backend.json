@@ -22,6 +22,8 @@
         "role": { "type": "string", "enum": ["user", "volunteer", "provider", "admin"] },
         "skills": { "type": "array", "items": { "type": "string" } },
         "interests": { "type": "array", "items": { "type": "string" } },
+        "serviceCategory": { "type": "string" },
+        "availabilityHours": { "type": "string" },
         "rating": { "type": "number" },
         "totalRatingsCount": { "type": "number" },
         "totalHelped": { "type": "number" },
