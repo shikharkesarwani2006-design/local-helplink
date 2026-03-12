@@ -94,7 +94,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
   // 1. ACTIVE JOBS (Accepted but not completed)
   const activeJobsQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
+    if (!db || !user?.uid) return null;
     return query(
       collection(db, "requests"),
       where("acceptedBy", "==", user.uid),
@@ -119,7 +119,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
   // 3. COMPLETED JOBS (For Performance Metrics)
   const completedQuery = useMemoFirebase(() => {
-    if (!db || !user) return null;
+    if (!db || !user?.uid) return null;
     return query(
       collection(db, "requests"),
       where("acceptedBy", "==", user.uid),
@@ -176,7 +176,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   }, [completedJobs]);
 
   const handleToggleAvailability = (checked: boolean) => {
-    if (!db) return;
+    if (!db || !user?.uid) return;
     updateDocumentNonBlocking(doc(db, "users", user.uid), { isAvailable: checked });
     toast({
       title: checked ? "Accepting Jobs" : "Status: Busy",
@@ -185,7 +185,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   };
 
   const handleAcceptJob = async (request: any) => {
-    if (!db || !user || isUnverified) return;
+    if (!db || !user?.uid || isUnverified) return;
     setActionLoading(true);
     try {
       const responseTime = Date.now() - request.createdAt.toDate().getTime();
@@ -222,7 +222,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   };
 
   const handleCompleteJob = async () => {
-    if (!db || !user || !completingJob) return;
+    if (!db || !user?.uid || !completingJob) return;
     setActionLoading(true);
     try {
       const hours = Number(duration);
@@ -284,8 +284,8 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
             <div className="flex items-center gap-6">
               <div className="relative">
                 <Avatar className="h-24 w-24 border-4 border-white/10 ring-4 ring-primary/20">
-                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`} />
-                  <AvatarFallback className="bg-primary text-white text-2xl font-bold">{profile?.name?.[0]}</AvatarFallback>
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'member'}`} />
+                  <AvatarFallback className="bg-primary text-white text-2xl font-bold">{profile?.name?.[0] || '?'}</AvatarFallback>
                 </Avatar>
                 {profile?.verified && (
                   <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1.5 rounded-full border-4 border-slate-900 shadow-xl">
