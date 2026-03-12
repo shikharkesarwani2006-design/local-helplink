@@ -59,13 +59,26 @@ export default function Navbar() {
   };
 
   const getPageTitle = () => {
+    // Admin routes
+    if (pathname === '/admin') return 'Admin Overview';
+    if (pathname === '/admin/users') return 'Citizen Directory';
+    if (pathname === '/admin/requests') return 'All Requests';
+    if (pathname === '/admin/providers') return 'Provider Monitor';
+    if (pathname === '/admin/announcements') return 'Announcements';
+    if (pathname === '/admin/verifications') return 'Provider Approvals';
+
+    // Standard routes
     if (pathname === '/dashboard') return 'Community Feed';
     if (pathname === '/requests/new') return 'New Request';
     if (pathname === '/requests/my') return 'My Requests';
     if (pathname === '/profile') return 'My Profile';
-    if (pathname === '/admin') return 'Admin Oversight';
+    if (pathname.startsWith('/provider/profile')) return 'Expert Profile';
+    if (pathname.startsWith('/provider/jobs')) return 'Available Jobs';
+    
     return 'Local HelpLink';
   }
+
+  const isAdmin = profile?.role === 'admin';
 
   return (
     <nav className="h-16 border-b bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between px-4 lg:px-8" role="navigation" aria-label="Main Navigation">
@@ -77,15 +90,27 @@ export default function Navbar() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Link href="/requests/new" className="hidden sm:block mr-2">
-          <Button size="sm" className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-full px-5 font-bold shadow-lg shadow-primary/20">
-            <PlusCircle className="w-4 h-4" />
-            Post Request
-          </Button>
-        </Link>
+        {isAdmin ? (
+          <div className="hidden sm:flex items-center gap-2 px-4 py-1.5 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-full mr-2">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-[10px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest">Admin Panel</span>
+          </div>
+        ) : (
+          <Link href="/requests/new" className="hidden sm:block mr-2">
+            <Button size="sm" className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-full px-5 font-bold shadow-lg shadow-primary/20">
+              <PlusCircle className="w-4 h-4" />
+              Post Request
+            </Button>
+          </Link>
+        )}
 
         <div className="flex items-center gap-1 sm:gap-2">
           <ThemeToggle />
+          {isAdmin && (
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+              <Settings className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            </Button>
+          )}
           <NotificationDrawer />
         </div>
 
@@ -106,7 +131,10 @@ export default function Navbar() {
                   <p className="text-sm font-bold text-slate-900 dark:text-white">{profile?.name || "Member"}</p>
                   <p className="text-xs font-medium text-slate-400 truncate">{user.email}</p>
                   <div className="mt-3">
-                    <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/5 border-primary/10">
+                    <Badge variant="outline" className={cn(
+                      "text-[9px] font-black uppercase tracking-widest border-primary/10",
+                      isAdmin ? "bg-red-500 text-white border-none" : "bg-primary/5 text-primary"
+                    )}>
                       {profile?.role}
                     </Badge>
                   </div>
@@ -115,9 +143,9 @@ export default function Navbar() {
               <DropdownMenuSeparator className="bg-slate-50 dark:bg-slate-800" />
               <div className="p-1">
                 <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2.5 font-medium text-slate-600 dark:text-slate-300 focus:bg-primary/5 focus:text-primary">
-                  <Link href="/profile" className="flex items-center w-full">
+                  <Link href={isAdmin ? "/admin" : "/profile"} className="flex items-center w-full">
                     <User className="mr-2 h-4 w-4" />
-                    <span>View Profile</span>
+                    <span>{isAdmin ? "Admin Overview" : "View Profile"}</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2.5 font-medium text-slate-600 dark:text-slate-300 focus:bg-primary/5 focus:text-primary">
