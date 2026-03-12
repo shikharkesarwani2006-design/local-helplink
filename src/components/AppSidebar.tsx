@@ -1,3 +1,4 @@
+
 "use client";
 
 import { 
@@ -71,7 +72,7 @@ export function AppSidebar() {
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
         { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
-        { label: "Job History", href: "/profile?tab=helped", icon: History },
+        { label: "Job History", href: "/provider/profile?tab=overview", icon: History },
       ];
     }
 
@@ -86,9 +87,9 @@ export function AppSidebar() {
   const businessLinks = useMemo(() => {
     if (profile?.role !== 'provider') return [];
     return [
-      { label: "My Profile", href: "/profile", icon: User },
-      { label: "My Reviews", href: "/profile?tab=reviews", icon: Star },
-      { label: "Earnings Tracker", href: "#", icon: BarChart3 },
+      { label: "My Profile", href: "/provider/profile", icon: User },
+      { label: "My Reviews", href: "/provider/profile?tab=reviews", icon: Star },
+      { label: "Earnings Tracker", href: "/provider/profile?tab=earnings", icon: BarChart3 },
     ];
   }, [profile?.role]);
 
