@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Search, 
@@ -20,7 +21,8 @@ import {
   Eye,
   MoreVertical,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  LayoutGrid
 } from "lucide-react";
 import {
   DropdownMenu,
