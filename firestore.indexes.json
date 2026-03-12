@@ -65,7 +65,8 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "role", "order": "ASCENDING" },
-        { "fieldPath": "serviceCategory", "order": "ASCENDING" }
+        { "fieldPath": "serviceCategory", "order": "ASCENDING" },
+        { "fieldPath": "isAvailable", "order": "ASCENDING" }
       ]
     },
     {
@@ -73,7 +74,8 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "role", "order": "ASCENDING" },
-        { "fieldPath": "isAvailable", "order": "ASCENDING" }
+        { "fieldPath": "verified", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
     },
     {
