@@ -12,7 +12,8 @@ import {
   where, 
   getAggregateFromServer, 
   average, 
-  Timestamp 
+  Timestamp,
+  limit
 } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -37,13 +38,17 @@ import {
   Trophy,
   Star,
   Clock,
-  Briefcase
+  Briefcase,
+  UserPlus,
+  PlusCircle,
+  Loader2,
+  MessageSquare
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line
 } from "recharts";
-import { format, startOfDay, subDays, isSameWeek } from "date-fns";
+import { format, startOfDay, subDays, formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function AdminDashboard() {
@@ -123,29 +128,47 @@ export default function AdminDashboard() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router, fetchStats]);
 
-  // Data for Charts (Real-time listeners for the visual trends)
+  // Real-time listeners for analytics
   const usersQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "users"), orderBy("createdAt", "desc"));
+    return query(collection(db, "users"), orderBy("createdAt", "desc"), limit(50));
   }, [db, profile?.role]);
   const { data: allUsers } = useCollection(usersQuery);
 
   const requestsQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "requests"), orderBy("createdAt", "desc"));
+    return query(collection(db, "requests"), orderBy("createdAt", "desc"), limit(50));
   }, [db, profile?.role]);
   const { data: allRequests } = useCollection(requestsQuery);
 
+  const ratingsQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "ratings"), orderBy("createdAt", "desc"), limit(10));
+  }, [db, profile?.role]);
+  const { data: recentRatings } = useCollection(ratingsQuery);
+
+  // CHART 1: Requests by Category
   const categoryData = useMemo(() => {
     if (!allRequests) return [];
-    const counts: Record<string, number> = { blood: 0, tutor: 0, repair: 0, emergency: 0, other: 0 };
-    allRequests.forEach(r => counts[r.category] = (counts[r.category] || 0) + 1);
-    return Object.entries(counts).map(([name, value]) => ({ 
+    const counts: Record<string, { count: number, color: string }> = { 
+      blood: { count: 0, color: '#ef4444' }, 
+      tutor: { count: 0, color: '#3b82f6' }, 
+      repair: { count: 0, color: '#f59e0b' }, 
+      emergency: { count: 0, color: '#8b5cf6' }, 
+      other: { count: 0, color: '#94a3b8' } 
+    };
+    allRequests.forEach(r => {
+      if (counts[r.category]) counts[r.category].count++;
+      else counts.other.count++;
+    });
+    return Object.entries(counts).map(([name, data]) => ({ 
       name: name.charAt(0).toUpperCase() + name.slice(1), 
-      value 
+      value: data.count,
+      fill: data.color
     }));
   }, [allRequests]);
 
+  // CHART 2: Request Status Breakdown
   const statusData = useMemo(() => {
     if (!allRequests) return [];
     const counts: Record<string, number> = { open: 0, accepted: 0, completed: 0, expired: 0 };
@@ -153,18 +176,19 @@ export default function AdminDashboard() {
       if (counts[r.status] !== undefined) counts[r.status]++;
     });
     return [
-      { name: 'Open', value: counts.open, color: '#6366f1' },
+      { name: 'Open', value: counts.open, color: '#3b82f6' },
       { name: 'Accepted', value: counts.accepted, color: '#f59e0b' },
       { name: 'Completed', value: counts.completed, color: '#10b981' },
       { name: 'Expired', value: counts.expired, color: '#94a3b8' }
     ].filter(d => d.value > 0);
   }, [allRequests]);
 
+  // CHART 3: New Users Trend
   const signupTrendData = useMemo(() => {
     if (!allUsers) return [];
     const last7Days = Array.from({ length: 7 }, (_, i) => {
       const date = subDays(new Date(), i);
-      return { date: format(date, 'MMM dd'), count: 0, rawDate: startOfDay(date) };
+      return { date: format(date, 'EEE'), count: 0, rawDate: startOfDay(date) };
     }).reverse();
 
     allUsers.forEach(u => {
@@ -177,19 +201,57 @@ export default function AdminDashboard() {
     return last7Days;
   }, [allUsers]);
 
-  const impactMetrics = useMemo(() => {
-    if (!allRequests) return { resolved: 0, blood: 0, tutor: 0, repair: 0 };
-    const completed = allRequests.filter(r => r.status === 'completed');
-    return {
-      resolved: completed.length,
-      blood: completed.filter(r => r.category === 'blood').length,
-      tutor: completed.filter(r => r.category === 'tutor').length,
-      repair: completed.filter(r => r.category === 'repair').length,
-    };
-  }, [allRequests]);
+  // Unified Live Activity Feed
+  const activityEvents = useMemo(() => {
+    const events: any[] = [];
+
+    allRequests?.forEach(r => {
+      events.push({
+        id: `req-${r.id}`,
+        type: 'request',
+        icon: <PlusCircle className="w-4 h-4 text-primary" />,
+        text: `${r.postedByName || 'Someone'} posted a ${r.category} request`,
+        time: r.createdAt?.toDate() || new Date(),
+        subtext: r.title
+      });
+      if (r.status === 'accepted' && r.acceptedAt) {
+        events.push({
+          id: `acc-${r.id}`,
+          type: 'accepted',
+          icon: <CheckCircle2 className="w-4 h-4 text-amber-500" />,
+          text: `A volunteer accepted: ${r.title}`,
+          time: r.acceptedAt.toDate()
+        });
+      }
+    });
+
+    allUsers?.forEach(u => {
+      events.push({
+        id: `user-${u.id}`,
+        type: 'user',
+        icon: <UserPlus className="w-4 h-4 text-blue-500" />,
+        text: `New user joined: ${u.name}`,
+        time: u.createdAt?.toDate() || new Date(),
+        subtext: u.email
+      });
+    });
+
+    recentRatings?.forEach(rat => {
+      events.push({
+        id: `rat-${rat.id}`,
+        type: 'rating',
+        icon: <Star className="w-4 h-4 text-amber-400 fill-amber-400" />,
+        text: `Provider received a ${rat.score}★ rating`,
+        time: rat.createdAt?.toDate() || new Date(),
+        subtext: rat.comment
+      });
+    });
+
+    return events.sort((a, b) => b.time.getTime() - a.time.getTime()).slice(0, 10);
+  }, [allRequests, allUsers, recentRatings]);
 
   if (isUserLoading || isProfileLoading) {
-    return <div className="flex h-screen items-center justify-center"><Activity className="animate-spin h-8 w-8 text-primary" /></div>;
+    return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
   }
 
   if (!user || profile?.role !== 'admin') return null;
@@ -200,188 +262,174 @@ export default function AdminDashboard() {
         
         {/* Real-time Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative group">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Citizens</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.totalUsers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded-full">
-                <Users className="w-3 h-3" /> Growth
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volunteers</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.volunteers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 w-fit px-2 py-0.5 rounded-full">
-                <Trophy className="w-3 h-3" /> Impact
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Providers</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.providers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
-                <Wrench className="w-3 h-3" /> Services
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Open Needs</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.openRequests}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
-                <ArrowUpRight className="w-3 h-3" /> Demand
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed This Week</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.completedThisWeek}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
-                <CheckCircle2 className="w-3 h-3" /> Weekly
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Verifications</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.pendingVerifications}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 w-fit px-2 py-0.5 rounded-full">
-                <ShieldCheck className="w-3 h-3" /> Review
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Jobs</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.activeJobs}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
-                <Clock className="w-3 h-3" /> Ongoing
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
-            <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Platform Rating</p>
-              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.avgRating.toFixed(1)}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
-                <Star className="w-3 h-3 fill-amber-600" /> Quality
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid lg:grid-cols-12 gap-8">
-          <Card className="lg:col-span-8 bg-white border-none shadow-sm rounded-3xl">
-            <CardHeader>
-              <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
-                <LineIcon className="w-5 h-5 text-indigo-500" /> Member Signups (Last 7 Days)
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={signupTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                  <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                  <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={3} dot={{r: 4, fill: 'white', strokeWidth: 2}} activeDot={{r: 6}} />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-4 bg-primary text-white border-none shadow-xl rounded-[2.5rem] relative overflow-hidden flex flex-col justify-center">
-            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
-              <Trophy className="w-48 h-48" />
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Citizens</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.totalUsers}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded-full">
+              <Users className="w-3 h-3" /> Citizens
             </div>
-            <CardHeader className="relative z-10">
-              <CardTitle className="text-2xl font-headline font-bold">Campus Impact</CardTitle>
-              <CardDescription className="text-primary-foreground/70">Cumulative community milestones.</CardDescription>
-            </CardHeader>
-            <CardContent className="relative z-10 space-y-6 mt-4">
-              <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-2 rounded-xl"><Droplets className="w-5 h-5" /></div>
-                <div>
-                  <p className="text-xl font-bold">{impactMetrics.blood} Blood Drives</p>
-                  <p className="text-[10px] uppercase font-black opacity-60">Lifesaving connections</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-2 rounded-xl"><BookOpen className="w-5 h-5" /></div>
-                <div>
-                  <p className="text-xl font-bold">{impactMetrics.tutor} Study Sessions</p>
-                  <p className="text-[10px] uppercase font-black opacity-60">Academic support</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="bg-white/20 p-2 rounded-xl"><Wrench className="w-5 h-5" /></div>
-                <div>
-                  <p className="text-xl font-bold">{impactMetrics.repair} Expert Repairs</p>
-                  <p className="text-[10px] uppercase font-black opacity-60">Technical resolution</p>
-                </div>
-              </div>
-            </CardContent>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volunteers</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.volunteers}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 w-fit px-2 py-0.5 rounded-full">
+              <Trophy className="w-3 h-3" /> Helpers
+            </div>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Providers</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.providers}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
+              <Wrench className="w-3 h-3" /> Experts
+            </div>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Open Needs</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.openRequests}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 w-fit px-2 py-0.5 rounded-full">
+              <AlertCircle className="w-3 h-3" /> Demand
+            </div>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Weekly Wins</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.completedThisWeek}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
+              <CheckCircle2 className="w-3 h-3" /> Impact
+            </div>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.pendingVerifications}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-orange-600 bg-orange-50 w-fit px-2 py-0.5 rounded-full">
+              <ShieldCheck className="w-3 h-3" /> Review
+            </div>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Jobs</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.activeJobs}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+              <Activity className="w-3 h-3" /> Ongoing
+            </div>
+          </Card>
+          <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Platform Rating</p>
+            <h3 className="text-xl font-bold mt-1">{liveStats.avgRating.toFixed(1)}</h3>
+            <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
+              <Star className="w-3 h-3 fill-amber-600" /> Quality
+            </div>
           </Card>
         </div>
 
-        <div className="grid lg:grid-cols-12 gap-8">
-          <Card className="lg:col-span-7 bg-white border-none shadow-sm rounded-3xl">
-            <CardHeader>
-              <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
-                <BarIcon className="w-5 h-5 text-primary" /> Category Distribution
+        {/* ROW 1: ANALYTICS CHARTS */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <Card className="bg-white border-none shadow-sm rounded-3xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-headline font-bold flex items-center gap-2">
+                <BarIcon className="w-4 h-4 text-primary" /> Requests by Category
               </CardTitle>
             </CardHeader>
             <CardContent className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={categoryData}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px'}} />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={30} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                  <YAxis hide />
+                  <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none'}} />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-5 bg-white border-none shadow-sm rounded-3xl">
-            <CardHeader>
-              <CardTitle className="text-lg font-headline font-bold flex items-center gap-2">
-                <PieIcon className="w-5 h-5 text-secondary" /> Mission Outcomes
+          <Card className="bg-white border-none shadow-sm rounded-3xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-headline font-bold flex items-center gap-2">
+                <PieIcon className="w-4 h-4 text-secondary" /> Request Status
               </CardTitle>
             </CardHeader>
-            <CardContent className="h-[250px] flex flex-col items-center">
-              <ResponsiveContainer width="100%" height="100%">
+            <CardContent className="h-[250px] flex flex-col items-center justify-center">
+              <ResponsiveContainer width="100%" height="80%">
                 <PieChart>
-                  <Pie data={statusData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                  <Pie data={statusData} innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">
                     {statusData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex gap-4 mt-2">
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
                 {statusData.map((s) => (
                   <div key={s.name} className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full" style={{backgroundColor: s.color}} />
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">{s.name}</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase">{s.name}</span>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-white border-none shadow-sm rounded-3xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-headline font-bold flex items-center gap-2">
+                <LineIcon className="w-4 h-4 text-indigo-500" /> New Users (Last 7 Days)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={signupTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={5} />
+                  <YAxis hide />
+                  <Tooltip contentStyle={{borderRadius: '16px', border: 'none'}} />
+                  <Line type="monotone" dataKey="count" stroke="hsl(var(--primary))" strokeWidth={3} dot={{r: 4, fill: 'white', strokeWidth: 2}} activeDot={{r: 6}} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Recent Activity Grid */}
+        {/* ROW 2: LIVE ACTIVITY FEED */}
+        <Card className="bg-white border-none shadow-sm rounded-3xl overflow-hidden">
+          <CardHeader className="border-b bg-slate-50/50 px-8 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-headline font-bold flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-indigo-500" /> Live Activity Feed
+                </CardTitle>
+                <CardDescription>Real-time platform events and system triggers.</CardDescription>
+              </div>
+              <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 h-8 px-4 font-bold rounded-xl animate-pulse">
+                Live Syncing
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y border-t">
+              {activityEvents.length === 0 ? (
+                <div className="py-20 text-center text-slate-400">No activity yet.</div>
+              ) : (
+                activityEvents.map((event) => (
+                  <div key={event.id} className="px-8 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        {event.icon}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold text-slate-900 leading-snug">{event.text}</p>
+                        {event.subtext && <p className="text-xs text-slate-400 font-medium italic">"{event.subtext}"</p>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-1.5 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                        <Clock className="w-3 h-3" /> {formatDistanceToNow(event.time)} ago
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Data Tables */}
         <div className="grid lg:grid-cols-2 gap-8">
           <Card className="bg-white border-none shadow-sm rounded-3xl">
             <CardHeader className="flex flex-row items-center justify-between">
