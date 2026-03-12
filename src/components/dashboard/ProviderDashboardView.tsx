@@ -23,7 +23,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +56,12 @@ import {
   ShieldAlert,
   Clock,
   Navigation,
-  BarChart as BarChartIcon
+  BarChart as BarChartIcon,
+  Smartphone,
+  Phone,
+  MessageSquare,
+  PartyPopper,
+  Coins
 } from "lucide-react";
 import { 
   BarChart, 
@@ -67,6 +82,13 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   const db = useFirestore();
   const { toast } = useToast();
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Mark Complete Flow State
+  const [completingJob, setCompletingJob] = useState<any>(null);
+  const [summary, setSummary] = useState("");
+  const [duration, setDuration] = useState("1");
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [lastEarnings, setLastEarnings] = useState(0);
 
   const isUnverified = !profile?.verified;
 
@@ -109,7 +131,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
   // Stats Calculations
   const stats = useMemo(() => {
-    if (!completedJobs) return { thisWeek: 0, avgResponse: "0m", revenue: 0 };
+    if (!completedJobs) return { thisWeek: 0, avgResponse: "0m", revenue: profile?.totalEarnings || 0 };
     
     const now = new Date();
     const weekStart = startOfWeek(now);
@@ -127,14 +149,12 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
     const avgMs = responseTimes.length > 0 ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length : 0;
     const avgMins = Math.round(avgMs / 60000);
 
-    const revenue = (profile?.totalHelped || 0) * (profile?.hourlyRate || 0);
-
     return {
       thisWeek,
       avgResponse: avgMins > 0 ? `${avgMins}m` : "15m",
-      revenue
+      revenue: profile?.totalEarnings || 0
     };
-  }, [completedJobs, profile?.totalHelped, profile?.hourlyRate]);
+  }, [completedJobs, profile?.totalEarnings]);
 
   // Chart Data: Jobs per week (Last 4 weeks)
   const performanceData = useMemo(() => {
@@ -172,11 +192,17 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", request.id);
+        const providerRef = doc(db, "users", user.uid);
+        
         transaction.update(reqRef, {
           status: "accepted",
           acceptedBy: user.uid,
           acceptedAt: new Date(),
           responseTime: responseTime
+        });
+
+        transaction.update(providerRef, {
+          isAvailable: false
         });
       });
 
@@ -195,28 +221,44 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
     }
   };
 
-  const handleCompleteJob = async (request: any) => {
-    if (!db || !user) return;
+  const handleCompleteJob = async () => {
+    if (!db || !user || !completingJob) return;
     setActionLoading(true);
     try {
+      const hours = Number(duration);
+      const earnings = hours * (profile?.hourlyRate || 0);
+
       await runTransaction(db, async (transaction) => {
-        const reqRef = doc(db, "requests", request.id);
+        const reqRef = doc(db, "requests", completingJob.id);
         const providerRef = doc(db, "users", user.uid);
+        
         transaction.update(reqRef, { 
           status: "completed",
-          completedAt: new Date()
+          completedAt: new Date(),
+          duration: hours,
+          summary: summary
         });
-        transaction.update(providerRef, { totalHelped: increment(1) });
+
+        transaction.update(providerRef, { 
+          totalJobsDone: increment(1),
+          totalEarnings: increment(earnings),
+          isAvailable: true
+        });
       });
 
-      await sendNotification(db, request.createdBy, {
+      await sendNotification(db, completingJob.createdBy, {
         title: "Job Completed! 🎉",
         message: `${profile.name} marked the service as complete. Please rate your experience!`,
         type: "completed",
         link: "/profile"
       });
 
-      toast({ title: "Job Marked Completed!" });
+      setLastEarnings(earnings);
+      setShowCelebration(true);
+      setCompletingJob(null);
+      setSummary("");
+      setDuration("1");
+      toast({ title: "Job Completed Successfully!" });
     } catch (e) {
       toast({ variant: "destructive", title: "Error", description: "Failed to complete job." });
     } finally {
@@ -253,7 +295,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
               </div>
               <div className="space-y-1 text-center lg:text-left">
                 <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
-                  <h1 className="text-3xl font-headline font-bold text-white tracking-tight">Welcome, {profile?.name} 👋</h1>
+                  <h1 className="text-3xl font-headline font-bold text-white tracking-tight">Welcome back, {profile?.name} 👋</h1>
                   <Badge className="bg-primary/20 text-primary-foreground border-primary/30 uppercase text-[10px] font-black px-3 py-1">
                     {profile?.serviceCategory || "Provider"}
                   </Badge>
@@ -273,7 +315,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                   </div>
                </div>
                <div className="bg-white/5 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 text-center min-w-[120px]">
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Total Revenue</p>
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Total Earnings</p>
                   <div className="flex items-center justify-center gap-1">
                     <span className="text-xl font-black text-emerald-400">₹{stats.revenue}</span>
                   </div>
@@ -288,10 +330,10 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         {/* 📊 Stats Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
-            { label: "Jobs Completed", value: profile?.totalHelped || 0, icon: Briefcase, color: "bg-blue-100 text-blue-600" },
+            { label: "Total Jobs Done", value: profile?.totalJobsDone || 0, icon: Briefcase, color: "bg-blue-100 text-blue-600" },
             { label: "This Week", value: stats.thisWeek, icon: TrendingUp, color: "bg-emerald-100 text-emerald-600" },
             { label: "Avg Response", value: stats.avgResponse, icon: Clock, color: "bg-purple-100 text-purple-600" },
-            { label: "Success Rate", value: "98%", icon: ShieldCheck, color: "bg-amber-100 text-amber-600" },
+            { label: "Community Rating", value: profile?.rating?.toFixed(1) + " ★", icon: Star, color: "bg-amber-100 text-amber-600" },
           ].map((stat, i) => (
             <Card key={i} className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group overflow-hidden">
               <CardContent className="pt-6 pb-6 flex items-center gap-4 px-6">
@@ -346,7 +388,9 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                 <h2 className="text-2xl font-headline font-bold flex items-center gap-3">
                   <Zap className="w-6 h-6 text-primary" /> New Job Requests
                 </h2>
-                <Button variant="ghost" className="text-primary font-bold text-sm">View All Jobs →</Button>
+                <Button variant="ghost" className="text-primary font-bold text-sm" asChild>
+                  <a href="/provider/jobs">View All Jobs →</a>
+                </Button>
               </div>
 
               {isIncomingLoading ? (
@@ -389,7 +433,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
             </section>
           </div>
 
-          {/* 📊 Performance & Charts */}
+          {/* 📊 Performance & Active Job */}
           <div className="lg:col-span-4 space-y-8">
             <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden h-fit">
               <CardHeader className="pb-2">
@@ -430,11 +474,15 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                 </div>
               ) : (
                 activeJobs?.slice(0, 1).map((job) => (
-                  <Card key={job.id} className="rounded-3xl border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col border-l-4 border-l-amber-500">
+                  <Card key={job.id} className="rounded-3xl border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col border-l-4 border-l-amber-500 group">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-center">
                         <Badge className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase">In Progress</Badge>
-                        <Navigation className="w-4 h-4 text-slate-200" />
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" asChild>
+                             <a href={`tel:${profile?.phone}`}><Phone className="w-3.5 h-3.5" /></a>
+                           </Button>
+                        </div>
                       </div>
                       <CardTitle className="text-base font-bold leading-tight mt-2">{job.title}</CardTitle>
                     </CardHeader>
@@ -450,7 +498,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                       </div>
                       <Button 
                         className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
-                        onClick={() => handleCompleteJob(job)}
+                        onClick={() => setCompletingJob(job)}
                         disabled={actionLoading}
                       >
                         {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
@@ -464,6 +512,92 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
           </div>
         </div>
       </main>
+
+      {/* 🚀 Mark Complete Modal */}
+      <Dialog open={!!completingJob} onOpenChange={(open) => !open && setCompletingJob(null)}>
+        <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-headline font-bold">Job Finalization</DialogTitle>
+            <DialogDescription>
+              Summarize your work and log time to finalize earnings.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-6 space-y-6">
+            <div className="space-y-2">
+              <Label className="font-bold">Work Summary (Optional)</Label>
+              <Textarea 
+                placeholder="Briefly describe what was done..." 
+                className="min-h-[100px] rounded-2xl resize-none"
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="font-bold">Hours Spent</Label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input 
+                    type="number" 
+                    min="0.5" 
+                    step="0.5" 
+                    className="pl-10 h-12 rounded-xl"
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="font-bold">Est. Earnings</Label>
+                <div className="h-12 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center px-4">
+                  <span className="text-emerald-700 font-black">₹{Number(duration) * (profile?.hourlyRate || 0)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 sm:gap-0">
+            <Button variant="ghost" className="flex-1 rounded-2xl font-bold h-14 text-slate-500" onClick={() => setCompletingJob(null)}>Cancel</Button>
+            <Button 
+              className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20" 
+              onClick={handleCompleteJob}
+              disabled={actionLoading}
+            >
+              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              Complete Job
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 🎊 Celebration Modal */}
+      <Dialog open={showCelebration} onOpenChange={setShowCelebration}>
+        <DialogContent className="rounded-[3rem] p-12 text-center">
+           <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
+              <PartyPopper className="w-12 h-12 text-emerald-600" />
+           </div>
+           <h2 className="text-4xl font-headline font-bold text-slate-900 mb-2">Great Work! 🎉</h2>
+           <p className="text-slate-500 mb-8 font-medium">You've successfully resolved another community inquiry.</p>
+           
+           <div className="bg-slate-50 rounded-[2rem] p-6 border mb-8 flex justify-around">
+              <div className="text-center">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Earned</p>
+                 <p className="text-2xl font-black text-emerald-600">₹{lastEarnings}</p>
+              </div>
+              <div className="w-px bg-slate-200" />
+              <div className="text-center">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Jobs</p>
+                 <p className="text-2xl font-black text-slate-900">{profile?.totalJobsDone || 0}</p>
+              </div>
+           </div>
+
+           <Button className="w-full h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => setShowCelebration(false)}>
+              Back to Hub
+           </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

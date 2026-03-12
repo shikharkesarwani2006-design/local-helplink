@@ -34,6 +34,7 @@
           }
         },
         "hourlyRate": { "type": "number" },
+        "totalEarnings": { "type": "number", "default": 0 },
         "availabilityHours": { "type": "string" },
         "rating": { "type": "number" },
         "totalRatingsCount": { "type": "number" },
@@ -68,6 +69,9 @@
         "postedByName": { "type": "string" },
         "acceptedBy": { "type": "string" },
         "acceptedAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" },
+        "duration": { "type": "number" },
+        "summary": { "type": "string" },
         "reported": { "type": "boolean", "default": false },
         "responseTime": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
