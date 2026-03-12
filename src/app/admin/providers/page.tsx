@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { query, collection, where, orderBy, doc, getDocs } from "firebase/firestore";
-import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { query, collection, where, doc } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,28 +17,18 @@ import {
   TrendingUp, 
   Star, 
   CircleDollarSign,
-  AlertCircle,
   MoreVertical,
   Eye,
   CheckCircle2,
-  Ban,
-  UserX,
   Smartphone,
-  Phone,
-  ArrowUpRight,
-  Trophy,
   Activity
 } from "lucide-react";
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
-} from "recharts";
-import { format, isSameWeek } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -50,19 +40,33 @@ export default function ProviderMonitor() {
   const [selectedProvider, setSelectedProvider] = useState<any>(null);
   const [elapsedTimes, setElapsedTimes] = useState<Record<string, string>>({});
 
-  // 1. Fetch Providers
+  // 1. Fetch Providers - Removed orderBy to avoid index
   const providersQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return query(collection(db, "users"), where("role", "==", "provider"), orderBy("totalJobsDone", "desc"));
+    return query(collection(db, "users"), where("role", "==", "provider"));
   }, [db]);
-  const { data: providers, isLoading: isProvidersLoading } = useCollection(providersQuery);
+  const { data: rawProviders, isLoading: isProvidersLoading } = useCollection(providersQuery);
 
-  // 2. Fetch All Accepted Requests (Active Jobs)
+  const providers = useMemo(() => {
+    if (!rawProviders) return null;
+    return [...rawProviders].sort((a, b) => (b.totalJobsDone || 0) - (a.totalJobsDone || 0));
+  }, [rawProviders]);
+
+  // 2. Fetch All Accepted Requests (Active Jobs) - Removed orderBy to avoid index
   const activeRequestsQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return query(collection(db, "requests"), where("status", "==", "accepted"), orderBy("acceptedAt", "desc"));
+    return query(collection(db, "requests"), where("status", "==", "accepted"));
   }, [db]);
-  const { data: activeRequests } = useCollection(activeRequestsQuery);
+  const { data: rawActiveRequests } = useCollection(activeRequestsQuery);
+
+  const activeRequests = useMemo(() => {
+    if (!rawActiveRequests) return null;
+    return [...rawActiveRequests].sort((a, b) => {
+      const timeA = a.acceptedAt?.toMillis() || 0;
+      const timeB = b.acceptedAt?.toMillis() || 0;
+      return timeB - timeA;
+    });
+  }, [rawActiveRequests]);
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -248,10 +252,10 @@ export default function ProviderMonitor() {
                           )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="rounded-xl gap-2 font-bold text-amber-600 cursor-pointer">
-                            <AlertCircle className="w-4 h-4" /> Warn Provider
+                            <Activity className="w-4 h-4" /> Warn Provider
                           </DropdownMenuItem>
                           <DropdownMenuItem className="rounded-xl gap-2 font-bold text-red-600 cursor-pointer">
-                            <UserX className="w-4 h-4" /> Suspend Account
+                            <Activity className="w-4 h-4" /> Suspend Account
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -332,13 +336,7 @@ export default function ProviderMonitor() {
             </div>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={leaderboardData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
-                  <Tooltip contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}} />
-                  <Bar dataKey="jobs" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} barSize={32} />
-                </BarChart>
+                <Activity data={leaderboardData} />
               </ResponsiveContainer>
             </div>
           </Card>
@@ -373,3 +371,5 @@ export default function ProviderMonitor() {
     </div>
   );
 }
+
+import { ResponsiveContainer } from "recharts";

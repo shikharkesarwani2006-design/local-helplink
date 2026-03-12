@@ -5,12 +5,10 @@ import { useState, useMemo } from "react";
 import { 
   collection, 
   query, 
-  orderBy, 
   where, 
   doc,
   increment,
-  runTransaction,
-  limit
+  runTransaction
 } from "firebase/firestore";
 import { 
   useFirestore, 
@@ -18,14 +16,13 @@ import {
   useMemoFirebase, 
   updateDocumentNonBlocking 
 } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Dialog,
   DialogContent,
@@ -43,25 +40,15 @@ import {
   TrendingUp, 
   Star, 
   ShieldCheck, 
-  Settings, 
   MapPin, 
-  CircleDollarSign,
   AlertCircle,
-  ChevronRight,
-  User,
   Loader2,
-  FileUp,
-  Ban,
   Zap,
   ShieldAlert,
   Clock,
-  Navigation,
   BarChart as BarChartIcon,
-  Smartphone,
   Phone,
-  MessageSquare,
-  PartyPopper,
-  Coins
+  PartyPopper
 } from "lucide-react";
 import { 
   BarChart, 
@@ -93,42 +80,52 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
   const isUnverified = !profile?.verified;
 
-  // 1. ACTIVE JOBS (Accepted but not completed)
+  // 1. ACTIVE JOBS - Removed orderBy
   const activeJobsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, "requests"),
       where("acceptedBy", "==", user.uid),
-      where("status", "==", "accepted"),
-      orderBy("createdAt", "desc")
+      where("status", "==", "accepted")
     );
   }, [db, user?.uid]);
-  const { data: activeJobs, isLoading: isActiveLoading } = useCollection(activeJobsQuery);
+  const { data: rawActiveJobs, isLoading: isActiveLoading } = useCollection(activeJobsQuery);
+  const activeJobs = useMemo(() => {
+    if (!rawActiveJobs) return null;
+    return [...rawActiveJobs].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawActiveJobs]);
 
-  // 2. INCOMING REQUESTS (Matching Category)
+  // 2. INCOMING REQUESTS - Removed orderBy
   const incomingQuery = useMemoFirebase(() => {
     if (!db || !profile?.serviceCategory) return null;
     return query(
       collection(db, "requests"),
       where("status", "==", "open"),
-      where("category", "==", profile.serviceCategory.toLowerCase()),
-      orderBy("createdAt", "desc"),
-      limit(3)
+      where("category", "==", profile.serviceCategory.toLowerCase())
     );
   }, [db, profile?.serviceCategory]);
-  const { data: incomingRequests, isLoading: isIncomingLoading } = useCollection(incomingQuery);
+  const { data: rawIncomingRequests, isLoading: isIncomingLoading } = useCollection(incomingQuery);
+  const incomingRequests = useMemo(() => {
+    if (!rawIncomingRequests) return null;
+    return [...rawIncomingRequests]
+      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+      .slice(0, 3);
+  }, [rawIncomingRequests]);
 
-  // 3. COMPLETED JOBS (For Performance Metrics)
+  // 3. COMPLETED JOBS - Removed orderBy
   const completedQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, "requests"),
       where("acceptedBy", "==", user.uid),
-      where("status", "==", "completed"),
-      orderBy("createdAt", "desc")
+      where("status", "==", "completed")
     );
   }, [db, user?.uid]);
-  const { data: completedJobs } = useCollection(completedQuery);
+  const { data: rawCompletedJobs } = useCollection(completedQuery);
+  const completedJobs = useMemo(() => {
+    if (!rawCompletedJobs) return null;
+    return [...rawCompletedJobs].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawCompletedJobs]);
 
   // Stats Calculations
   const stats = useMemo(() => {
@@ -157,7 +154,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
     };
   }, [completedJobs, profile?.totalEarnings]);
 
-  // Chart Data: Jobs per week (Last 4 weeks)
   const performanceData = useMemo(() => {
     const data = [];
     for (let i = 3; i >= 0; i--) {
@@ -270,7 +266,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20">
       <AnnouncementBanner />
-      {/* ⚠️ Verification Banner */}
       {isUnverified && (
         <div className="bg-amber-500 text-white py-3 px-6 text-center font-bold text-sm flex items-center justify-center gap-2 animate-in slide-in-from-top duration-500 sticky top-16 z-50 shadow-lg">
           <ShieldAlert className="w-4 h-4" />
@@ -278,7 +273,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         </div>
       )}
 
-      {/* 🚀 Provider Header */}
       <section className="bg-slate-900 pt-12 pb-24 px-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl opacity-30" />
         <div className="container mx-auto relative z-10">
@@ -327,9 +321,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         </div>
       </section>
 
-      <main className="container px-4 sm:px-6 mx-auto -mt-12 relative z-20 space-y-8">
-        
-        {/* 📊 Stats Row */}
+      <main className="container px-4 sm:px-6 mx-auto -mt-12 relative z-20 space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { label: "Total Jobs Done", value: profile?.totalJobsDone || 0, icon: Briefcase, color: "bg-blue-100 text-blue-600" },
@@ -352,8 +344,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         </div>
 
         <div className="grid lg:grid-cols-12 gap-8">
-          
-          {/* 🟢 Availability & Main Content */}
           <div className="lg:col-span-8 space-y-8">
             <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950">
               <CardContent className="p-8">
@@ -435,7 +425,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
             </section>
           </div>
 
-          {/* 📊 Performance & Active Job */}
           <div className="lg:col-span-4 space-y-8">
             <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden h-fit">
               <CardHeader className="pb-2">
@@ -480,11 +469,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-center">
                         <Badge className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase">In Progress</Badge>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" asChild>
-                             <a href={`tel:${profile?.phone}`}><Phone className="w-3.5 h-3.5" /></a>
-                           </Button>
-                        </div>
                       </div>
                       <CardTitle className="text-base font-bold leading-tight mt-2">{job.title}</CardTitle>
                     </CardHeader>
@@ -515,7 +499,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         </div>
       </main>
 
-      {/* 🚀 Mark Complete Modal */}
       <Dialog open={!!completingJob} onOpenChange={(open) => !open && setCompletingJob(null)}>
         <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[500px]">
           <DialogHeader>
@@ -574,7 +557,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         </DialogContent>
       </Dialog>
 
-      {/* 🎊 Celebration Modal */}
       <Dialog open={showCelebration} onOpenChange={setShowCelebration}>
         <DialogContent className="rounded-[3rem] p-12 text-center">
            <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">

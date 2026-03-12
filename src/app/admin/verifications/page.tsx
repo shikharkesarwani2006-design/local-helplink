@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { query, collection, where, doc, orderBy } from "firebase/firestore";
+import { query, collection, where, doc } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,7 +17,6 @@ import {
   Briefcase,
   MapPin,
   CheckCircle2,
-  Mail,
   Phone,
   Inbox,
   Activity
@@ -45,16 +44,25 @@ export default function PendingVerifications() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
+  // Removed orderBy to avoid index
   const pendingQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(
       collection(db, "users"), 
       where("role", "==", "provider"), 
-      where("verified", "==", false),
-      orderBy("createdAt", "desc")
+      where("verified", "==", false)
     );
   }, [db, profile?.role]);
-  const { data: pendingUsers, isLoading: isPendingLoading } = useCollection(pendingQuery);
+  const { data: rawPendingUsers, isLoading: isPendingLoading } = useCollection(pendingQuery);
+
+  const pendingUsers = useMemo(() => {
+    if (!rawPendingUsers) return null;
+    return [...rawPendingUsers].sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() || 0;
+      const timeB = b.createdAt?.toMillis() || 0;
+      return timeB - timeA;
+    });
+  }, [rawPendingUsers]);
 
   const handleVerify = async (u: any) => {
     if (!db) return;

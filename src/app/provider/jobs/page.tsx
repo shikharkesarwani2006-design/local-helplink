@@ -7,7 +7,6 @@ import {
   collection, 
   query, 
   where, 
-  orderBy, 
   doc, 
   runTransaction,
   serverTimestamp
@@ -81,22 +80,21 @@ export default function ProviderAvailableJobsPage() {
   const profileRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Open Requests
+  // 2. Fetch Open Requests - Removed orderBy to avoid index
   const requestsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
       collection(db, "requests"),
-      where("status", "==", "open"),
-      orderBy("createdAt", "desc")
+      where("status", "==", "open")
     );
   }, [db]);
-  const { data: allOpenRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
+  const { data: rawOpenRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
 
-  // 3. Filtering & Sorting
+  // 3. Filtering & Sorting (Handling orderBy in JS)
   const filteredJobs = useMemo(() => {
-    if (!allOpenRequests) return [];
+    if (!rawOpenRequests) return [];
 
-    return allOpenRequests
+    return [...rawOpenRequests]
       .filter(job => {
         const matchesCategory = !myCategoryOnly || (profile?.serviceCategory && job.category.toLowerCase() === profile.serviceCategory.toLowerCase());
         const matchesUrgency = urgencyFilter === "all" || job.urgency === urgencyFilter;
@@ -108,11 +106,13 @@ export default function ProviderAvailableJobsPage() {
       .sort((a, b) => {
         if (sortBy === "urgency") {
           const urgencyMap: any = { high: 3, medium: 2, low: 1 };
-          return urgencyMap[b.urgency] - urgencyMap[a.urgency];
+          if (urgencyMap[b.urgency] !== urgencyMap[a.urgency]) {
+            return urgencyMap[b.urgency] - urgencyMap[a.urgency];
+          }
         }
-        return b.createdAt?.toDate().getTime() - a.createdAt?.toDate().getTime();
+        return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
       });
-  }, [allOpenRequests, myCategoryOnly, urgencyFilter, searchQuery, sortBy, profile?.serviceCategory, user?.uid]);
+  }, [rawOpenRequests, myCategoryOnly, urgencyFilter, searchQuery, sortBy, profile?.serviceCategory, user?.uid]);
 
   const handleAcceptJob = async () => {
     if (!db || !user || !profile || !selectedJob) return;
@@ -155,10 +155,6 @@ export default function ProviderAvailableJobsPage() {
         });
       });
 
-      // Fetch requester phone if needed (in a real app, you'd get it from the user doc)
-      // For this prototype, we'll assume requester profile is accessible via a helper function
-      // but we'll use simulated phone from the request context if available.
-
       await sendNotification(db, selectedJob.createdBy, {
         title: "Expert Assigned! 🔧",
         message: `${profile.name} (${profile.serviceCategory}) has accepted your request. Contact: ${profile.phone || "In-App"}`,
@@ -195,7 +191,6 @@ export default function ProviderAvailableJobsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 pb-20">
-      {/* 🛠 Filter Bar */}
       <header className="bg-white border-b sticky top-16 z-30 shadow-sm">
         <div className="container px-6 mx-auto py-6 space-y-6">
           <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
@@ -262,7 +257,6 @@ export default function ProviderAvailableJobsPage() {
         </div>
       </header>
 
-      {/* 📋 Job Feed */}
       <main className="container px-6 mx-auto py-10">
         {filteredJobs.length === 0 ? (
           <div className="py-32 text-center bg-white rounded-[3rem] border-2 border-dashed space-y-6 max-w-2xl mx-auto shadow-sm">
@@ -275,7 +269,7 @@ export default function ProviderAvailableJobsPage() {
             </div>
             <div className="pt-4 flex justify-center gap-4">
                <Badge variant="outline" className="bg-slate-50 text-slate-400 border-none h-8 px-4 font-bold">
-                 Total Open: {allOpenRequests?.length || 0}
+                 Total Open: {rawOpenRequests?.length || 0}
                </Badge>
                <Button variant="ghost" className="text-primary font-bold" onClick={() => {
                  setMyCategoryOnly(false);
@@ -361,7 +355,6 @@ export default function ProviderAvailableJobsPage() {
         )}
       </main>
 
-      {/* 🚀 Job Detail & Accept Confirmation Modal */}
       <Dialog open={!!selectedJob} onOpenChange={(open) => !open && (setSelectedJob(null), setConfirmChecked(false))}>
         <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[600px] overflow-hidden">
           <DialogHeader>
@@ -455,7 +448,6 @@ export default function ProviderAvailableJobsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* 🎉 Success Modal */}
       <Dialog open={!!acceptedJobData} onOpenChange={(open) => !open && setAcceptedJobData(null)}>
         <DialogContent className="rounded-[3rem] p-10 sm:max-w-[500px] text-center">
           <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">

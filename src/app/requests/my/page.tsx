@@ -1,7 +1,8 @@
+
 "use client";
 
-import { useState } from "react";
-import { collection, query, where, orderBy, doc, runTransaction, increment } from "firebase/firestore";
+import { useState, useMemo } from "react";
+import { collection, query, where, doc, runTransaction, increment } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +23,16 @@ export default function MyRequests() {
     if (!user || !db) return null;
     return query(
       collection(db, "requests"),
-      where("createdBy", "==", user.uid),
-      orderBy("createdAt", "desc")
+      where("createdBy", "==", user.uid)
     );
   }, [user?.uid, db]);
 
-  const { data: myRequests, isLoading } = useCollection(myRequestsQuery);
+  const { data: rawMyRequests, isLoading } = useCollection(myRequestsQuery);
+
+  const myRequests = useMemo(() => {
+    if (!rawMyRequests) return null;
+    return [...rawMyRequests].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawMyRequests]);
 
   const handleCompleteRequest = async (request: any) => {
     if (!db || !user) return;

@@ -1,9 +1,10 @@
+
 "use client";
 
-import { useMemo, useState } from "react";
-import { query, collection, where, orderBy, doc } from "firebase/firestore";
+import { useMemo } from "react";
+import { query, collection, where, doc } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,7 +16,6 @@ import {
   CheckCircle2, 
   MessageSquare,
   History,
-  TrendingUp,
   Award,
   MapPin,
   Mail,
@@ -44,33 +44,42 @@ export default function ProfilePage() {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, "ratings"),
-      where("toUser", "==", user.uid),
-      orderBy("createdAt", "desc")
+      where("toUser", "==", user.uid)
     );
   }, [db, user?.uid]);
-  const { data: reviews } = useCollection(ratingsQuery);
+  const { data: rawReviews } = useCollection(ratingsQuery);
+  const reviews = useMemo(() => {
+    if (!rawReviews) return null;
+    return [...rawReviews].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawReviews]);
 
   // 3. Fetch History of helping others
   const helpedHistoryQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, "requests"),
-      where("acceptedBy", "==", user.uid),
-      orderBy("createdAt", "desc")
+      where("acceptedBy", "==", user.uid)
     );
   }, [db, user?.uid]);
-  const { data: helpedHistory } = useCollection(helpedHistoryQuery);
+  const { data: rawHelpedHistory } = useCollection(helpedHistoryQuery);
+  const helpedHistory = useMemo(() => {
+    if (!rawHelpedHistory) return null;
+    return [...rawHelpedHistory].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawHelpedHistory]);
 
   // 4. Fetch My Posts history
   const myPostsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(
       collection(db, "requests"),
-      where("createdBy", "==", user.uid),
-      orderBy("createdAt", "desc")
+      where("createdBy", "==", user.uid)
     );
   }, [db, user?.uid]);
-  const { data: myPosts } = useCollection(myPostsQuery);
+  const { data: rawMyPosts } = useCollection(myPostsQuery);
+  const myPosts = useMemo(() => {
+    if (!rawMyPosts) return null;
+    return [...rawMyPosts].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawMyPosts]);
 
   if (isUserLoading || isProfileLoading) {
     return (
@@ -136,7 +145,7 @@ export default function ProfilePage() {
       </div>
 
       <main className="container max-w-6xl px-6 mx-auto -mt-16 relative z-20">
-        <div className="grid lg:grid-cols-12 gap-8">
+        <div className="grid lg:col-span-12 gap-8">
           {/* 📊 Sidebar Stats */}
           <div className="lg:col-span-4 space-y-8">
             <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden">
@@ -180,7 +189,7 @@ export default function ProfilePage() {
             {profile?.skills && profile.skills.length > 0 && (
               <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2rem]">
                 <CardHeader>
-                  <CardTitle className="text-lg font-headline">Verified Skills</CardTitle>
+                  <CardTitle className="text-xl font-headline font-bold">Verified Skills</CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-2">
                   {profile.skills.map((skill: string) => (

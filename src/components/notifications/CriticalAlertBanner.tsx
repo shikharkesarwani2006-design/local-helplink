@@ -1,13 +1,12 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { query, collection, where, orderBy, limit, onSnapshot, doc } from "firebase/firestore";
+import { query, collection, where, onSnapshot, doc } from "firebase/firestore";
 import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { AlertCircle, X, ChevronRight, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 export function CriticalAlertBanner() {
   const { user } = useUser();
@@ -22,18 +21,23 @@ export function CriticalAlertBanner() {
   useEffect(() => {
     if (!db || !user?.uid) return;
 
-    // Listen specifically for new unread critical notifications
+    // Listen specifically for unread critical notifications - Removed orderBy to avoid index
     const q = query(
       collection(db, "notifications", user.uid, "items"),
       where("read", "==", false),
-      where("urgency", "==", "high"),
-      orderBy("createdAt", "desc"),
-      limit(1)
+      where("urgency", "==", "high")
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
-        const data = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
+        // Sort in JS instead of Firestore
+        const sortedDocs = [...snapshot.docs].sort((a, b) => {
+          const timeA = a.data().createdAt?.toMillis() || 0;
+          const timeB = b.data().createdAt?.toMillis() || 0;
+          return timeB - timeA;
+        });
+
+        const data = { id: sortedDocs[0].id, ...sortedDocs[0].data() } as any;
         
         // Only show if it's new (created in the last 15 seconds)
         const createdAt = data.createdAt?.toDate();
