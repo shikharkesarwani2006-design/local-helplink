@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { query, collection, orderBy, doc, deleteDoc, Timestamp } from "firebase/firestore";
+import { query, collection, doc, Timestamp } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,11 +28,8 @@ import {
   Eye,
   MoreVertical,
   Calendar,
-  AlertTriangle,
-  LayoutGrid,
   RefreshCw,
   Flag,
-  ArrowRight,
   MapPin,
   MessageSquare,
   User,
@@ -52,12 +47,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
-import { format, formatDistanceToNow, addHours } from "date-fns";
+import { format, addHours } from "date-fns";
 import { cn } from "@/lib/utils";
 
-/**
- * Detailed Profile Card used inside the Request Detail Modal
- */
 function UserSmallCard({ userId, label }: { userId: string; label: string }) {
   const db = useFirestore();
   const userRef = useMemoFirebase(() => (db ? doc(db, "users", userId) : null), [db, userId]);
@@ -95,7 +87,6 @@ export default function AdminRequestsManager() {
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
 
-  // Auth Guard
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, "users", user.uid);
@@ -110,31 +101,35 @@ export default function AdminRequestsManager() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
-  // Fetch Data
+  // REMOVED orderBy to avoid index
   const requestsQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "requests"), orderBy("createdAt", "desc"));
+    return query(collection(db, "requests"));
   }, [db, profile?.role]);
-  const { data: allRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
+  const { data: rawRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
 
-  // Stats Calculations
+  // SORT AND FILTER IN JS
+  const allRequestsSorted = useMemo(() => {
+    if (!rawRequests) return [];
+    return [...rawRequests].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawRequests]);
+
   const stats = useMemo(() => {
-    if (!allRequests) return { total: 0, open: 0, active: 0, completed: 0, expired: 0 };
+    if (!allRequestsSorted) return { total: 0, open: 0, active: 0, completed: 0, expired: 0 };
     const now = new Date();
     return {
-      total: allRequests.length,
-      open: allRequests.filter(r => r.status === 'open').length,
-      active: allRequests.filter(r => r.status === 'accepted').length,
-      completed: allRequests.filter(r => r.status === 'completed').length,
-      expired: allRequests.filter(r => r.expiresAt?.toDate() < now && r.status === 'open').length
+      total: allRequestsSorted.length,
+      open: allRequestsSorted.filter(r => r.status === 'open').length,
+      active: allRequestsSorted.filter(r => r.status === 'accepted').length,
+      completed: allRequestsSorted.filter(r => r.status === 'completed').length,
+      expired: allRequestsSorted.filter(r => r.expiresAt?.toDate() < now && r.status === 'open').length
     };
-  }, [allRequests]);
+  }, [allRequestsSorted]);
 
-  // Filter Logic
   const filteredRequests = useMemo(() => {
-    if (!allRequests) return [];
+    if (!allRequestsSorted) return [];
     const now = new Date();
-    return allRequests.filter(r => {
+    return allRequestsSorted.filter(r => {
       const isExpired = r.expiresAt?.toDate() < now && r.status === 'open';
       const effectiveStatus = isExpired ? 'expired' : r.status;
 
@@ -144,9 +139,8 @@ export default function AdminRequestsManager() {
       const matchesUrgency = urgencyFilter === "all" || r.urgency === urgencyFilter;
       return matchesSearch && matchesStatus && matchesCategory && matchesUrgency;
     });
-  }, [allRequests, searchQuery, statusFilter, categoryFilter, urgencyFilter]);
+  }, [allRequestsSorted, searchQuery, statusFilter, categoryFilter, urgencyFilter]);
 
-  // Admin Actions
   const handleForceComplete = (requestId: string) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "requests", requestId), { 
@@ -385,7 +379,6 @@ export default function AdminRequestsManager() {
         </Card>
       </main>
 
-      {/* 👁️ REQUEST DETAIL MODAL */}
       <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
         <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
           {selectedRequest && (
@@ -406,7 +399,6 @@ export default function AdminRequestsManager() {
 
               <div className="flex-grow overflow-y-auto p-8 bg-white dark:bg-slate-950">
                 <div className="grid md:grid-cols-12 gap-8">
-                  {/* Left Column: Description & Metadata */}
                   <div className="md:col-span-7 space-y-8">
                     <div className="space-y-3">
                       <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Description</h4>
@@ -456,7 +448,6 @@ export default function AdminRequestsManager() {
                     </div>
                   </div>
 
-                  {/* Right Column: Participants */}
                   <div className="md:col-span-5 space-y-6">
                     <UserSmallCard userId={selectedRequest.createdBy} label="Requester" />
                     

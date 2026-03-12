@@ -6,14 +6,11 @@ import { useRouter } from "next/navigation";
 import { 
   query, 
   collection, 
-  orderBy, 
   doc, 
   getCountFromServer, 
   where, 
   getAggregateFromServer, 
   average, 
-  Timestamp,
-  limit
 } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,21 +25,15 @@ import {
   BarChart as BarIcon, 
   LineChart as LineIcon, 
   PieChart as PieIcon,
-  TrendingUp,
-  ArrowUpRight,
   Zap,
-  Droplets,
-  BookOpen,
   Wrench,
   AlertCircle,
   Trophy,
   Star,
   Clock,
-  Briefcase,
   UserPlus,
   PlusCircle,
-  Loader2,
-  MessageSquare
+  Loader2
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -73,6 +64,41 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
+  // Real-time collections for global analytics - REMOVED orderBy and limit
+  const usersQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "users"));
+  }, [db, profile?.role]);
+  const { data: rawUsers } = useCollection(usersQuery);
+
+  const requestsQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "requests"));
+  }, [db, profile?.role]);
+  const { data: rawRequests } = useCollection(requestsQuery);
+
+  const ratingsQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "ratings"));
+  }, [db, profile?.role]);
+  const { data: rawRatings } = useCollection(ratingsQuery);
+
+  // SORT AND FILTER IN JS
+  const allUsers = useMemo(() => {
+    if (!rawUsers) return [];
+    return [...rawUsers].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawUsers]);
+
+  const allRequests = useMemo(() => {
+    if (!rawRequests) return [];
+    return [...rawRequests].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawRequests]);
+
+  const recentRatings = useMemo(() => {
+    if (!rawRatings) return [];
+    return [...rawRatings].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).slice(0, 10);
+  }, [rawRatings]);
+
   const fetchStats = useCallback(async () => {
     if (!db || profile?.role !== 'admin') return;
 
@@ -86,8 +112,6 @@ export default function AdminDashboard() {
         volunteersSnap,
         providersSnap,
         openRequestsSnap,
-        completedThisWeekSnap,
-        pendingVerificationsSnap,
         activeJobsSnap,
         avgRatingSnap
       ] = await Promise.all([
@@ -95,26 +119,36 @@ export default function AdminDashboard() {
         getCountFromServer(query(usersCol, where("role", "==", "volunteer"))),
         getCountFromServer(query(usersCol, where("role", "==", "provider"))),
         getCountFromServer(query(requestsCol, where("status", "==", "open"))),
-        getCountFromServer(query(requestsCol, where("status", "==", "completed"), where("completedAt", ">=", Timestamp.fromDate(sevenDaysAgo)))),
-        getCountFromServer(query(usersCol, where("role", "==", "provider"), where("verified", "==", false))),
         getCountFromServer(query(requestsCol, where("status", "==", "accepted"))),
         getAggregateFromServer(usersCol, { avg: average("rating") })
       ]);
+
+      // Calculate complex counts in JS to avoid composite indexes
+      const completedThisWeek = allRequests.filter(r => 
+        r.status === 'completed' && 
+        r.completedAt && 
+        r.completedAt.toDate() >= sevenDaysAgo
+      ).length;
+
+      const pendingVerifications = allUsers.filter(u => 
+        u.role === 'provider' && 
+        u.verified === false
+      ).length;
 
       setLiveStats({
         totalUsers: totalUsersSnap.data().count,
         volunteers: volunteersSnap.data().count,
         providers: providersSnap.data().count,
         openRequests: openRequestsSnap.data().count,
-        completedThisWeek: completedThisWeekSnap.data().count,
-        pendingVerifications: pendingVerificationsSnap.data().count,
+        completedThisWeek,
+        pendingVerifications,
         activeJobs: activeJobsSnap.data().count,
         avgRating: avgRatingSnap.data().avg || 5.0
       });
     } catch (e) {
       console.error("Failed to fetch admin stats:", e);
     }
-  }, [db, profile?.role]);
+  }, [db, profile?.role, allUsers, allRequests]);
 
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading) {
@@ -128,25 +162,6 @@ export default function AdminDashboard() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router, fetchStats]);
 
-  // Real-time listeners for analytics
-  const usersQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "users"), orderBy("createdAt", "desc"), limit(50));
-  }, [db, profile?.role]);
-  const { data: allUsers } = useCollection(usersQuery);
-
-  const requestsQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "requests"), orderBy("createdAt", "desc"), limit(50));
-  }, [db, profile?.role]);
-  const { data: allRequests } = useCollection(requestsQuery);
-
-  const ratingsQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "ratings"), orderBy("createdAt", "desc"), limit(10));
-  }, [db, profile?.role]);
-  const { data: recentRatings } = useCollection(ratingsQuery);
-
   // CHART 1: Requests by Category
   const categoryData = useMemo(() => {
     if (!allRequests) return [];
@@ -159,7 +174,7 @@ export default function AdminDashboard() {
     };
     allRequests.forEach(r => {
       if (counts[r.category]) counts[r.category].count++;
-      else counts.other.count++;
+      else if (counts.other) counts.other.count++;
     });
     return Object.entries(counts).map(([name, data]) => ({ 
       name: name.charAt(0).toUpperCase() + name.slice(1), 
@@ -205,7 +220,7 @@ export default function AdminDashboard() {
   const activityEvents = useMemo(() => {
     const events: any[] = [];
 
-    allRequests?.forEach(r => {
+    allRequests?.slice(0, 20).forEach(r => {
       events.push({
         id: `req-${r.id}`,
         type: 'request',
@@ -225,7 +240,7 @@ export default function AdminDashboard() {
       }
     });
 
-    allUsers?.forEach(u => {
+    allUsers?.slice(0, 10).forEach(u => {
       events.push({
         id: `user-${u.id}`,
         type: 'user',
@@ -260,7 +275,6 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50/50 pb-20">
       <main className="container px-6 mx-auto py-8 space-y-8">
         
-        {/* Real-time Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
           <Card className="border-none shadow-sm bg-white overflow-hidden p-4">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Citizens</p>
@@ -320,7 +334,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* ROW 1: ANALYTICS CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <Card className="bg-white border-none shadow-sm rounded-3xl">
             <CardHeader className="pb-2">
@@ -386,7 +399,6 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        {/* ROW 2: LIVE ACTIVITY FEED */}
         <Card className="bg-white border-none shadow-sm rounded-3xl overflow-hidden">
           <CardHeader className="border-b bg-slate-50/50 px-8 py-6">
             <div className="flex items-center justify-between">
@@ -429,7 +441,6 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Data Tables */}
         <div className="grid lg:grid-cols-2 gap-8">
           <Card className="bg-white border-none shadow-sm rounded-3xl">
             <CardHeader className="flex flex-row items-center justify-between">

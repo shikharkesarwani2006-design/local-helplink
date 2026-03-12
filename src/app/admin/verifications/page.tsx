@@ -44,25 +44,27 @@ export default function PendingVerifications() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
-  // Removed orderBy to avoid index
+  // MOST SELECTIVE where() ONLY, no orderBy
   const pendingQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(
       collection(db, "users"), 
-      where("role", "==", "provider"), 
-      where("verified", "==", false)
+      where("role", "==", "provider")
     );
   }, [db, profile?.role]);
-  const { data: rawPendingUsers, isLoading: isPendingLoading } = useCollection(pendingQuery);
+  const { data: rawProviders, isLoading: isPendingLoading } = useCollection(pendingQuery);
 
+  // JS FILTER AND SORT
   const pendingUsers = useMemo(() => {
-    if (!rawPendingUsers) return null;
-    return [...rawPendingUsers].sort((a, b) => {
-      const timeA = a.createdAt?.toMillis() || 0;
-      const timeB = b.createdAt?.toMillis() || 0;
-      return timeB - timeA;
-    });
-  }, [rawPendingUsers]);
+    if (!rawProviders) return [];
+    return [...rawProviders]
+      .filter(u => u.verified === false)
+      .sort((a, b) => {
+        const timeA = a.createdAt?.toMillis() || 0;
+        const timeB = b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
+  }, [rawProviders]);
 
   const handleVerify = async (u: any) => {
     if (!db) return;
@@ -105,7 +107,7 @@ export default function PendingVerifications() {
       <main className="container px-6 mx-auto py-8">
         {isPendingLoading ? (
           <div className="flex justify-center py-20"><Activity className="animate-spin text-primary" /></div>
-        ) : !pendingUsers || pendingUsers.length === 0 ? (
+        ) : pendingUsers.length === 0 ? (
           <div className="py-32 text-center bg-white rounded-[3rem] border-2 border-dashed space-y-4 max-w-xl mx-auto shadow-sm">
             <Inbox className="w-16 h-16 text-slate-200 mx-auto" />
             <div className="space-y-1">

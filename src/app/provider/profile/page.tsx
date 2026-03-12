@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
-import { query, collection, where, orderBy, doc } from "firebase/firestore";
+import { query, collection, where, doc } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +17,6 @@ import {
   MessageSquare,
   Award,
   MapPin,
-  Mail,
-  Phone,
   Briefcase,
   TrendingUp,
   CircleDollarSign,
@@ -47,37 +45,40 @@ export default function ProviderProfilePage() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") || "overview";
 
-  // 1. Fetch Provider Profile
   const profileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, "users", user.uid);
   }, [db, user?.uid]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  // 2. Fetch Received Ratings
+  // REMOVED orderBy
   const ratingsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
-    return query(
-      collection(db, "ratings"),
-      where("toUser", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
+    return query(collection(db, "ratings"), where("toUser", "==", user.uid));
   }, [db, user?.uid]);
-  const { data: reviews } = useCollection(ratingsQuery);
+  const { data: rawReviews } = useCollection(ratingsQuery);
 
-  // 3. Fetch Completed Jobs for Earnings/History
+  // SORT IN JS
+  const reviews = useMemo(() => {
+    if (!rawReviews) return [];
+    return [...rawReviews].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawReviews]);
+
+  // REMOVED orderBy, removed composite where
   const jobsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
-    return query(
-      collection(db, "requests"),
-      where("acceptedBy", "==", user.uid),
-      where("status", "==", "completed"),
-      orderBy("createdAt", "desc")
-    );
+    return query(collection(db, "requests"), where("acceptedBy", "==", user.uid));
   }, [db, user?.uid]);
-  const { data: completedJobs } = useCollection(jobsQuery);
+  const { data: rawJobs } = useCollection(jobsQuery);
 
-  // Stats Calculations
+  // JS FILTER AND SORT
+  const completedJobs = useMemo(() => {
+    if (!rawJobs) return [];
+    return [...rawJobs]
+      .filter(j => j.status === 'completed')
+      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawJobs]);
+
   const stats = useMemo(() => {
     if (!completedJobs) return { monthJobs: 0, monthEarnings: 0 };
     
@@ -98,7 +99,6 @@ export default function ProviderProfilePage() {
     };
   }, [completedJobs, profile?.hourlyRate]);
 
-  // Chart Data: Earnings per week (Last 4 weeks)
   const earningsChartData = useMemo(() => {
     const data = [];
     for (let i = 3; i >= 0; i--) {
@@ -141,7 +141,6 @@ export default function ProviderProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
-      {/* 🚀 Provider Header */}
       <div className="bg-slate-900 border-b border-white/5 pt-16 pb-28 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl opacity-50" />
         <div className="container max-w-6xl px-6 mx-auto flex flex-col md:flex-row items-center gap-10 relative z-10">
@@ -211,7 +210,6 @@ export default function ProviderProfilePage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* 📋 Overview Tab */}
           <TabsContent value="overview" className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-7 space-y-8">
@@ -329,7 +327,6 @@ export default function ProviderProfilePage() {
             </div>
           </TabsContent>
 
-          {/* ⭐ Reviews Tab */}
           <TabsContent value="reviews" className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="grid lg:grid-cols-12 gap-8">
               <div className="lg:col-span-4">
@@ -344,7 +341,7 @@ export default function ProviderProfilePage() {
                         <div className="flex-grow h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-amber-400 rounded-full"
-                            style={{ width: `${reviews?.length ? (ratingCounts[idx] / reviews.length) * 100 : 0}%` }}
+                            style={{ width: `${reviews.length ? (ratingCounts[idx] / reviews.length) * 100 : 0}%` }}
                           />
                         </div>
                         <span className="text-xs font-bold text-slate-600 w-8 text-right">{ratingCounts[idx]}</span>
@@ -359,7 +356,7 @@ export default function ProviderProfilePage() {
               </div>
 
               <div className="lg:col-span-8 space-y-6">
-                {!reviews || reviews.length === 0 ? (
+                {reviews.length === 0 ? (
                   <div className="p-20 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
                     <MessageSquare className="w-16 h-16 text-slate-200 mx-auto mb-4" />
                     <p className="text-slate-500 font-medium">No reviews received yet. Complete your first job to start building your profile!</p>
@@ -402,7 +399,6 @@ export default function ProviderProfilePage() {
             </div>
           </TabsContent>
 
-          {/* 💰 Earnings Tab */}
           <TabsContent value="earnings" className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
             <div className="grid md:grid-cols-3 gap-8">
               <Card className="shadow-xl border-none bg-emerald-600 text-white rounded-[2.5rem] p-8 space-y-4">

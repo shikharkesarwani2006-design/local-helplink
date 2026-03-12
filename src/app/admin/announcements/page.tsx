@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { collection, addDoc, serverTimestamp, query, orderBy, doc, deleteDoc } from "firebase/firestore";
+import { useState, useMemo } from "react";
+import { collection, addDoc, serverTimestamp, query, doc, deleteDoc } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,11 +27,22 @@ export default function AdminAnnouncementsPage() {
   });
   const [loading, setLoading] = useState(false);
 
+  // REMOVED orderBy to avoid index
   const announcementsQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return query(collection(db, "announcements"), orderBy("createdAt", "desc"));
+    return query(collection(db, "announcements"));
   }, [db]);
-  const { data: announcements, isLoading } = useCollection(announcementsQuery);
+  const { data: rawAnnouncements, isLoading } = useCollection(announcementsQuery);
+
+  // SORT IN JS
+  const announcements = useMemo(() => {
+    if (!rawAnnouncements) return [];
+    return [...rawAnnouncements].sort((a, b) => {
+      const timeA = a.createdAt?.toMillis() || 0;
+      const timeB = b.createdAt?.toMillis() || 0;
+      return timeB - timeA;
+    });
+  }, [rawAnnouncements]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +96,6 @@ export default function AdminAnnouncementsPage() {
       </header>
 
       <main className="container px-6 mx-auto py-8 grid lg:grid-cols-12 gap-8">
-        {/* Post Form */}
         <div className="lg:col-span-5">
           <Card className="rounded-[2rem] border-none shadow-xl sticky top-24">
             <CardHeader>
@@ -142,7 +152,6 @@ export default function AdminAnnouncementsPage() {
           </Card>
         </div>
 
-        {/* History / Active Feed */}
         <div className="lg:col-span-7 space-y-6">
           <h3 className="text-xl font-headline font-bold flex items-center gap-2">
             <Clock className="w-5 h-5 text-slate-400" /> Recent Broadcasts
@@ -150,13 +159,13 @@ export default function AdminAnnouncementsPage() {
           
           {isLoading ? (
             <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary" /></div>
-          ) : announcements?.length === 0 ? (
+          ) : announcements.length === 0 ? (
             <div className="py-20 text-center bg-white rounded-[2rem] border-2 border-dashed">
               <p className="text-slate-400 font-medium">No announcements posted yet.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {announcements?.map((a) => (
+              {announcements.map((a) => (
                 <Card key={a.id} className="rounded-2xl border-none shadow-sm bg-white overflow-hidden group">
                   <div className="flex">
                     <div className={cn(

@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { query, collection, where, orderBy, doc } from "firebase/firestore";
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { query, collection, where, doc } from "firebase/firestore";
+import { useFirestore, useUser, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -19,16 +19,12 @@ import {
   Filter, 
   TrendingUp, 
   MessageSquare,
-  ChevronRight,
   Loader2,
   Inbox
 } from "lucide-react";
-import { format, formatDistanceToNow, isSameMonth, startOfMonth } from "date-fns";
+import { format, formatDistanceToNow, isSameMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 
-/**
- * Helper to display requester info in the history table.
- */
 function RequesterCell({ userId }: { userId: string }) {
   const db = useFirestore();
   const ref = useMemoFirebase(() => (db ? doc(db, "users", userId) : null), [db, userId]);
@@ -45,38 +41,40 @@ function RequesterCell({ userId }: { userId: string }) {
   );
 }
 
-import { useDoc } from "@/firebase";
-
 export default function MissionHistoryPage() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
 
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // 1. Fetch Completed Missions
+  // REMOVED orderBy
   const missionsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
-    return query(
-      collection(db, "requests"),
-      where("acceptedBy", "==", user.uid),
-      where("status", "==", "completed"),
-      orderBy("createdAt", "desc")
-    );
+    return query(collection(db, "requests"), where("acceptedBy", "==", user.uid));
   }, [db, user?.uid]);
-  const { data: missions, isLoading: isMissionsLoading } = useCollection(missionsQuery);
+  const { data: rawMissions, isLoading: isMissionsLoading } = useCollection(missionsQuery);
 
-  // 2. Fetch Received Ratings
+  // JS FILTER AND SORT
+  const missions = useMemo(() => {
+    if (!rawMissions) return [];
+    return [...rawMissions]
+      .filter(m => m.status === 'completed')
+      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawMissions]);
+
+  // REMOVED orderBy
   const ratingsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
-    return query(
-      collection(db, "ratings"),
-      where("toUser", "==", user.uid),
-      orderBy("createdAt", "desc")
-    );
+    return query(collection(db, "ratings"), where("toUser", "==", user.uid));
   }, [db, user?.uid]);
-  const { data: ratings } = useCollection(ratingsQuery);
+  const { data: rawRatings } = useCollection(ratingsQuery);
 
-  // 3. Stats Calculations
+  // JS SORT
+  const ratings = useMemo(() => {
+    if (!rawRatings) return [];
+    return [...rawRatings].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawRatings]);
+
   const stats = useMemo(() => {
     if (!missions) return { total: 0, thisMonth: 0, bestCategory: "None", avgRating: 0 };
 
@@ -139,7 +137,6 @@ export default function MissionHistoryPage() {
       </header>
 
       <main className="container max-w-6xl mx-auto py-12 px-6 space-y-12">
-        {/* 📊 Summary Grid */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {[
             { label: "Total Missions", value: stats.total, icon: CheckCircle2, color: "bg-emerald-50 text-emerald-600" },
@@ -162,7 +159,6 @@ export default function MissionHistoryPage() {
         </div>
 
         <div className="grid lg:grid-cols-12 gap-8">
-          {/* 📜 Detailed History Table */}
           <Card className="lg:col-span-8 border-none shadow-sm bg-white rounded-[2rem] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 px-8 py-6">
               <div>
@@ -185,7 +181,7 @@ export default function MissionHistoryPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {!filteredHistory || filteredHistory.length === 0 ? (
+              {filteredHistory.length === 0 ? (
                 <div className="py-20 text-center">
                   <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-2" />
                   <p className="text-slate-400 text-sm font-medium">No missions found matching your criteria.</p>
@@ -234,7 +230,6 @@ export default function MissionHistoryPage() {
             </CardContent>
           </Card>
 
-          {/* 📈 Impact Timeline & Ratings */}
           <div className="lg:col-span-4 space-y-8">
             <Card className="border-none shadow-sm bg-white rounded-[2rem] overflow-hidden">
               <CardHeader className="bg-primary/5 border-b border-primary/10">
@@ -268,7 +263,7 @@ export default function MissionHistoryPage() {
               <CardContent className="relative">
                 <div className="absolute left-8 top-0 bottom-8 w-px bg-slate-100" />
                 <div className="space-y-8 relative">
-                  {missions?.slice(0, 5).map((m, i) => (
+                  {missions?.slice(0, 5).map((m) => (
                     <div key={m.id} className="flex gap-4 items-start">
                       <div className="mt-1.5 w-4 h-4 rounded-full border-4 border-white bg-primary shadow-sm z-10" />
                       <div className="space-y-1">
@@ -281,7 +276,7 @@ export default function MissionHistoryPage() {
                       </div>
                     </div>
                   ))}
-                  {(!missions || missions.length === 0) && (
+                  {missions.length === 0 && (
                     <div className="pl-10 py-4 text-xs text-slate-400 font-medium">
                       Complete your first mission to start your timeline!
                     </div>
@@ -292,12 +287,11 @@ export default function MissionHistoryPage() {
           </div>
         </div>
 
-        {/* 💬 Recent Reviews */}
         <section className="space-y-6">
           <h2 className="text-2xl font-headline font-bold text-slate-800 flex items-center gap-3">
             <MessageSquare className="w-6 h-6 text-amber-500" /> Recent Community Feedback
           </h2>
-          {!ratings || ratings.length === 0 ? (
+          {ratings.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-[2.5rem] border-2 border-dashed">
               <p className="text-slate-400 font-medium italic">No reviews yet. Help a neighbor to earn feedback!</p>
             </div>

@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { query, collection, orderBy, doc, writeBatch, where, getDocs } from "firebase/firestore";
+import { query, collection, doc, writeBatch } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ import {
   MoreVertical,
   Trash2,
   AlertTriangle,
-  UserPlus,
   RefreshCw,
   Eye,
   ShieldAlert,
@@ -81,7 +80,6 @@ export default function CitizenDirectory() {
   const [cleaning, setCleaning] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
-  // Modal States
   const [viewUser, setViewUser] = useState<any>(null);
   const [warnUser, setWarnUser] = useState<any>(null);
   const [warningMessage, setWarningMessage] = useState("");
@@ -101,17 +99,19 @@ export default function CitizenDirectory() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
+  // REMOVED orderBy to avoid index
   const usersQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
-    return query(collection(db, "users"), orderBy("createdAt", "desc"));
+    return query(collection(db, "users"));
   }, [db, profile?.role]);
-  const { data: allUsers, isLoading: isUsersLoading } = useCollection(usersQuery);
+  const { data: rawUsers, isLoading: isUsersLoading } = useCollection(usersQuery);
 
-  // Deduplication & Filtering logic
+  // SORT AND FILTER IN JS
   const filteredUsers = useMemo(() => {
-    if (!allUsers) return [];
+    if (!rawUsers) return [];
     const seenEmails = new Set();
-    return allUsers
+    return [...rawUsers]
+      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
       .filter(u => {
         if (seenEmails.has(u.email)) return false;
         seenEmails.add(u.email);
@@ -123,12 +123,12 @@ export default function CitizenDirectory() {
         const matchesTab = activeTab === "all" || u.role === activeTab;
         return matchesSearch && matchesTab;
       });
-  }, [allUsers, searchQuery, activeTab]);
+  }, [rawUsers, searchQuery, activeTab]);
 
   const stats = useMemo(() => {
-    if (!allUsers) return { total: 0, admin: 0, volunteer: 0, provider: 0, user: 0 };
+    if (!rawUsers) return { total: 0, admin: 0, volunteer: 0, provider: 0, user: 0 };
     const seenEmails = new Set();
-    const uniqueUsers = allUsers.filter(u => {
+    const uniqueUsers = rawUsers.filter(u => {
       if (seenEmails.has(u.email)) return false;
       seenEmails.add(u.email);
       return true;
@@ -141,7 +141,7 @@ export default function CitizenDirectory() {
       provider: uniqueUsers.filter(u => u.role === 'provider').length,
       user: uniqueUsers.filter(u => u.role === 'user').length,
     };
-  }, [allUsers]);
+  }, [rawUsers]);
 
   const handleUpdateUser = (userId: string, data: any) => {
     if (!db) return;
@@ -170,13 +170,13 @@ export default function CitizenDirectory() {
   };
 
   const cleanDuplicates = async () => {
-    if (!db || !allUsers) return;
+    if (!db || !rawUsers) return;
     setCleaning(true);
     try {
       const emailMap = new Map();
       const duplicatesToDelete: string[] = [];
 
-      allUsers.forEach(u => {
+      rawUsers.forEach(u => {
         if (emailMap.has(u.email)) {
           duplicatesToDelete.push(u.id);
         } else {
@@ -384,7 +384,6 @@ export default function CitizenDirectory() {
         </Card>
       </main>
 
-      {/* 👁️ VIEW USER MODAL */}
       <Dialog open={!!viewUser} onOpenChange={() => setViewUser(null)}>
         <DialogContent className="max-w-2xl rounded-[2.5rem] p-0 overflow-hidden">
           {viewUser && (
@@ -422,7 +421,7 @@ export default function CitizenDirectory() {
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Reputation</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                        <Star className="w-4 h-4 text-amber-500 fill-amber-500 mb-1" />
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-400 mb-1" />
                         <p className="text-xl font-black text-slate-900">{viewUser.rating?.toFixed(1) || "5.0"}</p>
                         <p className="text-[8px] font-bold text-amber-600 uppercase">Avg Rating</p>
                       </div>
@@ -462,7 +461,6 @@ export default function CitizenDirectory() {
         </DialogContent>
       </Dialog>
 
-      {/* ⚠️ WARNING MODAL */}
       <Dialog open={!!warnUser} onOpenChange={() => setWarnUser(null)}>
         <DialogContent className="rounded-3xl p-8">
           <DialogHeader>
@@ -497,8 +495,7 @@ export default function CitizenDirectory() {
         </DialogContent>
       </Dialog>
 
-      {/* 🔴 SUSPEND CONFIRMATION */}
-      <AlertDialog open={!!suspendUser} onOpenChange={() => setSuspendUser(null)}>
+      <AlertDialog open={!!suspendUser} onOpenChange={setSuspendUser}>
         <AlertDialogContent className="rounded-[2rem] p-8">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-bold text-red-600">Suspend Account?</AlertDialogTitle>
