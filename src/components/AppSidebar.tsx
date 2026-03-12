@@ -23,7 +23,8 @@ import {
   FileText,
   Clock,
   LayoutGrid,
-  Megaphone
+  Megaphone,
+  Wrench
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -77,6 +78,7 @@ export function AppSidebar() {
         { label: "Citizen Directory", href: "/admin/users", icon: Users },
         { label: "All Requests", href: "/admin/requests", icon: LayoutGrid },
         { label: "Pending Verifications", href: "/admin/verifications", icon: ShieldCheck, badge: pendingUsers?.length },
+        { label: "Provider Monitor", href: "/admin/providers", icon: Wrench },
       ];
     }
 
