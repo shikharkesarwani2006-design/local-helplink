@@ -68,36 +68,36 @@ export function AppSidebar() {
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userRef);
 
+  const isAdmin = profile?.role === 'admin';
+
   // --- ADMIN SPECIFIC DATA QUERIES ---
   
   // 1. Pending verification count
   const pendingQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
+    if (!db || !isAdmin) return null;
     return query(collection(db, "users"), where("role", "==", "provider"), where("verified", "==", false));
-  }, [db, profile?.role]);
+  }, [db, isAdmin]);
   const { data: pendingUsers } = useCollection(pendingQuery);
 
   // 2. Reported requests count
   const reportedQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
+    if (!db || !isAdmin) return null;
     return query(collection(db, "requests"), where("reported", "==", true));
-  }, [db, profile?.role]);
+  }, [db, isAdmin]);
   const { data: reportedRequests } = useCollection(reportedQuery);
 
   // 3. Global Stats for footer
   const allUsersQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
+    if (!db || !isAdmin) return null;
     return query(collection(db, "users"));
-  }, [db, profile?.role]);
+  }, [db, isAdmin]);
   const { data: allUsers } = useCollection(allUsersQuery);
 
   const openRequestsQuery = useMemoFirebase(() => {
-    if (!db || profile?.role !== 'admin') return null;
+    if (!db || !isAdmin) return null;
     return query(collection(db, "requests"), where("status", "==", "open"));
-  }, [db, profile?.role]);
+  }, [db, isAdmin]);
   const { data: openRequests } = useCollection(openRequestsQuery);
-
-  const isAdmin = profile?.role === 'admin';
 
   // --- NAVIGATION LOGIC ---
 
@@ -140,15 +140,15 @@ export function AppSidebar() {
   const analyticsLinks = useMemo(() => {
     if (!isAdmin) return [];
     return [
-      { label: "Platform Analytics", href: "#", icon: LineChart },
-      { label: "Earnings Overview", href: "#", icon: CircleDollarSign },
+      { label: "Platform Analytics", href: "/admin", icon: LineChart },
+      { label: "Earnings Overview", href: "/admin/providers", icon: CircleDollarSign },
     ];
   }, [isAdmin]);
 
   const moderationLinks = useMemo(() => {
     if (isAdmin) {
       return [
-        { label: "Reported Content", href: "#", icon: AlertTriangle, badge: reportedRequests?.length, badgeColor: "bg-red-500" },
+        { label: "Reported Content", href: "/admin/requests", icon: AlertTriangle, badge: reportedRequests?.length, badgeColor: "bg-red-500" },
         { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
       ];
     }
@@ -289,11 +289,17 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton 
                       asChild 
+                      isActive={pathname === item.href}
                       tooltip={item.label}
-                      className="h-11 px-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all"
+                      className={cn(
+                        "h-11 px-3 rounded-xl transition-all duration-200",
+                        pathname === item.href 
+                          ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                          : "text-white/60 hover:text-white hover:bg-white/5"
+                      )}
                     >
                       <Link href={item.href}>
-                        <item.icon className="w-5 h-5 text-white/40" />
+                        <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
