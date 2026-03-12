@@ -24,7 +24,11 @@ import {
   Clock,
   LayoutGrid,
   Megaphone,
-  Wrench
+  Wrench,
+  TrendingUp,
+  AlertTriangle,
+  LineChart,
+  CircleDollarSign
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -64,15 +68,41 @@ export function AppSidebar() {
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userRef);
 
-  // Get pending verification count for admin badge
+  // --- ADMIN SPECIFIC DATA QUERIES ---
+  
+  // 1. Pending verification count
   const pendingQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(collection(db, "users"), where("role", "==", "provider"), where("verified", "==", false));
   }, [db, profile?.role]);
   const { data: pendingUsers } = useCollection(pendingQuery);
 
+  // 2. Reported requests count
+  const reportedQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "requests"), where("reported", "==", true));
+  }, [db, profile?.role]);
+  const { data: reportedRequests } = useCollection(reportedQuery);
+
+  // 3. Global Stats for footer
+  const allUsersQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "users"));
+  }, [db, profile?.role]);
+  const { data: allUsers } = useCollection(allUsersQuery);
+
+  const openRequestsQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "requests"), where("status", "==", "open"));
+  }, [db, profile?.role]);
+  const { data: openRequests } = useCollection(openRequestsQuery);
+
+  const isAdmin = profile?.role === 'admin';
+
+  // --- NAVIGATION LOGIC ---
+
   const mainLinks = useMemo(() => {
-    if (profile?.role === 'admin') {
+    if (isAdmin) {
       return [
         { label: "Overview", href: "/admin", icon: LayoutDashboard },
         { label: "Citizen Directory", href: "/admin/users", icon: Users },
@@ -100,43 +130,50 @@ export function AppSidebar() {
       ];
     }
 
-    // Default Regular User Links
     return [
       { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { label: "Post Request", href: "/requests/new", icon: PlusCircle },
       { label: "My Requests", href: "/requests/my", icon: History },
     ];
-  }, [profile?.role, pendingUsers?.length]);
+  }, [profile?.role, pendingUsers?.length, isAdmin]);
 
-  const businessLinks = useMemo(() => {
-    if (profile?.role === 'admin') {
+  const analyticsLinks = useMemo(() => {
+    if (!isAdmin) return [];
+    return [
+      { label: "Platform Analytics", href: "#", icon: LineChart },
+      { label: "Earnings Overview", href: "#", icon: CircleDollarSign },
+    ];
+  }, [isAdmin]);
+
+  const moderationLinks = useMemo(() => {
+    if (isAdmin) {
       return [
-        { label: "Reported Content", href: "#", icon: AlertCircle },
+        { label: "Reported Content", href: "#", icon: AlertTriangle, badge: reportedRequests?.length, badgeColor: "bg-red-500" },
         { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
       ];
     }
-    if (profile?.role !== 'provider') return [];
-    return [
-      { label: "My Profile", href: "/provider/profile", icon: User },
-      { label: "My Reviews", href: "/provider/profile?tab=reviews", icon: Star },
-      { label: "Earnings Tracker", href: "/provider/profile?tab=earnings", icon: BarChart3 },
-    ];
-  }, [profile?.role]);
+    return [];
+  }, [isAdmin, reportedRequests?.length]);
 
-  const personalLinks = useMemo(() => {
-    if (profile?.role === 'provider' || profile?.role === 'admin') return []; 
+  const profileLinks = useMemo(() => {
+    if (isAdmin) return [];
+    if (profile?.role === 'provider') {
+      return [
+        { label: "My Profile", href: "/provider/profile", icon: User },
+        { label: "My Reviews", href: "/provider/profile?tab=reviews", icon: Star },
+        { label: "Earnings Tracker", href: "/provider/profile?tab=earnings", icon: BarChart3 },
+      ];
+    }
     return [
       { label: "My Profile", href: "/profile", icon: User },
       { label: "Leaderboard", href: "#", icon: Trophy },
     ];
-  }, [profile?.role]);
+  }, [profile?.role, isAdmin]);
 
   const handleToggleAvailability = (checked: boolean) => {
     if (!db || !user?.uid) return;
     updateDocumentNonBlocking(doc(db, "users", user.uid), { isAvailable: checked });
   };
-
-  if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 
   const handleLogout = async () => {
     try {
@@ -149,14 +186,12 @@ export function AppSidebar() {
     }
   };
 
-  const handleLinkClick = () => {
-    if (isMobile) setOpenMobile(false);
-  };
+  if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 
   return (
     <Sidebar collapsible="icon" className="border-r border-white/10 dark:border-slate-800/50" role="navigation" aria-label="Sidebar Navigation">
       <SidebarHeader className="p-6">
-        <Link href="/dashboard" className="flex items-center gap-3 mb-8 group-data-[collapsible=icon]:mb-0" aria-label="Local HelpLink Home">
+        <Link href="/dashboard" className="flex items-center gap-3 mb-8 group-data-[collapsible=icon]:mb-0">
           <div className="bg-primary p-2 rounded-xl shrink-0 shadow-lg shadow-primary/20">
             <Heart className="text-white w-5 h-5 fill-white" />
           </div>
@@ -181,10 +216,10 @@ export function AppSidebar() {
             <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
               <span className="text-sm font-bold text-white truncate">{profile?.name || "Member"}</span>
               <Badge variant="outline" className={cn(
-                "w-fit text-[9px] font-black uppercase h-4 px-1.5 mt-0.5",
-                profile?.role === 'admin' ? "bg-red-500 text-white border-none" : "bg-primary/20 border-primary/30 text-primary-foreground"
+                "w-fit text-[9px] font-black uppercase h-4 px-1.5 mt-0.5 border-none",
+                isAdmin ? "bg-red-500 text-white" : "bg-primary/20 text-primary-foreground"
               )}>
-                {profile?.role === 'admin' ? "ADMIN" : profile?.role === 'provider' ? (profile?.serviceCategory || 'Provider') : (profile?.role || "user")}
+                {isAdmin ? "ADMIN" : profile?.role || "USER"}
               </Badge>
             </div>
           </div>
@@ -192,10 +227,7 @@ export function AppSidebar() {
           {profile?.role === 'provider' && (
             <div className="pt-2 border-t border-white/10 flex items-center justify-between group-data-[collapsible=icon]:hidden">
               <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  profile.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-red-500"
-                )} />
+                <div className={cn("w-2 h-2 rounded-full", profile.isAvailable ? "bg-emerald-500 shadow-[0_0_8px_#10b981]" : "bg-red-500")} />
                 <span className="text-[10px] font-bold text-white/60 uppercase tracking-wider">
                   {profile.isAvailable ? 'Available' : 'Busy'}
                 </span>
@@ -211,6 +243,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent className="px-3 gap-6">
+        {/* SECTION 1: MAIN NAVIGATION */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
             Main
@@ -218,12 +251,11 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainLinks.map((item) => (
-                <SidebarMenuItem key={item.label + item.href}>
+                <SidebarMenuItem key={item.label}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === item.href}
                     tooltip={item.label}
-                    onClick={handleLinkClick}
                     className={cn(
                       "h-11 px-3 rounded-xl transition-all duration-200",
                       pathname === item.href 
@@ -234,8 +266,8 @@ export function AppSidebar() {
                     <Link href={item.href}>
                       <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
                       <span>{item.label}</span>
-                      {item.badge && item.badge > 0 && (
-                        <span className="ml-auto bg-destructive text-[10px] text-white px-1.5 rounded-full">{item.badge}</span>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className="ml-auto bg-destructive text-[10px] text-white px-1.5 rounded-full font-black">{item.badge}</span>
                       )}
                     </Link>
                   </SidebarMenuButton>
@@ -245,60 +277,23 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
-            {profile?.role === 'admin' ? 'Moderation' : profile?.role === 'provider' ? 'Business' : 'Community'}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {businessLinks.map((item) => (
-                <SidebarMenuItem key={item.label + item.href}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
-                    onClick={handleLinkClick}
-                    className={cn(
-                      "h-11 px-3 rounded-xl transition-all duration-200",
-                      pathname === item.href 
-                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
-                        : "text-white/60 hover:text-white hover:bg-white/5"
-                    )}
-                  >
-                    <Link href={item.href}>
-                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {personalLinks.length > 0 && (
+        {/* SECTION 2: ANALYTICS (ADMIN ONLY) */}
+        {analyticsLinks.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
-              Personal
+              Analytics
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {personalLinks.map((item) => (
-                  <SidebarMenuItem key={item.label + item.href}>
+                {analyticsLinks.map((item) => (
+                  <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton 
                       asChild 
-                      isActive={pathname === item.href}
                       tooltip={item.label}
-                      onClick={handleLinkClick}
-                      className={cn(
-                        "h-11 px-3 rounded-xl transition-all duration-200",
-                        pathname === item.href 
-                          ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
-                          : "text-white/60 hover:text-white hover:bg-white/5"
-                      )}
+                      className="h-11 px-3 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-all"
                     >
                       <Link href={item.href}>
-                        <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
+                        <item.icon className="w-5 h-5 text-white/40" />
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -308,14 +303,86 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* SECTION 3: MODERATION / BUSINESS */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
+            {isAdmin ? 'Moderation' : profile?.role === 'provider' ? 'Business' : 'Community'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {moderationLinks.map((item) => (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    className={cn(
+                      "h-11 px-3 rounded-xl transition-all duration-200",
+                      pathname === item.href 
+                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Link href={item.href}>
+                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
+                      <span>{item.label}</span>
+                      {item.badge !== undefined && item.badge > 0 && (
+                        <span className={cn("ml-auto text-[10px] text-white px-1.5 rounded-full font-black", item.badgeColor || "bg-primary")}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              {profileLinks.map((item) => (
+                <SidebarMenuItem key={item.label}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    className={cn(
+                      "h-11 px-3 rounded-xl transition-all duration-200",
+                      pathname === item.href 
+                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Link href={item.href}>
+                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-white/5">
+      <SidebarFooter className="p-4 border-t border-white/5 space-y-4">
+        {/* QUICK STATS FOR ADMIN */}
+        {isAdmin && (
+          <div className="px-3 py-2 bg-white/5 rounded-xl border border-white/5 group-data-[collapsible=icon]:hidden">
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/40">
+                <div className="flex items-center gap-1.5"><Users className="w-3 h-3" /> Citizens</div>
+                <span className="text-white">{allUsers?.length || 0}</span>
+              </div>
+              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/40">
+                <div className="flex items-center gap-1.5"><LayoutGrid className="w-3 h-3" /> Open Requests</div>
+                <span className="text-primary">{openRequests?.length || 0}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton 
               onClick={handleLogout}
-              tooltip="Log Out"
+              tooltip="Sign Out"
               className="rounded-xl h-11 px-3 text-red-400 font-bold hover:bg-red-500/10 hover:text-red-300 transition-colors"
             >
               <LogOut className="w-5 h-5" />
