@@ -17,7 +17,12 @@ import {
   Zap,
   Star,
   BarChart3,
-  Circle
+  Circle,
+  Users,
+  AlertCircle,
+  FileText,
+  Clock,
+  LayoutGrid
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -33,8 +38,8 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
-import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore, updateDocumentNonBlocking } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore, updateDocumentNonBlocking, useCollection } from "@/firebase";
+import { doc, collection, query, where } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +62,23 @@ export function AppSidebar() {
   }, [db, user?.uid]);
   const { data: profile } = useDoc(userRef);
 
+  // Get pending verification count for admin badge
+  const pendingQuery = useMemoFirebase(() => {
+    if (!db || profile?.role !== 'admin') return null;
+    return query(collection(db, "users"), where("role", "==", "provider"), where("verified", "==", false));
+  }, [db, profile?.role]);
+  const { data: pendingUsers } = useCollection(pendingQuery);
+
   const mainLinks = useMemo(() => {
+    if (profile?.role === 'admin') {
+      return [
+        { label: "Overview", href: "/admin", icon: LayoutDashboard },
+        { label: "Citizen Directory", href: "/admin/users", icon: Users },
+        { label: "All Requests", href: "/admin/requests", icon: LayoutGrid },
+        { label: "Pending Verifications", href: "/admin/verifications", icon: ShieldCheck, badge: pendingUsers?.length },
+      ];
+    }
+
     if (profile?.role === 'volunteer') {
       return [
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -82,9 +103,15 @@ export function AppSidebar() {
       { label: "Post Request", href: "/requests/new", icon: PlusCircle },
       { label: "My Requests", href: "/requests/my", icon: History },
     ];
-  }, [profile?.role]);
+  }, [profile?.role, pendingUsers?.length]);
 
   const businessLinks = useMemo(() => {
+    if (profile?.role === 'admin') {
+      return [
+        { label: "Reported Content", href: "#", icon: AlertCircle },
+        { label: "Announcements", href: "#", icon: Zap },
+      ];
+    }
     if (profile?.role !== 'provider') return [];
     return [
       { label: "My Profile", href: "/provider/profile", icon: User },
@@ -94,7 +121,7 @@ export function AppSidebar() {
   }, [profile?.role]);
 
   const personalLinks = useMemo(() => {
-    if (profile?.role === 'provider') return []; // Providers use businessLinks instead
+    if (profile?.role === 'provider' || profile?.role === 'admin') return []; 
     return [
       { label: "My Profile", href: "/profile", icon: User },
       { label: "Leaderboard", href: "#", icon: Trophy },
@@ -106,7 +133,6 @@ export function AppSidebar() {
     updateDocumentNonBlocking(doc(db, "users", user.uid), { isAvailable: checked });
   };
 
-  // Early return must happen AFTER all hooks are called
   if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 
   const handleLogout = async () => {
@@ -136,7 +162,6 @@ export function AppSidebar() {
           </span>
         </Link>
 
-        {/* Profile Card Area */}
         <div className="flex flex-col gap-4 p-4 bg-white/5 rounded-[2rem] border border-white/10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:border-none overflow-hidden transition-all duration-300">
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
@@ -152,13 +177,15 @@ export function AppSidebar() {
             </div>
             <div className="flex flex-col min-w-0 group-data-[collapsible=icon]:hidden">
               <span className="text-sm font-bold text-white truncate">{profile?.name || "Member"}</span>
-              <Badge variant="outline" className="w-fit text-[9px] font-black uppercase h-4 px-1.5 mt-0.5 bg-primary/20 border-primary/30 text-primary-foreground">
-                {profile?.role === 'provider' ? (profile?.serviceCategory || 'Provider') : (profile?.role || "user")}
+              <Badge variant="outline" className={cn(
+                "w-fit text-[9px] font-black uppercase h-4 px-1.5 mt-0.5",
+                profile?.role === 'admin' ? "bg-red-500 text-white border-none" : "bg-primary/20 border-primary/30 text-primary-foreground"
+              )}>
+                {profile?.role === 'admin' ? "ADMIN" : profile?.role === 'provider' ? (profile?.serviceCategory || 'Provider') : (profile?.role || "user")}
               </Badge>
             </div>
           </div>
 
-          {/* Availability Toggle for Providers */}
           {profile?.role === 'provider' && (
             <div className="pt-2 border-t border-white/10 flex items-center justify-between group-data-[collapsible=icon]:hidden">
               <div className="flex items-center gap-2">
@@ -204,6 +231,9 @@ export function AppSidebar() {
                     <Link href={item.href}>
                       <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
                       <span>{item.label}</span>
+                      {item.badge && item.badge > 0 && (
+                        <span className="ml-auto bg-destructive text-[10px] text-white px-1.5 rounded-full">{item.badge}</span>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -212,15 +242,45 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Business Section for Providers */}
-        {profile?.role === 'provider' && (
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
+            {profile?.role === 'admin' ? 'Moderation' : profile?.role === 'provider' ? 'Business' : 'Community'}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {businessLinks.map((item) => (
+                <SidebarMenuItem key={item.label + item.href}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={pathname === item.href}
+                    tooltip={item.label}
+                    onClick={handleLinkClick}
+                    className={cn(
+                      "h-11 px-3 rounded-xl transition-all duration-200",
+                      pathname === item.href 
+                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
+                        : "text-white/60 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Link href={item.href}>
+                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {personalLinks.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
-              Business
+              Personal
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {businessLinks.map((item) => (
+                {personalLinks.map((item) => (
                   <SidebarMenuItem key={item.label + item.href}>
                     <SidebarMenuButton 
                       asChild 
@@ -245,59 +305,6 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">
-            {profile?.role === 'volunteer' ? 'Community' : profile?.role === 'provider' ? 'Settings' : 'Personal'}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {personalLinks.map((item) => (
-                <SidebarMenuItem key={item.label + item.href}>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === item.href}
-                    tooltip={item.label}
-                    onClick={handleLinkClick}
-                    className={cn(
-                      "h-11 px-3 rounded-xl transition-all duration-200",
-                      pathname === item.href 
-                        ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" 
-                        : "text-white/60 hover:text-white hover:bg-white/5"
-                    )}
-                  >
-                    <Link href={item.href}>
-                      <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} />
-                      <span>{item.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-
-              {profile?.role === 'admin' && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    isActive={pathname === '/admin'}
-                    tooltip="Admin Oversight"
-                    onClick={handleLinkClick}
-                    className={cn(
-                      "h-11 px-3 rounded-xl transition-all duration-200",
-                      pathname === '/admin' 
-                        ? "bg-amber-500 text-white font-bold shadow-lg shadow-amber-500/20" 
-                        : "text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/5"
-                    )}
-                  >
-                    <Link href="/admin">
-                      <Shield className={cn("w-5 h-5", pathname === '/admin' ? "text-white" : "text-amber-500/40")} />
-                      <span>Admin Oversight</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-white/5">
