@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { cn } from "@/lib/utils";
 
 export default function Navbar() {
   const { user } = useUser();
