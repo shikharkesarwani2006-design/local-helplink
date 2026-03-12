@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { query, collection, where, orderBy, limit, onSnapshot, doc } from "firebase/firestore";
-import { useUser, useFirestore, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { AlertCircle, X, ChevronRight, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,9 @@ export function CriticalAlertBanner() {
   const router = useRouter();
   const [activeAlert, setActiveAlert] = useState<any>(null);
   const [visible, setVisible] = useState(false);
+
+  const userRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
+  const { data: profile } = useDoc(userRef);
 
   useEffect(() => {
     if (!db || !user?.uid) return;
@@ -33,17 +36,20 @@ export function CriticalAlertBanner() {
         const data = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
         
         // Only show if it's new (created in the last 15 seconds)
-        const ageInSecs = (Date.now() - data.createdAt?.toDate().getTime()) / 1000;
-        if (ageInSecs < 15) {
-          setActiveAlert(data);
-          setVisible(true);
-          
-          // Auto-dismiss after 10 seconds
-          const timer = setTimeout(() => {
-            setVisible(false);
-          }, 10000);
-          
-          return () => clearTimeout(timer);
+        const createdAt = data.createdAt?.toDate();
+        if (createdAt) {
+          const ageInSecs = (Date.now() - createdAt.getTime()) / 1000;
+          if (ageInSecs < 15) {
+            setActiveAlert(data);
+            setVisible(true);
+            
+            // Auto-dismiss after 10 seconds
+            const timer = setTimeout(() => {
+              setVisible(false);
+            }, 10000);
+            
+            return () => clearTimeout(timer);
+          }
         }
       }
     });
@@ -59,7 +65,13 @@ export function CriticalAlertBanner() {
     if (!activeAlert || !db || !user) return;
     updateDocumentNonBlocking(doc(db, "notifications", user.uid, "items", activeAlert.id), { read: true });
     setVisible(false);
-    router.push(`/volunteer/missions?id=${activeAlert.requestId}`);
+    
+    // Role-aware navigation
+    if (profile?.role === 'provider') {
+      router.push(`/provider/jobs?id=${activeAlert.requestId}`);
+    } else {
+      router.push(`/volunteer/missions?id=${activeAlert.requestId}`);
+    }
   };
 
   if (!visible || !activeAlert) return null;

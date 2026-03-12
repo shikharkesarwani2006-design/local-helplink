@@ -107,14 +107,19 @@ export default function NewRequest() {
       volunteerQueries.push(query(collection(db, 'users'), where('role', '==', 'volunteer'), where('skills', 'array-contains-any', request.skills)));
     }
 
-    // 2. Query service providers matching category
-    const providersQuery = query(collection(db, 'users'), where('role', '==', 'provider'), where('serviceCategory', '==', request.category.charAt(0).toUpperCase() + request.category.slice(1)));
+    // 2. Query service providers matching category AND available
+    const providersQuery = query(
+      collection(db, 'users'), 
+      where('role', '==', 'provider'), 
+      where('serviceCategory', '==', request.category),
+      where('isAvailable', '==', true)
+    );
 
     // 3. Special Case: Emergency/Blood/High Urgency - Notify ALL Volunteers
     const allVolunteersQuery = query(collection(db, 'users'), where('role', '==', 'volunteer'));
 
-    const snaps = await Promise.all([
-      ...volunteerQueries.map(q => getDocs(q)),
+    const [volSnaps, provSnap] = await Promise.all([
+      Promise.all(volunteerQueries.map(q => getDocs(q))),
       getDocs(providersQuery)
     ]);
 
@@ -124,9 +129,10 @@ export default function NewRequest() {
       const allVolSnap = await getDocs(allVolunteersQuery);
       allVolSnap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
     } else {
-      snaps.forEach(snap => {
+      volSnaps.forEach(snap => {
         snap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
       });
+      provSnap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
     }
 
     // Remove self if I am a helper

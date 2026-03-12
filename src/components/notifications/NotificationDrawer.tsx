@@ -19,6 +19,7 @@ import {
   useUser, 
   useFirestore, 
   useCollection, 
+  useDoc,
   useMemoFirebase, 
   updateDocumentNonBlocking 
 } from "@/firebase";
@@ -32,6 +33,9 @@ export function NotificationDrawer() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const prevUnreadCount = useRef(0);
+
+  const userRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
+  const { data: profile } = useDoc(userRef);
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -90,9 +94,13 @@ export function NotificationDrawer() {
     }
     setOpen(false);
     
-    // Intelligent Navigation
+    // Intelligent Navigation based on role
     if (n.type === 'new_request') {
-      router.push(`/volunteer/missions?id=${n.requestId}`);
+      if (profile?.role === 'provider') {
+        router.push(`/provider/jobs?id=${n.requestId}`);
+      } else {
+        router.push(`/volunteer/missions?id=${n.requestId}`);
+      }
     } else if (n.type === 'accepted' || n.type === 'completed') {
       router.push('/profile');
     } else if (n.type === 'rated') {
