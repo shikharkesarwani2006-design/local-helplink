@@ -94,6 +94,21 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["requestId", "fromUser", "toUser", "score", "createdAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "A global community update posted by an admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "urgency": { "type": "string", "enum": ["info", "warning", "critical"] },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["title", "message", "urgency", "active", "createdAt", "createdBy"]
     }
   },
   "auth": {
@@ -126,6 +141,10 @@
         }
       },
       "description": "User specific notifications."
+    },
+    "/announcements/{announcementId}": {
+      "schema": { "$ref": "#/backend/entities/Announcement" },
+      "description": "Global announcements for all users."
     }
   }
 }

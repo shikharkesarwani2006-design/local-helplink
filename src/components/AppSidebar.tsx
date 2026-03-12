@@ -22,7 +22,8 @@ import {
   AlertCircle,
   FileText,
   Clock,
-  LayoutGrid
+  LayoutGrid,
+  Megaphone
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -109,7 +110,7 @@ export function AppSidebar() {
     if (profile?.role === 'admin') {
       return [
         { label: "Reported Content", href: "#", icon: AlertCircle },
-        { label: "Announcements", href: "#", icon: Zap },
+        { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
       ];
     }
     if (profile?.role !== 'provider') return [];

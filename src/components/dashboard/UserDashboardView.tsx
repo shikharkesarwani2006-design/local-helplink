@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -50,6 +51,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { User } from "firebase/auth";
 import { sendNotification } from "@/firebase/notifications";
+import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
 
 function HelperInfo({ helperId }: { helperId: string }) {
   const db = useFirestore();
@@ -179,6 +181,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 pb-20">
+      <AnnouncementBanner />
       <section className="bg-gradient-to-br from-primary via-primary/90 to-secondary pt-12 pb-24 px-6 relative overflow-hidden">
         <div className="container mx-auto relative z-10 flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="space-y-3 text-center md:text-left">

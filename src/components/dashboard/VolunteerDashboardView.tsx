@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -61,6 +62,7 @@ import { formatDistanceToNow, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { User } from "firebase/auth";
 import { sendNotification } from "@/firebase/notifications";
+import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
 
 export function VolunteerDashboardView({ profile, user }: { profile: any; user: User }) {
   const db = useFirestore();
@@ -265,6 +267,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+      <AnnouncementBanner />
       {/* 🚀 Header */}
       <section className="bg-slate-900 pt-12 pb-24 px-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-3xl opacity-50" />
@@ -546,7 +549,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0 pt-6">
-            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCancellingRequest(null)}>Keep Helping</Button>
+            <Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCompletingRequest(null)}>Keep Helping</Button>
             <Button variant="destructive" className="flex-1 rounded-xl font-bold" onClick={handleCancelMission} disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Cancel Mission"}
             </Button>

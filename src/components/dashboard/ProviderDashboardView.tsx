@@ -77,6 +77,7 @@ import { formatDistanceToNow, subDays, startOfWeek, endOfWeek, isWithinInterval 
 import { cn } from "@/lib/utils";
 import { User as FirebaseUser } from "firebase/auth";
 import { sendNotification } from "@/firebase/notifications";
+import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
 
 export function ProviderDashboardView({ profile, user }: { profile: any; user: FirebaseUser }) {
   const db = useFirestore();
@@ -268,6 +269,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20">
+      <AnnouncementBanner />
       {/* ⚠️ Verification Banner */}
       {isUnverified && (
         <div className="bg-amber-500 text-white py-3 px-6 text-center font-bold text-sm flex items-center justify-center gap-2 animate-in slide-in-from-top duration-500 sticky top-16 z-50 shadow-lg">
@@ -289,7 +291,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                 </Avatar>
                 {profile?.verified && (
                   <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white p-1.5 rounded-full border-4 border-slate-900 shadow-xl">
-                    <ShieldCheck className="w-5 h-5" />
+                    <ShieldCheck className="w-6 h-6" />
                   </div>
                 )}
               </div>
