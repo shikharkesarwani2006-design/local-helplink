@@ -1,4 +1,3 @@
-
 "use client";
 
 import { 
@@ -70,7 +69,7 @@ export function AppSidebar() {
     if (profile?.role === 'provider') {
       return [
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-        { label: "Available Jobs", href: "/dashboard?tab=incoming", icon: Zap },
+        { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
         { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
         { label: "Job History", href: "/profile?tab=helped", icon: History },
       ];
