@@ -1,16 +1,14 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   query, 
   collection, 
   doc, 
-  getCountFromServer, 
-  where, 
-  getAggregateFromServer, 
   average, 
+  getAggregateFromServer
 } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -64,7 +62,7 @@ export default function AdminDashboard() {
   }, [db, user?.uid]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
-  // Real-time collections for global analytics - REMOVED orderBy and limit
+  // Real-time collections for global analytics - NO ORDERBY
   const usersQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(collection(db, "users"));
@@ -99,68 +97,46 @@ export default function AdminDashboard() {
     return [...rawRatings].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).slice(0, 10);
   }, [rawRatings]);
 
-  const fetchStats = useCallback(async () => {
-    if (!db || profile?.role !== 'admin') return;
+  // Update stats from memory to avoid any composite indexes
+  useEffect(() => {
+    if (!allUsers || !allRequests || profile?.role !== 'admin') return;
 
-    try {
-      const usersCol = collection(db, "users");
-      const requestsCol = collection(db, "requests");
-      const sevenDaysAgo = subDays(new Date(), 7);
+    const sevenDaysAgo = subDays(new Date(), 7);
 
-      const [
-        totalUsersSnap,
-        volunteersSnap,
-        providersSnap,
-        openRequestsSnap,
-        activeJobsSnap,
-        avgRatingSnap
-      ] = await Promise.all([
-        getCountFromServer(usersCol),
-        getCountFromServer(query(usersCol, where("role", "==", "volunteer"))),
-        getCountFromServer(query(usersCol, where("role", "==", "provider"))),
-        getCountFromServer(query(requestsCol, where("status", "==", "open"))),
-        getCountFromServer(query(requestsCol, where("status", "==", "accepted"))),
-        getAggregateFromServer(usersCol, { avg: average("rating") })
-      ]);
+    const completedThisWeek = allRequests.filter(r => 
+      r.status === 'completed' && 
+      r.completedAt && 
+      r.completedAt.toDate() >= sevenDaysAgo
+    ).length;
 
-      // Calculate complex counts in JS to avoid composite indexes
-      const completedThisWeek = allRequests.filter(r => 
-        r.status === 'completed' && 
-        r.completedAt && 
-        r.completedAt.toDate() >= sevenDaysAgo
-      ).length;
+    const pendingVerifications = allUsers.filter(u => 
+      u.role === 'provider' && 
+      u.verified === false
+    ).length;
 
-      const pendingVerifications = allUsers.filter(u => 
-        u.role === 'provider' && 
-        u.verified === false
-      ).length;
+    const avgRating = allUsers.length > 0 
+      ? allUsers.reduce((acc, u) => acc + (u.rating || 5.0), 0) / allUsers.length 
+      : 5.0;
 
-      setLiveStats({
-        totalUsers: totalUsersSnap.data().count,
-        volunteers: volunteersSnap.data().count,
-        providers: providersSnap.data().count,
-        openRequests: openRequestsSnap.data().count,
-        completedThisWeek,
-        pendingVerifications,
-        activeJobs: activeJobsSnap.data().count,
-        avgRating: avgRatingSnap.data().avg || 5.0
-      });
-    } catch (e) {
-      console.error("Failed to fetch admin stats:", e);
-    }
-  }, [db, profile?.role, allUsers, allRequests]);
+    setLiveStats({
+      totalUsers: allUsers.length,
+      volunteers: allUsers.filter(u => u.role === 'volunteer').length,
+      providers: allUsers.filter(u => u.role === 'provider').length,
+      openRequests: allRequests.filter(r => r.status === 'open').length,
+      activeJobs: allRequests.filter(r => r.status === 'accepted').length,
+      completedThisWeek,
+      pendingVerifications,
+      avgRating
+    });
+  }, [allUsers, allRequests, profile?.role]);
 
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading) {
       if (!user || profile?.role !== 'admin') {
         router.push("/dashboard");
-      } else {
-        fetchStats();
-        const interval = setInterval(fetchStats, 30000);
-        return () => clearInterval(interval);
       }
     }
-  }, [user, profile, isUserLoading, isProfileLoading, router, fetchStats]);
+  }, [user, profile, isUserLoading, isProfileLoading, router]);
 
   // CHART 1: Requests by Category
   const categoryData = useMemo(() => {

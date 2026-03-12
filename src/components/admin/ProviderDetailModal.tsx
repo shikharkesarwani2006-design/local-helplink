@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { query, collection, where, orderBy, getDocs, doc } from "firebase/firestore";
+import { query, collection, where, getDocs, doc } from "firebase/firestore";
 import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription 
@@ -37,6 +37,7 @@ import {
 } from "recharts";
 import { format, subDays, startOfDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function ProviderDetailModal({ provider, onClose }: { provider: any; onClose: () => void }) {
   const db = useFirestore();
@@ -44,46 +45,45 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [elapsedTimes, setElapsedTimes] = useState<Record<string, string>>({});
 
-  // 1. Fetch Real-time Pending Requests for this provider
-  const pendingRequestsQuery = useMemoFirebase(() => {
+  // 1. Fetch ALL Requests for this provider - SINGLE WHERE
+  const providerMissionsQuery = useMemoFirebase(() => {
     if (!db || !provider?.id) return null;
     return query(
       collection(db, "requests"), 
-      where("acceptedBy", "==", provider.id), 
-      where("status", "==", "accepted"),
-      orderBy("acceptedAt", "desc")
+      where("acceptedBy", "==", provider.id)
     );
   }, [db, provider?.id]);
-  const { data: pendingJobs } = useCollection(pendingRequestsQuery);
+  const { data: rawMissions } = useCollection(providerMissionsQuery);
 
-  // 2. Fetch Reviews for this provider
+  // 2. JS FILTER AND SORT FOR PENDING/COMPLETED
+  const pendingJobs = useMemo(() => {
+    if (!rawMissions) return [];
+    return rawMissions
+      .filter(m => m.status === 'accepted')
+      .sort((a, b) => (b.acceptedAt?.toMillis() || 0) - (a.acceptedAt?.toMillis() || 0));
+  }, [rawMissions]);
+
+  const completedJobs = useMemo(() => {
+    if (!rawMissions) return [];
+    return rawMissions
+      .filter(m => m.status === 'completed')
+      .sort((a, b) => (b.completedAt?.toMillis() || 0) - (a.completedAt?.toMillis() || 0));
+  }, [rawMissions]);
+
+  // 3. Fetch Reviews for this provider - SINGLE WHERE + JS SORT
   const reviewsQuery = useMemoFirebase(() => {
     if (!db || !provider?.id) return null;
     return query(
       collection(db, "ratings"), 
-      where("toUser", "==", provider.id), 
-      orderBy("createdAt", "desc")
+      where("toUser", "==", provider.id)
     );
   }, [db, provider?.id]);
-  const { data: reviews } = useCollection(reviewsQuery);
+  const { data: rawReviews } = useCollection(reviewsQuery);
 
-  // 3. Fetch Job History (Heavier calculation, non-realtime for efficiency in modal)
-  useEffect(() => {
-    async function loadHistory() {
-      if (!db || !provider?.id) return;
-      setLoadingHistory(true);
-      const q = query(
-        collection(db, "requests"), 
-        where("acceptedBy", "==", provider.id), 
-        where("status", "==", "completed"),
-        orderBy("completedAt", "desc")
-      );
-      const snap = await getDocs(q);
-      setJobHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      setLoadingHistory(false);
-    }
-    loadHistory();
-  }, [db, provider?.id]);
+  const reviews = useMemo(() => {
+    if (!rawReviews) return [];
+    return [...rawReviews].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+  }, [rawReviews]);
 
   // Live counter for pending jobs
   useEffect(() => {
@@ -108,7 +108,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
       return { date: format(date, "MMM dd"), amount: 0, rawDate: startOfDay(date) };
     }).reverse();
 
-    jobHistory.forEach(job => {
+    completedJobs.forEach(job => {
       if (!job.completedAt) return;
       const jobDate = startOfDay(job.completedAt.toDate());
       const match = last7Days.find(d => d.rawDate.getTime() === jobDate.getTime());
@@ -118,7 +118,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
       }
     });
     return last7Days;
-  }, [jobHistory, provider?.hourlyRate]);
+  }, [completedJobs, provider?.hourlyRate]);
 
   if (!provider) return null;
 
@@ -278,7 +278,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {!pendingJobs || pendingJobs.length === 0 ? (
+                      {pendingJobs.length === 0 ? (
                         <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400">This provider has no active jobs right now.</TableCell></TableRow>
                       ) : pendingJobs.map((job) => (
                         <TableRow key={job.id} className="border-slate-50">
@@ -321,11 +321,9 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {loadingHistory ? (
-                        <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400"><Activity className="animate-spin mx-auto" /></TableCell></TableRow>
-                      ) : jobHistory.length === 0 ? (
+                      {completedJobs.length === 0 ? (
                         <TableRow><TableCell colSpan={4} className="text-center py-20 text-slate-400">No completed jobs in history.</TableCell></TableRow>
-                      ) : jobHistory.map((job) => (
+                      ) : completedJobs.map((job) => (
                         <TableRow key={job.id} className="border-slate-50 group hover:bg-slate-50/50">
                           <TableCell className="pl-8 py-4">
                             <span className="font-bold text-slate-900 block">{job.title}</span>
@@ -358,7 +356,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                   </Card>
 
                   <div className="md:w-2/3 space-y-4">
-                    {!reviews || reviews.length === 0 ? (
+                    {reviews.length === 0 ? (
                       <div className="py-20 text-center bg-white rounded-3xl border-2 border-dashed">
                         <Inbox className="w-12 h-12 text-slate-200 mx-auto mb-2" />
                         <p className="text-slate-400 font-medium">No community reviews yet.</p>
@@ -370,7 +368,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                             <Avatar className="h-10 w-10"><AvatarFallback>N</AvatarFallback></Avatar>
                             <div>
                               <p className="font-bold text-sm">Verified Neighbor</p>
-                              <div className="flex gap-0.5">
+                              <div className="flex gap-0.5 mt-1">
                                 {[1,2,3,4,5].map(s => <Star key={s} className={cn("w-3 h-3", s <= r.score ? "text-amber-400 fill-amber-400" : "text-slate-100")} />)}
                               </div>
                             </div>
@@ -390,5 +388,3 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
     </Dialog>
   );
 }
-
-import { ScrollArea } from "@/components/ui/scroll-area";

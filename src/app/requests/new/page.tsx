@@ -98,45 +98,39 @@ export default function NewRequest() {
   const notifyMatchingHelpers = async (requestId: string, request: any) => {
     if (!db) return 0;
 
-    // 1. Query volunteers matching category or skills
-    const volunteerQueries = [
-      query(collection(db, 'users'), where('role', '==', 'volunteer'), where('skills', 'array-contains', request.category))
-    ];
-    
-    if (request.skills.length > 0) {
-      volunteerQueries.push(query(collection(db, 'users'), where('role', '==', 'volunteer'), where('skills', 'array-contains-any', request.skills)));
-    }
-
-    // 2. Query service providers matching category AND available
-    const providersQuery = query(
-      collection(db, 'users'), 
-      where('role', '==', 'provider'), 
-      where('serviceCategory', '==', request.category),
-      where('isAvailable', '==', true)
-    );
-
-    // 3. Special Case: Emergency/Blood/High Urgency - Notify ALL Volunteers
-    const allVolunteersQuery = query(collection(db, 'users'), where('role', '==', 'volunteer'));
-
+    // RULE: FETCH BASE ROLES AND FILTER IN JS TO AVOID COMPOSITE INDEXES
     const [volSnaps, provSnap] = await Promise.all([
-      Promise.all(volunteerQueries.map(q => getDocs(q))),
-      getDocs(providersQuery)
+      getDocs(query(collection(db, 'users'), where('role', '==', 'volunteer'))),
+      getDocs(query(collection(db, 'users'), where('role', '==', 'provider')))
     ]);
 
-    let helpersToNotifyMap = new Map<string, any>();
+    const helpersToNotifyMap = new Map<string, any>();
 
-    if (request.urgency === 'high' || request.category === 'blood' || request.category === 'emergency') {
-      const allVolSnap = await getDocs(allVolunteersQuery);
-      allVolSnap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
-    } else {
-      volSnaps.forEach(snap => {
-        snap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
-      });
-      provSnap.docs.forEach(d => helpersToNotifyMap.set(d.id, d.data()));
-    }
+    // logic for volunteers
+    volSnaps.docs.forEach(doc => {
+      const data = doc.data();
+      if (doc.id === user!.uid) return;
 
-    // Remove self if I am a helper
-    helpersToNotifyMap.delete(user!.uid);
+      const isUrgent = request.urgency === 'high' || request.category === 'blood' || request.category === 'emergency';
+      const hasSkill = data.skills?.some((s: string) => 
+        s.toLowerCase() === request.category.toLowerCase() || 
+        request.skills?.some((rs: string) => s.toLowerCase() === rs.toLowerCase())
+      );
+
+      if (isUrgent || hasSkill) {
+        helpersToNotifyMap.set(doc.id, data);
+      }
+    });
+
+    // logic for providers
+    provSnap.docs.forEach(doc => {
+      const data = doc.data();
+      if (doc.id === user!.uid) return;
+
+      if (data.serviceCategory?.toLowerCase() === request.category.toLowerCase() && data.isAvailable) {
+        helpersToNotifyMap.set(doc.id, data);
+      }
+    });
 
     const getNotifMessage = (req: any) => {
       const urgencyEmoji = { high: '🔴', medium: '🟡', low: '🟢' }[req.urgency as 'high' | 'medium' | 'low'];
