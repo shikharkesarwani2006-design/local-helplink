@@ -23,11 +23,24 @@
         "skills": { "type": "array", "items": { "type": "string" } },
         "interests": { "type": "array", "items": { "type": "string" } },
         "serviceCategory": { "type": "string" },
+        "experience": { "type": "string" },
+        "serviceArea": { "type": "string" },
+        "availability": { "type": "array", "items": { "type": "string" } },
+        "workingHours": {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" }
+          }
+        },
+        "hourlyRate": { "type": "number" },
         "availabilityHours": { "type": "string" },
         "rating": { "type": "number" },
         "totalRatingsCount": { "type": "number" },
         "totalHelped": { "type": "number" },
+        "totalJobsDone": { "type": "number" },
         "verified": { "type": "boolean" },
+        "isAvailable": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "email", "role", "verified", "createdAt"]
