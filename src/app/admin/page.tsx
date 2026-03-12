@@ -1,9 +1,19 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { query, collection, orderBy, doc, limit } from "firebase/firestore";
+import { 
+  query, 
+  collection, 
+  orderBy, 
+  doc, 
+  getCountFromServer, 
+  where, 
+  getAggregateFromServer, 
+  average, 
+  Timestamp 
+} from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,14 +28,16 @@ import {
   LineChart as LineIcon, 
   PieChart as PieIcon,
   TrendingUp,
-  History,
   ArrowUpRight,
   Zap,
   Droplets,
   BookOpen,
   Wrench,
   AlertCircle,
-  Trophy
+  Trophy,
+  Star,
+  Clock,
+  Briefcase
 } from "lucide-react";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -39,20 +51,79 @@ export default function AdminDashboard() {
   const db = useFirestore();
   const router = useRouter();
 
+  const [liveStats, setLiveStats] = useState({
+    totalUsers: 0,
+    volunteers: 0,
+    providers: 0,
+    openRequests: 0,
+    completedThisWeek: 0,
+    pendingVerifications: 0,
+    activeJobs: 0,
+    avgRating: 5.0
+  });
+
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return doc(db, "users", user.uid);
   }, [db, user?.uid]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(userProfileRef);
 
+  const fetchStats = useCallback(async () => {
+    if (!db || profile?.role !== 'admin') return;
+
+    try {
+      const usersCol = collection(db, "users");
+      const requestsCol = collection(db, "requests");
+      const sevenDaysAgo = subDays(new Date(), 7);
+
+      const [
+        totalUsersSnap,
+        volunteersSnap,
+        providersSnap,
+        openRequestsSnap,
+        completedThisWeekSnap,
+        pendingVerificationsSnap,
+        activeJobsSnap,
+        avgRatingSnap
+      ] = await Promise.all([
+        getCountFromServer(usersCol),
+        getCountFromServer(query(usersCol, where("role", "==", "volunteer"))),
+        getCountFromServer(query(usersCol, where("role", "==", "provider"))),
+        getCountFromServer(query(requestsCol, where("status", "==", "open"))),
+        getCountFromServer(query(requestsCol, where("status", "==", "completed"), where("completedAt", ">=", Timestamp.fromDate(sevenDaysAgo)))),
+        getCountFromServer(query(usersCol, where("role", "==", "provider"), where("verified", "==", false))),
+        getCountFromServer(query(requestsCol, where("status", "==", "accepted"))),
+        getAggregateFromServer(usersCol, { avg: average("rating") })
+      ]);
+
+      setLiveStats({
+        totalUsers: totalUsersSnap.data().count,
+        volunteers: volunteersSnap.data().count,
+        providers: providersSnap.data().count,
+        openRequests: openRequestsSnap.data().count,
+        completedThisWeek: completedThisWeekSnap.data().count,
+        pendingVerifications: pendingVerificationsSnap.data().count,
+        activeJobs: activeJobsSnap.data().count,
+        avgRating: avgRatingSnap.data().avg || 5.0
+      });
+    } catch (e) {
+      console.error("Failed to fetch admin stats:", e);
+    }
+  }, [db, profile?.role]);
+
   useEffect(() => {
     if (!isUserLoading && !isProfileLoading) {
       if (!user || profile?.role !== 'admin') {
         router.push("/dashboard");
+      } else {
+        fetchStats();
+        const interval = setInterval(fetchStats, 30000);
+        return () => clearInterval(interval);
       }
     }
-  }, [user, profile, isUserLoading, isProfileLoading, router]);
+  }, [user, profile, isUserLoading, isProfileLoading, router, fetchStats]);
 
+  // Data for Charts (Real-time listeners for the visual trends)
   const usersQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(collection(db, "users"), orderBy("createdAt", "desc"));
@@ -65,40 +136,6 @@ export default function AdminDashboard() {
   }, [db, profile?.role]);
   const { data: allRequests } = useCollection(requestsQuery);
 
-  // Stats Calculations
-  const stats = useMemo(() => {
-    if (!allUsers || !allRequests) return { 
-      totalUsers: 0, 
-      volunteers: 0, 
-      providers: 0, 
-      openRequests: 0, 
-      completedThisWeek: 0,
-      pendingVerifications: 0
-    };
-    
-    const volunteers = allUsers.filter(u => u.role === 'volunteer').length;
-    const providers = allUsers.filter(u => u.role === 'provider').length;
-    const openRequests = allRequests.filter(r => r.status === 'open').length;
-    const pendingVerifications = allUsers.filter(u => u.role === 'provider' && !u.verified).length;
-    
-    const now = new Date();
-    const completedThisWeek = allRequests.filter(r => 
-      r.status === 'completed' && 
-      r.completedAt && 
-      isSameWeek(r.completedAt.toDate(), now)
-    ).length;
-
-    return { 
-      totalUsers: allUsers.length, 
-      volunteers,
-      providers,
-      openRequests,
-      completedThisWeek,
-      pendingVerifications
-    };
-  }, [allUsers, allRequests]);
-
-  // Chart Data
   const categoryData = useMemo(() => {
     if (!allRequests) return [];
     const counts: Record<string, number> = { blood: 0, tutor: 0, repair: 0, emergency: 0, other: 0 };
@@ -162,12 +199,12 @@ export default function AdminDashboard() {
       <main className="container px-6 mx-auto py-8 space-y-8">
         
         {/* Real-time Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
           <Card className="border-none shadow-sm bg-white overflow-hidden relative group">
             <CardContent className="pt-6">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Citizens</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.totalUsers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded-full">
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.totalUsers}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-blue-600 bg-blue-50 w-fit px-2 py-0.5 rounded-full">
                 <Users className="w-3 h-3" /> Growth
               </div>
             </CardContent>
@@ -176,8 +213,8 @@ export default function AdminDashboard() {
           <Card className="border-none shadow-sm bg-white overflow-hidden relative">
             <CardContent className="pt-6">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Volunteers</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.volunteers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-purple-600 bg-purple-50 w-fit px-2 py-0.5 rounded-full">
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.volunteers}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-purple-600 bg-purple-50 w-fit px-2 py-0.5 rounded-full">
                 <Trophy className="w-3 h-3" /> Impact
               </div>
             </CardContent>
@@ -186,8 +223,8 @@ export default function AdminDashboard() {
           <Card className="border-none shadow-sm bg-white overflow-hidden relative">
             <CardContent className="pt-6">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Providers</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.providers}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.providers}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
                 <Wrench className="w-3 h-3" /> Services
               </div>
             </CardContent>
@@ -196,8 +233,8 @@ export default function AdminDashboard() {
           <Card className="border-none shadow-sm bg-white overflow-hidden relative">
             <CardContent className="pt-6">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Open Needs</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.openRequests}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.openRequests}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 w-fit px-2 py-0.5 rounded-full">
                 <ArrowUpRight className="w-3 h-3" /> Demand
               </div>
             </CardContent>
@@ -205,9 +242,9 @@ export default function AdminDashboard() {
 
           <Card className="border-none shadow-sm bg-white overflow-hidden relative">
             <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Success/Wk</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.completedThisWeek}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed This Week</p>
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.completedThisWeek}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
                 <CheckCircle2 className="w-3 h-3" /> Weekly
               </div>
             </CardContent>
@@ -215,10 +252,30 @@ export default function AdminDashboard() {
 
           <Card className="border-none shadow-sm bg-white overflow-hidden relative">
             <CardContent className="pt-6">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending</p>
-              <h3 className="text-3xl font-bold mt-1 text-slate-900">{stats.pendingVerifications}</h3>
-              <div className="mt-4 flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 w-fit px-2 py-0.5 rounded-full">
-                <ShieldCheck className="w-3 h-3" /> Auth
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Verifications</p>
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.pendingVerifications}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-red-600 bg-red-50 w-fit px-2 py-0.5 rounded-full">
+                <ShieldCheck className="w-3 h-3" /> Review
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
+            <CardContent className="pt-6">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Jobs</p>
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.activeJobs}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-indigo-600 bg-indigo-50 w-fit px-2 py-0.5 rounded-full">
+                <Clock className="w-3 h-3" /> Ongoing
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-sm bg-white overflow-hidden relative">
+            <CardContent className="pt-6">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg Platform Rating</p>
+              <h3 className="text-2xl font-bold mt-1 text-slate-900">{liveStats.avgRating.toFixed(1)}</h3>
+              <div className="mt-4 flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 w-fit px-2 py-0.5 rounded-full">
+                <Star className="w-3 h-3 fill-amber-600" /> Quality
               </div>
             </CardContent>
           </Card>
