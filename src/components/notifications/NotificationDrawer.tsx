@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -15,7 +14,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCircle2, Star, Zap, Clock, Inbox, MoreHorizontal, AlertCircle, Sparkles, AlertTriangle } from "lucide-react";
+import { 
+  Bell, 
+  CheckCircle2, 
+  Star, 
+  Zap, 
+  Clock, 
+  Inbox, 
+  MoreHorizontal, 
+  AlertCircle, 
+  Sparkles, 
+  AlertTriangle,
+  Loader2 
+} from "lucide-react";
 import { 
   useUser, 
   useFirestore, 
