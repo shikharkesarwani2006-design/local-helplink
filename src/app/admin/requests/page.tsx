@@ -51,10 +51,11 @@ import { cn } from "@/lib/utils";
 
 function UserSmallCard({ userId, label }: { userId: string; label: string }) {
   const db = useFirestore();
-  const userRef = useMemoFirebase(() => (db ? doc(db, "users", userId) : null), [db, userId]);
+  // FIXED: Ensure userId exists before calling doc()
+  const userRef = useMemoFirebase(() => (db && userId ? doc(db, "users", userId) : null), [db, userId]);
   const { data: profile } = useDoc(userRef);
 
-  if (!profile) return null;
+  if (!userId || !profile) return null;
 
   return (
     <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800">
@@ -132,7 +133,7 @@ export default function AdminRequestsManager() {
       const isExpired = r.expiresAt?.toDate() < now && r.status === 'open';
       const effectiveStatus = isExpired ? 'expired' : r.status;
 
-      const matchesSearch = r.title?.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = (r.title || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "all" || effectiveStatus === statusFilter;
       const matchesCategory = categoryFilter === "all" || r.category === categoryFilter;
       const matchesUrgency = urgencyFilter === "all" || r.urgency === urgencyFilter;

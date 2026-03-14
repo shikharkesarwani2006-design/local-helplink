@@ -53,10 +53,11 @@ import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanne
 
 function HelperInfo({ helperId }: { helperId: string }) {
   const db = useFirestore();
-  const helperRef = useMemoFirebase(() => (db ? doc(db, "users", helperId) : null), [db, helperId]);
+  // FIXED: Ensure helperId exists before calling doc()
+  const helperRef = useMemoFirebase(() => (db && helperId ? doc(db, "users", helperId) : null), [db, helperId]);
   const { data: helper } = useDoc(helperRef);
 
-  if (!helper) return <span className="text-xs text-slate-400">Loading helper info...</span>;
+  if (!helperId || !helper) return <span className="text-xs text-slate-400">Loading helper info...</span>;
 
   return (
     <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/20 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-900/30">
@@ -170,7 +171,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-primary/10 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Zap className="w-8 h-8 text-primary" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Requests Posted</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.totalRatingsCount || 0}</h3></div></CardContent></Card>
           <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-emerald-100 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Heart className="w-8 h-8 text-emerald-600" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Missions Succeeded</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.totalHelped || 0}</h3></div></CardContent></Card>
-          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-amber-100 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Star className="w-8 h-8 text-amber-600 fill-amber-600" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Neighbor Rating</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.rating?.toFixed(1) || "5.0"}</h3></div></CardContent></Card>
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-amber-100 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Star className="w-8 h-8 text-amber-600 fill-amber-400" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Neighbor Rating</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.rating?.toFixed(1) || "5.0"}</h3></div></CardContent></Card>
         </div>
         <section className="space-y-6">
           <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold text-slate-800 dark:text-white flex items-center gap-3"><PlusCircle className="w-6 h-6 text-primary" /> My Active Broadcasts</h2><Link href="/requests/my" className="text-sm font-bold text-primary hover:underline">View History</Link></div>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -27,8 +26,11 @@ import { cn } from "@/lib/utils";
 
 function RequesterCell({ userId }: { userId: string }) {
   const db = useFirestore();
-  const ref = useMemoFirebase(() => (db ? doc(db, "users", userId) : null), [db, userId]);
+  // FIXED: Ensure userId exists before calling doc()
+  const ref = useMemoFirebase(() => (db && userId ? doc(db, "users", userId) : null), [db, userId]);
   const { data: profile } = useDoc(ref);
+
+  if (!userId) return <span className="text-xs text-slate-400">Unknown</span>;
 
   return (
     <div className="flex items-center gap-2">
@@ -80,7 +82,7 @@ export default function MissionHistoryPage() {
 
     const now = new Date();
     const thisMonthMissions = missions.filter(m => {
-      const date = m.completedAt?.toDate() || m.createdAt.toDate();
+      const date = m.completedAt?.toDate() || m.createdAt?.toDate() || now;
       return isSameMonth(date, now);
     });
 
@@ -213,7 +215,7 @@ export default function MissionHistoryPage() {
                         </TableCell>
                         <TableCell className="py-4">
                           <span className="text-xs text-slate-500 font-medium">
-                            {format(m.completedAt?.toDate() || m.createdAt.toDate(), 'MMM dd, yyyy')}
+                            {format(m.completedAt?.toDate() || m.createdAt?.toDate() || new Date(), 'MMM dd, yyyy')}
                           </span>
                         </TableCell>
                         <TableCell className="pr-8 py-4 text-right">
@@ -268,7 +270,7 @@ export default function MissionHistoryPage() {
                       <div className="mt-1.5 w-4 h-4 rounded-full border-4 border-white bg-primary shadow-sm z-10" />
                       <div className="space-y-1">
                         <p className="text-[10px] font-black uppercase text-slate-400 tracking-tighter">
-                          {formatDistanceToNow(m.completedAt?.toDate() || m.createdAt.toDate())} ago
+                          {formatDistanceToNow(m.completedAt?.toDate() || m.createdAt?.toDate() || new Date())} ago
                         </p>
                         <p className="text-xs font-bold text-slate-800 line-clamp-2">
                           Helped with {m.title}
@@ -306,7 +308,7 @@ export default function MissionHistoryPage() {
                       ))}
                     </div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">
-                      {format(r.createdAt.toDate(), 'MMM dd')}
+                      {r.createdAt ? format(r.createdAt.toDate(), 'MMM dd') : 'Recent'}
                     </span>
                   </div>
                   <p className="text-sm text-slate-600 font-medium leading-relaxed italic">
