@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -454,11 +453,13 @@ export default function ProviderAvailableJobsPage() {
 
       <Dialog open={!!acceptedJobData} onOpenChange={(open) => !open && setAcceptedJobData(null)}>
         <DialogContent className="rounded-[3rem] p-10 sm:max-w-[500px] text-center">
-          <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
-            <PartyPopper className="w-12 h-12 text-emerald-600" />
-          </div>
-          <h2 className="text-3xl font-headline font-bold text-slate-900 mb-2">Job Accepted! 🎉</h2>
-          <p className="text-slate-500 mb-8 font-medium">You are now the expert assigned to this mission.</p>
+          <DialogHeader>
+            <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
+              <PartyPopper className="w-12 h-12 text-emerald-600" />
+            </div>
+            <DialogTitle className="text-3xl font-headline font-bold text-slate-900 mb-2">Job Accepted! 🎉</DialogTitle>
+            <DialogDescription className="text-slate-500 mb-8 font-medium">You are now the expert assigned to this mission.</DialogDescription>
+          </DialogHeader>
 
           <div className="bg-slate-50 rounded-[2rem] p-6 text-left border space-y-6">
             <div className="flex items-center justify-between">

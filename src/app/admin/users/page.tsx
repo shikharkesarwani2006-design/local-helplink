@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -396,7 +395,7 @@ export default function CitizenDirectory() {
                     <AvatarFallback className="bg-primary text-white text-2xl font-bold">{viewUser.name?.[0]}</AvatarFallback>
                   </Avatar>
                   <div className="space-y-1">
-                    <h2 className="text-3xl font-headline font-bold">{viewUser.name}</h2>
+                    <DialogTitle className="text-3xl font-headline font-bold">{viewUser.name}</DialogTitle>
                     <div className="flex gap-2">
                       {getRoleBadge(viewUser.role)}
                       {viewUser.verified && <Badge className="bg-emerald-500/20 text-emerald-400 border-none px-2 h-5 text-[8px] font-black uppercase">Verified Expert</Badge>}

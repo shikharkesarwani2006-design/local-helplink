@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -394,7 +393,7 @@ export default function AdminRequestsManager() {
                   </Badge>
                   <span className="text-[10px] font-bold opacity-70">ID: {selectedRequest.id}</span>
                 </div>
-                <h2 className="text-3xl font-headline font-bold relative z-10 leading-tight">{selectedRequest.title}</h2>
+                <DialogTitle className="text-3xl font-headline font-bold relative z-10 leading-tight">{selectedRequest.title}</DialogTitle>
               </header>
 
               <div className="flex-grow overflow-y-auto p-8 bg-white dark:bg-slate-950">
