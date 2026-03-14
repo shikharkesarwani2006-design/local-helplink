@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -7,7 +8,8 @@ import {
   where, 
   doc,
   increment,
-  runTransaction
+  runTransaction,
+  serverTimestamp
 } from "firebase/firestore";
 import { 
   useFirestore, 
@@ -162,17 +164,45 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   };
 
   const handleAcceptJob = async (request: any) => {
-    if (!db || !user?.uid || isUnverified) return;
+    if (!db || !user?.uid || !profile) return;
+
+    // VERIFICATION CHECK
+    if (!profile.verified) {
+      toast({
+        variant: "destructive",
+        title: "Verification Required",
+        description: "Your account needs admin verification before accepting jobs",
+      });
+      return;
+    }
+
     setActionLoading(true);
     try {
-      const responseTime = Date.now() - (request.createdAt?.toDate().getTime() || Date.now());
-      await runTransaction(db, async (transaction) => {
-        const reqRef = doc(db, "requests", request.id);
-        const providerRef = doc(db, "users", user.uid);
-        transaction.update(reqRef, { status: "accepted", acceptedBy: user.uid, acceptedAt: new Date(), responseTime });
-        transaction.update(providerRef, { isAvailable: false });
+      const requestRef = doc(db, "requests", request.id);
+      const responseTime = Date.now() - (request.createdAt?.toMillis() || Date.now());
+      
+      // Update request status
+      updateDocumentNonBlocking(requestRef, {
+        status: "accepted",
+        acceptedBy: user.uid,
+        acceptedAt: serverTimestamp(),
+        responseTime: responseTime
       });
-      await sendNotification(db, request.createdBy, { title: "Expert Assigned! 🔧", message: `${profile.name} has accepted your request.`, type: "accepted", link: "/requests/my" });
+
+      // Set provider as busy
+      const userRef = doc(db, "users", user.uid);
+      updateDocumentNonBlocking(userRef, {
+        isAvailable: false
+      });
+
+      // Write notification
+      await sendNotification(db, request.createdBy, {
+        title: "Expert Assigned! 🔧",
+        message: `${profile.name} has accepted your request.`,
+        type: "accepted",
+        link: "/requests/my"
+      });
+
       toast({ title: "Job Accepted!" });
     } catch (e) {
       toast({ variant: "destructive", title: "Error" });
@@ -190,7 +220,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", completingJob.id);
         const providerRef = doc(db, "users", user.uid);
-        transaction.update(reqRef, { status: "completed", completedAt: new Date(), duration: hours, summary: summary });
+        transaction.update(reqRef, { status: "completed", completedAt: serverTimestamp(), duration: hours, summary: summary });
         transaction.update(providerRef, { totalJobsDone: increment(1), totalEarnings: increment(earnings), isAvailable: true });
       });
       await sendNotification(db, completingJob.createdBy, { title: "Job Completed! 🎉", message: `${profile.name} marked the service as complete.`, type: "completed", link: "/profile" });
@@ -211,7 +241,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       <AnnouncementBanner />
       {isUnverified && (
         <div className="bg-amber-500 text-white py-3 px-6 text-center font-bold text-sm flex items-center justify-center gap-2 sticky top-16 z-50 shadow-lg">
-          <ShieldAlert className="w-4 h-4" /> Pending Admin Verification — Acceptance enabled once verified.
+          <ShieldAlert className="w-4 h-4" /> Your account needs admin verification before accepting jobs
         </div>
       )}
       <section className="bg-slate-900 pt-12 pb-24 px-6 relative overflow-hidden">

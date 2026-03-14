@@ -29,16 +29,24 @@ service cloud.firestore {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        resource.data.createdBy == request.auth.uid || isAdmin()
+        // Creator or Admin can modify anything
+        resource.data.createdBy == request.auth.uid || 
+        isAdmin() ||
+        // Allow acceptance: must transition from open to accepted, and setter must be the current user
+        (resource.data.status == 'open' && request.resource.data.status == 'accepted' && request.resource.data.acceptedBy == request.auth.uid) ||
+        // Allow completion: must be the assigned responder or creator
+        (resource.data.status == 'accepted' && (resource.data.acceptedBy == request.auth.uid || resource.data.createdBy == request.auth.uid) && request.resource.data.status == 'completed')
       );
       allow delete: if isSignedIn() && (
         resource.data.createdBy == request.auth.uid || isAdmin()
       );
     }
 
-    // Notifications: Strictly private to the recipient
+    // Notifications: Strictly private to the recipient for reading, but allow others to send (create)
     match /notifications/{userId}/{allPaths=**} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow create: if isSignedIn(); // Allow responders to send notifications to requesters
+      allow update, delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // Ratings: Anyone signed in can view or leave a rating

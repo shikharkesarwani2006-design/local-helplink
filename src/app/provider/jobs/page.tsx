@@ -8,7 +8,6 @@ import {
   query, 
   where, 
   doc, 
-  runTransaction,
   serverTimestamp
 } from "firebase/firestore";
 import { 
@@ -16,7 +15,8 @@ import {
   useUser, 
   useDoc, 
   useCollection, 
-  useMemoFirebase 
+  useMemoFirebase,
+  updateDocumentNonBlocking
 } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,7 @@ export default function ProviderAvailableJobsPage() {
   const profileRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
   const { data: profile } = useDoc(profileRef);
 
-  // 2. Fetch Open Requests - Removed orderBy to avoid index
+  // 2. Fetch Open Requests
   const requestsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(
@@ -90,7 +90,7 @@ export default function ProviderAvailableJobsPage() {
   }, [db]);
   const { data: rawOpenRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
 
-  // 3. Filtering & Sorting (Handling orderBy in JS)
+  // 3. Filtering & Sorting
   const filteredJobs = useMemo(() => {
     if (!rawOpenRequests) return [];
 
@@ -120,11 +120,12 @@ export default function ProviderAvailableJobsPage() {
   const handleAcceptJob = async () => {
     if (!db || !user || !profile || !selectedJob) return;
 
+    // VERIFICATION CHECK
     if (!profile.verified) {
       toast({
         variant: "destructive",
         title: "Verification Required",
-        description: "Complete profile verification to accept jobs."
+        description: "Your account needs admin verification before accepting jobs",
       });
       return;
     }
@@ -140,27 +141,27 @@ export default function ProviderAvailableJobsPage() {
 
     setLoading(true);
     try {
-      const responseTime = Date.now() - (selectedJob.createdAt?.toDate().getTime() || Date.now());
+      const requestRef = doc(db, "requests", selectedJob.id);
+      const responseTime = Date.now() - (selectedJob.createdAt?.toMillis() || Date.now());
       
-      await runTransaction(db, async (transaction) => {
-        const jobRef = doc(db, "requests", selectedJob.id);
-        const providerRef = doc(db, "users", user.uid);
-        
-        transaction.update(jobRef, {
-          status: "accepted",
-          acceptedBy: user.uid,
-          acceptedAt: serverTimestamp(),
-          responseTime: responseTime
-        });
-
-        transaction.update(providerRef, {
-          isAvailable: false
-        });
+      // 1. Update Request status (using the specific update fields requested)
+      updateDocumentNonBlocking(requestRef, {
+        status: "accepted",
+        acceptedBy: user.uid,
+        acceptedAt: serverTimestamp(),
+        responseTime: responseTime
       });
 
+      // 2. Set provider as busy
+      const userRef = doc(db, "users", user.uid);
+      updateDocumentNonBlocking(userRef, {
+        isAvailable: false
+      });
+
+      // 3. Write notification to requester
       await sendNotification(db, selectedJob.createdBy, {
         title: "Expert Assigned! 🔧",
-        message: `${profile.name} (${profile.serviceCategory}) has accepted your request. Contact: ${profile.phone || "In-App"}`,
+        message: `${profile.name} has accepted your request.`,
         type: "accepted",
         link: "/requests/my"
       });
@@ -253,7 +254,7 @@ export default function ProviderAvailableJobsPage() {
             <div className="bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl p-4 flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
               <p className="text-xs font-bold text-amber-700">
-                You are currently in browsing mode. Complete admin verification to start accepting jobs.
+                You are currently in browsing mode. Your account needs admin verification before accepting jobs.
               </p>
             </div>
           )}
