@@ -22,7 +22,7 @@ import {
   Phone,
   PlusCircle
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { RatingModal } from "@/components/profile/RatingModal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,7 +49,7 @@ export default function ProfilePage() {
   }, [db, user?.uid]);
   const { data: rawReviews } = useCollection(ratingsQuery);
   const reviews = useMemo(() => {
-    if (!rawReviews) return null;
+    if (!rawReviews) return [];
     return [...rawReviews].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawReviews]);
 
@@ -63,8 +63,10 @@ export default function ProfilePage() {
   }, [db, user?.uid]);
   const { data: rawHelpedHistory } = useCollection(helpedHistoryQuery);
   const helpedHistory = useMemo(() => {
-    if (!rawHelpedHistory) return null;
-    return [...rawHelpedHistory].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+    if (!rawHelpedHistory) return [];
+    return [...rawHelpedHistory]
+      .filter(req => req.status === 'completed')
+      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawHelpedHistory]);
 
   // 4. Fetch My Posts history
@@ -77,7 +79,7 @@ export default function ProfilePage() {
   }, [db, user?.uid]);
   const { data: rawMyPosts } = useCollection(myPostsQuery);
   const myPosts = useMemo(() => {
-    if (!rawMyPosts) return null;
+    if (!rawMyPosts) return [];
     return [...rawMyPosts].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawMyPosts]);
 
@@ -131,6 +133,12 @@ export default function ProfilePage() {
               <div className="flex items-center gap-1.5"><Mail className="w-4 h-4" /> {profile?.email}</div>
               {profile?.phone && <div className="flex items-center gap-1.5"><Phone className="w-4 h-4" /> {profile?.phone}</div>}
               {profile?.location?.area && <div className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {profile.location.area}</div>}
+              {profile?.createdAt && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" /> 
+                  Joined {format(profile.createdAt.toDate(), 'MMM yyyy')}
+                </div>
+              )}
             </div>
 
             <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto md:mx-0 leading-relaxed">
@@ -145,7 +153,7 @@ export default function ProfilePage() {
       </div>
 
       <main className="container max-w-6xl px-6 mx-auto -mt-16 relative z-20">
-        <div className="grid lg:col-span-12 gap-8">
+        <div className="grid lg:grid-cols-12 gap-8">
           {/* 📊 Sidebar Stats */}
           <div className="lg:col-span-4 space-y-8">
             <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden">
@@ -165,7 +173,7 @@ export default function ProfilePage() {
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                    <Star className="w-5 h-5 text-amber-500 fill-amber-500 mb-2" />
+                    <Star className="w-5 h-5 text-amber-500 fill-amber-400 mb-2" />
                     <div className="text-xl font-black text-slate-900 dark:text-white">{profile?.rating?.toFixed(1) || "5.0"}</div>
                     <div className="text-[10px] uppercase font-bold text-amber-600">Avg Rating</div>
                   </div>
@@ -218,12 +226,12 @@ export default function ProfilePage() {
               </TabsList>
 
               <TabsContent value="posts" className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                {myPosts?.length === 0 ? (
+                {myPosts.length === 0 ? (
                   <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
                     <p className="text-slate-500 font-medium">You haven't posted any help requests yet.</p>
                   </div>
                 ) : (
-                  myPosts?.map(req => (
+                  myPosts.map(req => (
                     <Card key={req.id} className="p-6 bg-white dark:bg-slate-900 border-none shadow-sm rounded-2xl flex items-center justify-between group hover:shadow-md transition-shadow">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -233,7 +241,9 @@ export default function ProfilePage() {
                           )}>
                             {req.status}
                           </Badge>
-                          <span className="text-[10px] font-bold text-slate-400">{req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span>
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
+                          </span>
                         </div>
                         <h4 className="font-bold text-slate-900 dark:text-white">{req.title}</h4>
                       </div>
@@ -246,17 +256,19 @@ export default function ProfilePage() {
               </TabsContent>
 
               <TabsContent value="helped" className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                {helpedHistory?.length === 0 ? (
+                {helpedHistory.length === 0 ? (
                   <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
                     <p className="text-slate-500 font-medium">You haven't helped anyone yet. Check the feed to get started!</p>
                   </div>
                 ) : (
-                  helpedHistory?.map(req => (
+                  helpedHistory.map(req => (
                     <Card key={req.id} className="p-6 bg-white dark:bg-slate-900 border-none shadow-sm rounded-2xl flex items-center justify-between group hover:shadow-md transition-shadow">
                       <div className="space-y-1">
                         <Badge className="bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase mb-1">Impact Made</Badge>
                         <h4 className="font-bold text-slate-900 dark:text-white">{req.title}</h4>
-                        <p className="text-[10px] font-bold text-slate-400">Completed on {req.createdAt.toDate().toLocaleDateString()}</p>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          Completed on {req.createdAt ? format(req.createdAt.toDate(), 'PPP') : 'Recently'}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="bg-emerald-100 p-2 rounded-full">
@@ -269,12 +281,12 @@ export default function ProfilePage() {
               </TabsContent>
               
               <TabsContent value="reviews" className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-                {reviews?.length === 0 ? (
+                {reviews.length === 0 ? (
                   <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
                     <p className="text-slate-500 font-medium">No reviews yet. Complete missions to earn community feedback!</p>
                   </div>
                 ) : (
-                  reviews?.map(r => (
+                  reviews.map(r => (
                     <Card key={r.id} className="p-6 bg-white dark:bg-slate-900 border-none shadow-sm rounded-2xl space-y-4">
                       <div className="flex justify-between items-start">
                         <div className="flex gap-1">
