@@ -85,11 +85,24 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
   }, [db, user?.uid]);
   const { data: rawMyRequests, isLoading: isMyRequestsLoading } = useCollection(myRequestsQuery);
 
+  // Stats calculation derived from real-time Firestore collections
+  const stats = useMemo(() => {
+    const posted = rawMyRequests?.length || 0;
+    const succeeded = rawMyRequests?.filter(req => req.status === 'completed').length || 0;
+    const rating = (profile?.rating || 0).toFixed(1);
+    
+    return { posted, succeeded, rating };
+  }, [rawMyRequests, profile?.rating]);
+
   const myRequests = useMemo(() => {
     if (!rawMyRequests) return [];
     return [...rawMyRequests]
       .filter(req => req.status === 'open' || req.status === 'accepted')
-      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      .sort((a, b) => {
+        const timeA = a.createdAt?.toMillis() || 0;
+        const timeB = b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
   }, [rawMyRequests]);
 
   const nearbyQuery = useMemoFirebase(() => {
@@ -110,7 +123,11 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
         return isNotMine && matchesSearch && matchesCategory;
       })
-      .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+      .sort((a, b) => {
+        const timeA = a.createdAt?.toMillis() || 0;
+        const timeB = b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
   }, [rawNearby, searchQuery, categoryFilter, user?.uid]);
 
   const handleCancelRequest = (requestId: string) => {
@@ -132,7 +149,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         
         if (request.acceptedBy) {
           const helperRef = doc(db, "users", request.acceptedBy);
-          // Standard users increment 'totalHelped'
           transaction.update(helperRef, { 
             totalHelped: increment(1)
           });
@@ -160,9 +176,8 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
     if (!db || !user || !profile) return;
     
     const requestRef = doc(db, "requests", request.id);
-    const responseTime = Date.now() - (request.createdAt?.toDate().getTime() || Date.now());
+    const responseTime = Date.now() - (request.createdAt?.toMillis() || Date.now());
     
-    // Using transaction for status change to prevent double-acceptance
     try {
       await runTransaction(db, async (transaction) => {
         const snap = await transaction.get(requestRef);
@@ -207,9 +222,55 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
       </section>
       <main className="container px-4 sm:px-6 mx-auto -mt-12 relative z-20 space-y-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-primary/10 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Zap className="w-8 h-8 text-primary" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Requests Posted</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.totalRatingsCount || 0}</h3></div></CardContent></Card>
-          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-emerald-100 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Heart className="w-8 h-8 text-emerald-600" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Missions Succeeded</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.totalHelped || 0}</h3></div></CardContent></Card>
-          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group"><CardContent className="pt-8 pb-8 flex items-center gap-6 px-8"><div className="bg-amber-100 p-4 rounded-2xl group-hover:scale-110 transition-transform"><Star className="w-8 h-8 text-amber-600 fill-amber-400" /></div><div><p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Neighbor Rating</p><h3 className="text-3xl font-black text-slate-900 dark:text-white">{profile?.rating?.toFixed(1) || "5.0"}</h3></div></CardContent></Card>
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group">
+            <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
+              <div className="bg-primary/10 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                <Zap className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Requests Posted</p>
+                <h3 className="text-3xl font-black text-slate-900 dark:text-white">
+                  {isMyRequestsLoading ? (
+                    <Skeleton className="h-9 w-12 bg-slate-100 dark:bg-slate-800" />
+                  ) : (
+                    stats.posted
+                  )}
+                </h3>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group">
+            <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
+              <div className="bg-emerald-100 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                <Heart className="w-8 h-8 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Missions Succeeded</p>
+                <h3 className="text-3xl font-black text-slate-900 dark:text-white">
+                  {isMyRequestsLoading ? (
+                    <Skeleton className="h-9 w-12 bg-slate-100 dark:bg-slate-800" />
+                  ) : (
+                    stats.succeeded
+                  )}
+                </h3>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group">
+            <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
+              <div className="bg-amber-100 p-4 rounded-2xl group-hover:scale-110 transition-transform">
+                <Star className="w-8 h-8 text-amber-600 fill-amber-400" />
+              </div>
+              <div>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Neighbor Rating</p>
+                <h3 className="text-3xl font-black text-slate-900 dark:text-white">
+                  {stats.rating}
+                </h3>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         <section className="space-y-6">
           <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold text-slate-800 dark:text-white flex items-center gap-3"><PlusCircle className="w-6 h-6 text-primary" /> My Active Broadcasts</h2><Link href="/requests/my" className="text-sm font-bold text-primary hover:underline">View History</Link></div>
