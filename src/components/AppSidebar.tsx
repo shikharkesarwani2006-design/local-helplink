@@ -99,18 +99,6 @@ export function AppSidebar() {
   }, [db, isAdmin]);
   const { data: reportedRequests } = useCollection(reportedQuery);
 
-  const allUsersQuery = useMemoFirebase(() => {
-    if (!db || !isAdmin) return null;
-    return query(collection(db, "users"));
-  }, [db, isAdmin]);
-  const { data: allUsers } = useCollection(allUsersQuery);
-
-  const openRequestsQuery = useMemoFirebase(() => {
-    if (!db || !isAdmin) return null;
-    return query(collection(db, "requests"), where("status", "==", "open"));
-  }, [db, isAdmin]);
-  const { data: openRequests } = useCollection(openRequestsQuery);
-
   const mainLinks = useMemo(() => {
     if (isAdmin) {
       return [
@@ -128,12 +116,14 @@ export function AppSidebar() {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Browse Missions", href: "/volunteer/missions", icon: Search },
+        { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
         { label: "Mission History", href: "/volunteer/history", icon: History },
       );
     } else if (profile?.role === 'provider') {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
         { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
         { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
@@ -141,6 +131,7 @@ export function AppSidebar() {
     } else {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
         { label: "Post Request", href: "/requests/new", icon: PlusCircle },
         { label: "My Requests", href: "/requests/my", icon: History },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
@@ -171,7 +162,6 @@ export function AppSidebar() {
     }
     return [
       { label: "My Profile", href: "/profile", icon: User },
-      { label: "Leaderboard", href: "#", icon: Trophy },
     ];
   }, [profile?.role, isAdmin]);
 
