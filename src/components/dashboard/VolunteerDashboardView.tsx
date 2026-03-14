@@ -117,12 +117,20 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
     return [...rawAvailable]
       .map(req => {
         const userSkills = profile?.skills || [];
-        const isMatch = userSkills.some((s: string) => req.title.toLowerCase().includes(s.toLowerCase()) || req.description.toLowerCase().includes(s.toLowerCase()) || req.category.toLowerCase().includes(s.toLowerCase()));
+        const title = req.title || "";
+        const description = req.description || "";
+        const category = req.category || "";
+        const isMatch = userSkills.some((s: string) => 
+          title.toLowerCase().includes(s.toLowerCase()) || 
+          description.toLowerCase().includes(s.toLowerCase()) || 
+          category.toLowerCase().includes(s.toLowerCase())
+        );
         return { ...req, isMatch };
       })
       .filter(req => {
         const isNotMine = req.createdBy !== user?.uid;
-        const matchesSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase());
+        const title = req.title || "";
+        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesSkill = !skillFilter || req.isMatch;
         return isNotMine && matchesSearch && matchesSkill;
       })

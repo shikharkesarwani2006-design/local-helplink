@@ -96,10 +96,13 @@ export default function ProviderAvailableJobsPage() {
 
     return [...rawOpenRequests]
       .filter(job => {
-        const matchesCategory = !myCategoryOnly || (profile?.serviceCategory && job.category.toLowerCase() === profile.serviceCategory.toLowerCase());
+        const jobCategory = job.category || "";
+        const matchesCategory = !myCategoryOnly || (profile?.serviceCategory && jobCategory.toLowerCase() === profile.serviceCategory.toLowerCase());
         const matchesUrgency = urgencyFilter === "all" || job.urgency === urgencyFilter;
-        const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             job.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const title = job.title || "";
+        const description = job.description || "";
+        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             description.toLowerCase().includes(searchQuery.toLowerCase());
         const isNotMine = job.createdBy !== user?.uid;
         return matchesCategory && matchesUrgency && matchesSearch && isNotMine;
       })
@@ -336,7 +339,7 @@ export default function ProviderAvailableJobsPage() {
                     
                     <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-slate-400 uppercase">
                       <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{job.location?.area || "Campus"}</div>
-                      <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{formatDistanceToNow(job.createdAt.toDate())} ago</div>
+                      <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{formatDistanceToNow(job.createdAt.toDate())} ago</div>
                     </div>
                   </div>
                 </CardContent>

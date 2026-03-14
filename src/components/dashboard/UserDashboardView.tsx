@@ -107,8 +107,10 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
     return [...rawNearby]
       .filter(req => {
         const isNotMine = req.createdBy !== user?.uid;
-        const matchesSearch = req.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             req.description.toLowerCase().includes(searchQuery.toLowerCase());
+        const title = req.title || "";
+        const description = req.description || "";
+        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             description.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
         return isNotMine && matchesSearch && matchesCategory;
       })

@@ -74,18 +74,23 @@ export default function BrowseMissionsPage() {
 
     return [...rawMissions]
       .map(m => {
+        const title = m.title || "";
+        const description = m.description || "";
+        const category = m.category || "";
         const isMatch = userSkills.some((skill: string) => 
-          m.title?.toLowerCase().includes(skill.toLowerCase()) || 
-          m.description?.toLowerCase().includes(skill.toLowerCase()) ||
-          m.category?.toLowerCase().includes(skill.toLowerCase())
+          title.toLowerCase().includes(skill.toLowerCase()) || 
+          description.toLowerCase().includes(skill.toLowerCase()) ||
+          category.toLowerCase().includes(skill.toLowerCase())
         );
         return { ...m, isMatch };
       })
       .filter(m => {
         const matchesCategory = categoryFilter === "all" || m.category === categoryFilter;
         const matchesUrgency = urgencyFilter === "all" || m.urgency === urgencyFilter;
-        const matchesSearch = m.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             m.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        const title = m.title || "";
+        const description = m.description || "";
+        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             description.toLowerCase().includes(searchQuery.toLowerCase());
         const isNotMine = m.createdBy !== user?.uid;
         return matchesCategory && matchesUrgency && matchesSearch && isNotMine;
       })
