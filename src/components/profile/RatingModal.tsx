@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -19,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Star, Loader2, Heart, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { sendNotification } from "@/firebase/notifications";
+import { cn } from "@/lib/utils";
 
 export function RatingModal({ requestId, toUser, onClose }: { requestId: string; toUser: string; onClose?: () => void }) {
   const [open, setOpen] = useState(true);
