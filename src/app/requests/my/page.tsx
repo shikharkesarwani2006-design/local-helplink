@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { collection, query, where, doc, runTransaction, increment } from "firebase/firestore";
+import { collection, query, where, doc, runTransaction, increment, serverTimestamp } from "firebase/firestore";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,15 +36,21 @@ export default function MyRequests() {
 
   const handleCompleteRequest = async (request: any) => {
     if (!db || !user) return;
-    setActionLoading(true);
+    actionLoading && setActionLoading(true);
     try {
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", request.id);
-        transaction.update(reqRef, { status: "completed" });
+        transaction.update(reqRef, { 
+          status: "completed",
+          completedAt: serverTimestamp()
+        });
         
         if (request.acceptedBy) {
-          const volunteerRef = doc(db, "users", request.acceptedBy);
-          transaction.update(volunteerRef, { totalHelped: increment(1) });
+          const helperRef = doc(db, "users", request.acceptedBy);
+          // Increment reputation fields
+          transaction.update(helperRef, { 
+            totalHelped: increment(1) 
+          });
         }
       });
 
@@ -61,8 +67,9 @@ export default function MyRequests() {
         title: "Mission Completed",
         description: "Great job resolving this community need!",
       });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error", description: "Failed to mark as complete." });
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Error", description: "Failed to mark as complete. Please try again." });
     } finally {
       setActionLoading(false);
     }
@@ -111,7 +118,7 @@ export default function MyRequests() {
                   </Badge>
                 </CardHeader>
                 <CardContent className="pb-6">
-                  <p className="text-slate-600 leading-relaxed">{req.description}</p>
+                  <p className="text-slate-600 leading-relaxed mb-4">{req.description}</p>
                   
                   {req.status === 'accepted' && (
                     <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10 flex items-center justify-between">

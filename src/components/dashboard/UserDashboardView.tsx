@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -8,14 +9,14 @@ import {
   where, 
   doc,
   increment,
-  runTransaction
+  runTransaction,
+  serverTimestamp
 } from "firebase/firestore";
 import { 
   useFirestore, 
   useCollection, 
   useDoc,
   useMemoFirebase, 
-  updateDocumentNonBlocking,
   deleteDocumentNonBlocking
 } from "@/firebase";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,7 +54,6 @@ import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanne
 
 function HelperInfo({ helperId }: { helperId: string }) {
   const db = useFirestore();
-  // FIXED: Ensure helperId exists before calling doc()
   const helperRef = useMemoFirebase(() => (db && helperId ? doc(db, "users", helperId) : null), [db, helperId]);
   const { data: helper } = useDoc(helperRef);
 
@@ -125,29 +125,67 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
     try {
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", request.id);
-        transaction.update(reqRef, { status: "completed" });
+        transaction.update(reqRef, { 
+          status: "completed",
+          completedAt: serverTimestamp()
+        });
+        
         if (request.acceptedBy) {
-          const volunteerRef = doc(db, "users", request.acceptedBy);
-          transaction.update(volunteerRef, { totalHelped: increment(1) });
+          const helperRef = doc(db, "users", request.acceptedBy);
+          // Standard users increment 'totalHelped'
+          transaction.update(helperRef, { 
+            totalHelped: increment(1)
+          });
         }
       });
+
       if (request.acceptedBy) {
-        await sendNotification(db, request.acceptedBy, { title: "Mission Completed! 🏆", message: `The neighbor you helped has marked the mission as complete.`, type: "completed", link: "/profile" });
+        await sendNotification(db, request.acceptedBy, { 
+          title: "Mission Completed! 🏆", 
+          message: `The neighbor you helped has marked the mission as complete.`, 
+          type: "completed", 
+          link: "/profile" 
+        });
       }
-      toast({ title: "Mission Completed!" });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Error" });
+      toast({ title: "Mission Completed!", description: "Thank you for strengthening our community!" });
+    } catch (e: any) {
+      console.error(e);
+      toast({ variant: "destructive", title: "Action Failed", description: "Verify helper info or try again." });
     } finally {
       setLoading(false);
     }
   };
 
   const handleOfferHelp = async (request: any) => {
-    if (!db || !user) return;
+    if (!db || !user || !profile) return;
+    
+    const requestRef = doc(db, "requests", request.id);
     const responseTime = Date.now() - (request.createdAt?.toDate().getTime() || Date.now());
-    updateDocumentNonBlocking(doc(db, "requests", request.id), { status: "accepted", acceptedBy: user.uid, responseTime });
-    await sendNotification(db, request.createdBy, { title: "Help is on the way! 🚀", message: `${profile.name} has accepted your request.`, type: "accepted", link: "/requests/my" });
-    toast({ title: "Help Offered!" });
+    
+    // Using transaction for status change to prevent double-acceptance
+    try {
+      await runTransaction(db, async (transaction) => {
+        const snap = await transaction.get(requestRef);
+        if (snap.data()?.status !== 'open') throw new Error("Request already accepted.");
+        
+        transaction.update(requestRef, { 
+          status: "accepted", 
+          acceptedBy: user.uid, 
+          acceptedAt: serverTimestamp(),
+          responseTime 
+        });
+      });
+
+      await sendNotification(db, request.createdBy, { 
+        title: "Help is on the way! 🚀", 
+        message: `${profile.name} has accepted your request.`, 
+        type: "accepted", 
+        link: "/requests/my" 
+      });
+      toast({ title: "Help Offered!" });
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Oops!", description: e.message });
+    }
   };
 
   const categories = [
@@ -176,7 +214,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         <section className="space-y-6">
           <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold text-slate-800 dark:text-white flex items-center gap-3"><PlusCircle className="w-6 h-6 text-primary" /> My Active Broadcasts</h2><Link href="/requests/my" className="text-sm font-bold text-primary hover:underline">View History</Link></div>
           {isMyRequestsLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[1, 2].map(i => <Skeleton key={i} className="h-48 rounded-3xl" />)}</div> : myRequests.length === 0 ? <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800"><p className="text-slate-500 font-medium">No active requests.</p></div> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{myRequests.map((req) => (
-            <Card key={req.id} className="rounded-3xl border-none shadow-lg bg-white dark:bg-slate-900 overflow-hidden flex flex-col group"><div className={cn("h-2 w-full", req.status === 'open' ? 'bg-blue-500' : 'bg-amber-500')} /><CardHeader className="pb-2"><div className="flex justify-between items-start"><Badge className={cn("capitalize px-3 py-1 text-[10px] font-black rounded-full", req.status === 'open' ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700")}>{req.status}</Badge><span className="text-[10px] font-bold text-slate-400">{req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span></div><CardTitle className="text-lg font-headline font-bold mt-3 leading-tight">{req.title}</CardTitle></CardHeader><CardContent className="flex-grow"><p className="text-sm text-slate-500 line-clamp-2">{req.description}</p>{req.status === 'accepted' && req.acceptedBy && <HelperInfo helperId={req.acceptedBy} />}</CardContent><CardFooter className="pt-4 border-t border-slate-50 flex gap-2">{req.status === 'open' ? <Button variant="ghost" size="sm" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => handleCancelRequest(req.id)}><XCircle className="w-4 h-4 mr-2" /> Cancel</Button> : <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 text-white font-bold" onClick={() => handleCompleteRequest(req)} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}Mark Complete</Button>}</CardFooter></Card>
+            <Card key={req.id} className="rounded-3xl border-none shadow-lg bg-white dark:bg-slate-900 overflow-hidden flex flex-col group"><div className={cn("h-2 w-full", req.status === 'open' ? 'bg-blue-500' : 'bg-amber-500')} /><CardHeader className="pb-2"><div className="flex justify-between items-start"><Badge className={cn("capitalize px-3 py-1 text-[10px] font-black rounded-full", req.status === 'open' ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700")}>{req.status}</Badge><span className="text-[10px] font-bold text-slate-400">{req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span></div><CardTitle className="text-lg font-headline font-bold mt-3 leading-tight">{req.title}</CardTitle></CardHeader><CardContent className="flex-grow"><p className="text-sm text-slate-500 line-clamp-2 mb-4">{req.description}</p>{req.status === 'accepted' && req.acceptedBy && <HelperInfo helperId={req.acceptedBy} />}</CardContent><CardFooter className="pt-4 border-t border-slate-50 flex gap-2">{req.status === 'open' ? <Button variant="ghost" size="sm" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => handleCancelRequest(req.id)}><XCircle className="w-4 h-4 mr-2" /> Cancel</Button> : <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 text-white font-bold" onClick={() => handleCompleteRequest(req)} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}Mark Complete</Button>}</CardFooter></Card>
           ))}</div>}
         </section>
         <section className="space-y-8">

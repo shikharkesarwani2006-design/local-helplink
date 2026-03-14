@@ -18,10 +18,15 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // User Profiles: Authenticated users can view profiles; only owners or admins can edit
+    // User Profiles: Authenticated users can view profiles; owners/admins edit anything.
+    // Neighbors can update impact/reputation fields during mission completion/rating.
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isSignedIn() && (
+        request.auth.uid == userId || 
+        isAdmin() ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'totalRatingsCount', 'totalHelped', 'totalJobsDone', 'totalEarnings']))
+      );
     }
 
     // Help Requests: Authenticated users can browse (get/list) and create missions.
