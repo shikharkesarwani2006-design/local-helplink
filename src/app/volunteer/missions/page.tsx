@@ -114,7 +114,7 @@ export default function BrowseMissionsPage() {
     if (!db || !user || !acceptingRequest || !profile) return;
     setLoading(true);
     try {
-      const responseTime = Date.now() - acceptingRequest.createdAt.toDate().getTime();
+      const responseTime = Date.now() - (acceptingRequest.createdAt?.toDate().getTime() || Date.now());
       
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", acceptingRequest.id);
@@ -230,7 +230,7 @@ export default function BrowseMissionsPage() {
                     </div>
                     <div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase">
                       <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{m.location?.area || "Campus"}</div>
-                      <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{formatDistanceToNow(m.createdAt.toDate())} ago</div>
+                      <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{m.createdAt ? formatDistanceToNow(m.createdAt.toDate()) : "just now"} ago</div>
                     </div>
                   </div>
                 </CardContent>

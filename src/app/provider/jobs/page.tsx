@@ -140,7 +140,7 @@ export default function ProviderAvailableJobsPage() {
 
     setLoading(true);
     try {
-      const responseTime = Date.now() - selectedJob.createdAt.toDate().getTime();
+      const responseTime = Date.now() - (selectedJob.createdAt?.toDate().getTime() || Date.now());
       
       await runTransaction(db, async (transaction) => {
         const jobRef = doc(db, "requests", selectedJob.id);
@@ -339,7 +339,7 @@ export default function ProviderAvailableJobsPage() {
                     
                     <div className="flex flex-wrap items-center gap-4 text-[10px] font-bold text-slate-400 uppercase">
                       <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{job.location?.area || "Campus"}</div>
-                      <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{formatDistanceToNow(job.createdAt.toDate())} ago</div>
+                      <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{job.createdAt ? formatDistanceToNow(job.createdAt.toDate()) : "just now"} ago</div>
                     </div>
                   </div>
                 </CardContent>
