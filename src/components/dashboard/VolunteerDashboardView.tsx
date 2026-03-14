@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -73,14 +72,12 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // REMOVED orderBy
   const missionsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
     return query(collection(db, "requests"), where("acceptedBy", "==", user.uid));
   }, [db, user?.uid]);
   const { data: rawUserMissions, isLoading: isMissionsLoading } = useCollection(missionsQuery);
 
-  // JS FILTER AND SORT
   const activeMissions = useMemo(() => {
     if (!rawUserMissions) return [];
     return [...rawUserMissions]
@@ -95,7 +92,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
       .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawUserMissions]);
 
-  // REMOVED orderBy
   const availableQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, "requests"), where("status", "==", "open"));
@@ -105,7 +101,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   const stats = useMemo(() => {
     if (!completedMissions) return { weekly: 0, avgResponse: "0m" };
     const sevenDaysAgo = subDays(new Date(), 7);
-    const weeklyCount = completedMissions.filter(m => (m.completedAt?.toDate() || m.createdAt.toDate()) >= sevenDaysAgo).length;
+    const weeklyCount = completedMissions.filter(m => (m.completedAt?.toDate() || m.createdAt?.toDate() || new Date()) >= sevenDaysAgo).length;
     const responseTimes = completedMissions.map(m => m.responseTime).filter(t => t !== undefined && t !== null);
     const avgMs = responseTimes.length > 0 ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length : 0;
     const avgMins = Math.round(avgMs / 60000);
@@ -145,7 +141,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
     if (!db || !user || !acceptingRequest) return;
     setLoading(true);
     try {
-      const responseTime = Date.now() - acceptingRequest.createdAt.toDate().getTime();
+      const responseTime = Date.now() - (acceptingRequest.createdAt?.toDate().getTime() || Date.now());
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", acceptingRequest.id);
         transaction.update(reqRef, { status: "accepted", acceptedBy: user.uid, acceptedAt: serverTimestamp(), responseTime });
@@ -237,7 +233,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
                 <Card key={request.id} className={cn("group relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-white rounded-[2rem] border-none flex flex-col h-full", request.isMatch && "ring-2 ring-primary/20")}>
                   <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", request.urgency === 'high' ? 'bg-red-500' : 'bg-slate-200')} />
                   <CardHeader className="pb-2 pt-8 pl-8 pr-6"><div className="flex justify-between items-start mb-4">{request.isMatch ? (<div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20"><Star className="w-3.5 h-3.5 fill-primary" /> Skill Match</div>) : (<Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest">{request.category}</Badge>)}<Badge className={cn("text-[9px] font-black uppercase tracking-widest", request.urgency === 'high' ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-600")}>{request.urgency} Urgency</Badge></div><CardTitle className="text-xl font-headline font-bold leading-tight">{request.title}</CardTitle></CardHeader>
-                  <CardContent className="flex-grow space-y-4 pl-8 pr-6"><p className="text-slate-500 text-xs line-clamp-3 leading-relaxed">{request.description}</p><div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase border-t pt-4"><div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{request.location?.area}</div><div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{formatDistanceToNow(request.createdAt.toDate())} ago</div></div></CardContent>
+                  <CardContent className="flex-grow space-y-4 pl-8 pr-6"><p className="text-slate-500 text-xs line-clamp-3 leading-relaxed">{request.description}</p><div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase border-t pt-4"><div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{request.location?.area}</div><div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{request.createdAt ? formatDistanceToNow(request.createdAt.toDate()) : "just now"} ago</div></div></CardContent>
                   <CardFooter className="pt-4 pb-8 pl-8 pr-6"><Button className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold h-12 transition-all group-hover:scale-[1.02]" onClick={() => setAcceptingRequest(request)}>Accept & Help <ChevronRight className="ml-2 w-4 h-4" /></Button></CardFooter>
                 </Card>
               ))}</div>}

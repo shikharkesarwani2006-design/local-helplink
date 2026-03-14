@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -78,14 +77,12 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
   const isUnverified = !profile?.verified;
 
-  // REMOVED orderBy
   const jobsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(collection(db, "requests"), where("acceptedBy", "==", user.uid));
   }, [db, user?.uid]);
   const { data: rawJobs, isLoading: isJobsLoading } = useCollection(jobsQuery);
 
-  // JS FILTER AND SORT
   const activeJobs = useMemo(() => {
     if (!rawJobs) return [];
     return [...rawJobs]
@@ -100,14 +97,12 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawJobs]);
 
-  // REMOVED orderBy
   const incomingQuery = useMemoFirebase(() => {
     if (!db || !profile?.serviceCategory) return null;
     return query(collection(db, "requests"), where("status", "==", "open"));
   }, [db, profile?.serviceCategory]);
   const { data: rawIncoming, isLoading: isIncomingLoading } = useCollection(incomingQuery);
 
-  // JS FILTER AND SORT
   const incomingRequests = useMemo(() => {
     if (!rawIncoming) return [];
     return [...rawIncoming]
@@ -124,7 +119,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
     const weekEnd = endOfWeek(now);
 
     const thisWeek = completedJobs.filter(j => {
-      const date = j.completedAt?.toDate() || j.createdAt.toDate();
+      const date = j.completedAt?.toDate() || j.createdAt?.toDate() || new Date();
       return isWithinInterval(date, { start: weekStart, end: weekEnd });
     }).length;
 
@@ -148,7 +143,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       const start = startOfWeek(subDays(new Date(), i * 7));
       const end = endOfWeek(subDays(new Date(), i * 7));
       const count = completedJobs?.filter(j => {
-        const date = j.completedAt?.toDate() || j.createdAt.toDate();
+        const date = j.completedAt?.toDate() || j.createdAt?.toDate() || new Date();
         return isWithinInterval(date, { start, end });
       }).length || 0;
       
@@ -170,7 +165,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
     if (!db || !user?.uid || isUnverified) return;
     setActionLoading(true);
     try {
-      const responseTime = Date.now() - request.createdAt.toDate().getTime();
+      const responseTime = Date.now() - (request.createdAt?.toDate().getTime() || Date.now());
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", request.id);
         const providerRef = doc(db, "users", user.uid);
@@ -266,7 +261,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
               {isIncomingLoading ? <div className="grid grid-cols-1 gap-4">{[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-3xl" />)}</div> : incomingRequests.length === 0 ? <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed"><AlertCircle className="w-12 h-12 text-slate-200 mx-auto mb-3" /><p className="text-slate-500 font-medium">No new inquiries in your category yet.</p></div> : <div className="grid grid-cols-1 gap-4">{incomingRequests.map((req) => (
                 <Card key={req.id} className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-shadow group">
                   <div className={cn("w-full md:w-2", req.urgency === 'high' ? "bg-red-500" : "bg-emerald-500")} />
-                  <div className="p-6 flex-grow flex flex-col md:flex-row justify-between items-center gap-6"><div className="space-y-1 text-center md:text-left flex-grow"><div className="flex items-center gap-2 justify-center md:justify-start mb-1"><Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none text-[9px] font-black uppercase">{req.urgency}</Badge><span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {formatDistanceToNow(req.createdAt.toDate())} ago</span></div><h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{req.title}</h4><p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1 justify-center md:justify-start"><MapPin className="w-3 h-3" /> {req.location?.area}</p></div><Button className="rounded-2xl bg-slate-900 dark:bg-slate-800 text-white font-bold h-12 px-8 active:scale-95 transition-all w-full md:w-auto" onClick={() => handleAcceptJob(req)} disabled={isUnverified || actionLoading}>Quick Accept</Button></div>
+                  <div className="p-6 flex-grow flex flex-col md:flex-row justify-between items-center gap-6"><div className="space-y-1 text-center md:text-left flex-grow"><div className="flex items-center gap-2 justify-center md:justify-start mb-1"><Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none text-[9px] font-black uppercase">{req.urgency}</Badge><span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span></div><h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{req.title}</h4><p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1 justify-center md:justify-start"><MapPin className="w-3 h-3" /> {req.location?.area}</p></div><Button className="rounded-2xl bg-slate-900 dark:bg-slate-800 text-white font-bold h-12 px-8 active:scale-95 transition-all w-full md:w-auto" onClick={() => handleAcceptJob(req)} disabled={isUnverified || actionLoading}>Quick Accept</Button></div>
                 </Card>
               ))}</div>}
             </section>
