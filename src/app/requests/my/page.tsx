@@ -96,7 +96,8 @@ export default function MyRequestsHistoryPage() {
   };
 
   const handleRepost = (req: any) => {
-    router.push(`/requests/new?cat=${req.category}&urg=${req.urgency}&title=${encodeURIComponent(req.title)}&desc=${encodeURIComponent(req.description)}`);
+    const skillsStr = req.skills ? req.skills.join(',') : '';
+    router.push(`/requests/new?cat=${req.category}&urg=${req.urgency}&title=${encodeURIComponent(req.title)}&desc=${encodeURIComponent(req.description)}&skills=${encodeURIComponent(skillsStr)}`);
   };
 
   const getStatusBadge = (req: any) => {

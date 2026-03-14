@@ -44,7 +44,7 @@ export default function NewRequest() {
     lat: null as number | null,
     lng: null as number | null,
     contactPreference: "in-app",
-    skills: [] as string[],
+    skills: searchParams.get("skills") ? searchParams.get("skills")!.split(',').filter(Boolean) : [] as string[],
   });
   
   const [skillInput, setSkillInput] = useState("");
@@ -58,14 +58,21 @@ export default function NewRequest() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Handle category and urgency pre-fill from query params
+    // Handle category, urgency and skills pre-fill from query params if they change
     const cat = searchParams.get("cat");
     const urg = searchParams.get("urg");
-    if (cat || urg) {
+    const title = searchParams.get("title");
+    const desc = searchParams.get("desc");
+    const skills = searchParams.get("skills");
+
+    if (cat || urg || title || desc || skills) {
       setFormData(prev => ({
         ...prev,
         category: cat || prev.category,
-        urgency: (urg as any) || prev.urgency
+        urgency: (urg as any) || prev.urgency,
+        title: title || prev.title,
+        description: desc || prev.description,
+        skills: skills ? skills.split(',').filter(Boolean) : prev.skills
       }));
     }
   }, [searchParams]);
@@ -276,6 +283,27 @@ export default function NewRequest() {
                 <Textarea id="description" placeholder="Provide details for coordination..." className="min-h-[140px] rounded-2xl" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
               </div>
               <div className="space-y-2"><Label htmlFor="area" className="font-bold">Landmark / Area</Label><Input id="area" placeholder="e.g. Science Block, Room 204" value={formData.area} onChange={(e) => setFormData({ ...formData, area: e.target.value })} className="h-12 rounded-xl" /></div>
+              
+              <div className="space-y-4">
+                <Label className="font-bold">Required Skills / Tags</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="e.g. CPR, Java, Plumbing..." 
+                    value={skillInput}
+                    onChange={(e) => setSkillInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkillTag())}
+                    className="h-11 rounded-xl"
+                  />
+                  <Button type="button" size="icon" onClick={addSkillTag} className="rounded-xl h-11 w-11"><Plus className="w-4 h-4"/></Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {formData.skills.map(skill => (
+                    <Badge key={skill} variant="secondary" className="gap-1 py-1.5 px-3 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border-none">
+                      {skill} <X className="w-3 h-3 cursor-pointer hover:text-red-500 transition-colors" onClick={() => removeSkillTag(skill)}/>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             </CardContent>
             <CardFooter className="p-6 border-t"><Button className="w-full h-14 rounded-2xl bg-primary text-white font-bold" onClick={handleSubmit} disabled={!isValid || isSubmitting}>{isSubmitting ? "Broadcasting..." : "Confirm & Broadcast"}</Button></CardFooter>
           </Card>
@@ -287,7 +315,14 @@ export default function NewRequest() {
               <Badge className="w-fit mb-4">{formData.category}</Badge>
               <CardTitle className="text-2xl font-headline font-bold">{formData.title || "Help Needed"}</CardTitle>
             </CardHeader>
-            <CardContent className="p-8 pt-0"><p className="text-slate-500 text-sm leading-relaxed">{formData.description || "Start typing to preview..."}</p></CardContent>
+            <CardContent className="p-8 pt-0">
+              <p className="text-slate-500 text-sm leading-relaxed mb-4">{formData.description || "Start typing to preview..."}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {formData.skills.map(s => (
+                  <Badge key={s} variant="outline" className="text-[10px] font-bold border-slate-200">{s}</Badge>
+                ))}
+              </div>
+            </CardContent>
             <CardFooter className="p-8 bg-slate-50/50 flex justify-between"><div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> <span className="text-xs font-bold text-slate-400">{formData.area || "Location TBD"}</span></div><Button size="sm" className="rounded-full font-bold pointer-events-none opacity-50">Accept Mission</Button></CardFooter>
           </Card>
         </div>
