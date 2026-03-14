@@ -22,7 +22,8 @@ import {
   Wrench,
   AlertTriangle,
   LineChart,
-  CircleDollarSign
+  CircleDollarSign,
+  MessageSquare
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -39,14 +40,14 @@ import {
 } from "@/components/ui/sidebar";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore, updateDocumentNonBlocking, useCollection } from "@/firebase";
-import { doc, collection, query, where } from "firebase/firestore";
+import { doc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -55,6 +56,7 @@ export function AppSidebar() {
   const { auth } = useAuth();
   const db = useFirestore();
   const { isMobile, setOpenMobile } = useSidebar();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -63,6 +65,24 @@ export function AppSidebar() {
   const { data: profile } = useDoc(userRef);
 
   const isAdmin = profile?.role === 'admin';
+
+  // Listen for unread messages globally
+  useEffect(() => {
+    if (!db || !user?.uid) return;
+    
+    // This is a simple counter listener for unread notifications of type chat_message
+    const q = query(
+      collection(db, "notifications", user.uid, "items"),
+      where("type", "==", "chat_message"),
+      where("read", "==", false)
+    );
+    
+    const unsub = onSnapshot(q, (snap) => {
+      setUnreadCount(snap.size);
+    });
+    
+    return () => unsub();
+  }, [db, user?.uid]);
 
   // REMOVED orderBy
   const pendingQuery = useMemoFirebase(() => {
@@ -102,38 +122,33 @@ export function AppSidebar() {
       ];
     }
 
+    const links = [];
+    
     if (profile?.role === 'volunteer') {
-      return [
+      links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Browse Missions", href: "/volunteer/missions", icon: Search },
-        { label: "My Active Missions", href: "/volunteer/active", icon: CheckCircle2 },
+        { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
         { label: "Mission History", href: "/volunteer/history", icon: History },
-      ];
-    }
-    
-    if (profile?.role === 'provider') {
-      return [
+      );
+    } else if (profile?.role === 'provider') {
+      links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
         { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
-        { label: "Job History", href: "/provider/profile?tab=overview", icon: History },
-      ];
+        { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
+      );
+    } else {
+      links.push(
+        { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Post Request", href: "/requests/new", icon: PlusCircle },
+        { label: "My Requests", href: "/requests/my", icon: History },
+        { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
+      );
     }
 
-    return [
-      { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Post Request", href: "/requests/new", icon: PlusCircle },
-      { label: "My Requests", href: "/requests/my", icon: History },
-    ];
-  }, [profile?.role, pendingCount, isAdmin]);
-
-  const analyticsLinks = useMemo(() => {
-    if (!isAdmin) return [];
-    return [
-      { label: "Platform Analytics", href: "/admin", icon: LineChart },
-      { label: "Earnings Overview", href: "/admin/providers", icon: CircleDollarSign },
-    ];
-  }, [isAdmin]);
+    return links;
+  }, [profile?.role, pendingCount, isAdmin, unreadCount]);
 
   const moderationLinks = useMemo(() => {
     if (isAdmin) {
@@ -212,18 +227,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {analyticsLinks.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">Analytics</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {analyticsLinks.map((item) => (
-                  <SidebarMenuItem key={item.label}><SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} className={cn("h-11 px-3 rounded-xl transition-all duration-200", pathname === item.href ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5")}><Link href={item.href}><item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} /><span>{item.label}</span></Link></SidebarMenuButton></SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
         <SidebarGroup>
           <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">{isAdmin ? 'Moderation' : profile?.role === 'provider' ? 'Business' : 'Community'}</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -239,14 +242,6 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t border-white/5 space-y-4">
-        {isAdmin && (
-          <div className="px-3 py-2 bg-white/5 rounded-xl border border-white/5 group-data-[collapsible=icon]:hidden">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/40"><div className="flex items-center gap-1.5"><Users className="w-3 h-3" /> Citizens</div><span className="text-white">{allUsers?.length || 0}</span></div>
-              <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-white/40"><div className="flex items-center gap-1.5"><LayoutGrid className="w-3 h-3" /> Open Requests</div><span className="text-primary">{openRequests?.length || 0}</span></div>
-            </div>
-          </div>
-        )}
         <SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={handleLogout} tooltip="Sign Out" className="rounded-xl h-11 px-3 text-red-400 font-bold hover:bg-red-500/10 hover:text-red-300 transition-colors"><LogOut className="w-5 h-5" /><span>Sign Out</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu>
       </SidebarFooter>
     </Sidebar>

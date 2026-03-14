@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -47,7 +48,8 @@ import {
   ShieldAlert,
   Clock,
   BarChart as BarChartIcon,
-  PartyPopper
+  PartyPopper,
+  MessageSquare
 } from "lucide-react";
 import { 
   BarChart, 
@@ -64,6 +66,8 @@ import { cn } from "@/lib/utils";
 import { User as FirebaseUser } from "firebase/auth";
 import { sendNotification } from "@/firebase/notifications";
 import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
+import { ChatModal } from "@/components/chat/ChatModal";
+import { createChat, closeChat } from "@/firebase/chat";
 
 export function ProviderDashboardView({ profile, user }: { profile: any; user: FirebaseUser }) {
   const db = useFirestore();
@@ -71,6 +75,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   const [actionLoading, setActionLoading] = useState(false);
 
   const [completingJob, setCompletingJob] = useState<any>(null);
+  const [chatRequestId, setChatRequestId] = useState<string | null>(null);
   const [summary, setSummary] = useState("");
   const [duration, setDuration] = useState("1");
   const [showCelebration, setShowCelebration] = useState(false);
@@ -165,7 +170,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   const handleAcceptJob = async (request: any) => {
     if (!db || !user?.uid || !profile || !request || !request.createdBy) return;
 
-    // VERIFICATION CHECK
     if (!profile.verified) {
       toast({
         variant: "destructive",
@@ -180,7 +184,6 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       const requestRef = doc(db, "requests", request.id);
       const responseTime = Date.now() - (request.createdAt?.toMillis() || Date.now());
       
-      // Update request status
       updateDocumentNonBlocking(requestRef, {
         status: "accepted",
         acceptedBy: user.uid,
@@ -188,14 +191,12 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         responseTime: responseTime
       });
 
-      // Set provider as busy
-      const userRef = doc(db, "users", user.uid);
-      updateDocumentNonBlocking(userRef, {
-        isAvailable: false
-      });
+      // Create Chat
+      await createChat(db, request, user.uid);
 
-      // Write notification
-      // Guarded against missing createdBy to avoid TypeError in sendNotification
+      const userRef = doc(db, "users", user.uid);
+      updateDocumentNonBlocking(userRef, { isAvailable: false });
+
       if (request.createdBy) {
         await sendNotification(db, request.createdBy, {
           title: "Expert Assigned! 🔧",
@@ -226,7 +227,9 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         transaction.update(providerRef, { totalJobsDone: increment(1), totalEarnings: increment(earnings), isAvailable: true });
       });
 
-      // Guard against missing createdBy
+      // Close Chat
+      await closeChat(db, completingJob.id);
+
       if (completingJob.createdBy) {
         await sendNotification(db, completingJob.createdBy, { title: "Job Completed! 🎉", message: `${profile.name} marked the service as complete.`, type: "completed", link: "/profile" });
       }
@@ -308,14 +311,42 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
             <section className="space-y-4">
               <h3 className="text-xl font-headline font-bold flex items-center gap-2"><Briefcase className="w-5 h-5 text-amber-500" /> Active Job</h3>
               {isJobsLoading ? <Skeleton className="h-48 rounded-3xl" /> : activeJobs.length === 0 ? <div className="p-10 text-center bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-dashed"><p className="text-xs text-slate-400 font-medium">No active jobs right now.</p></div> : activeJobs.slice(0, 1).map((job) => (
-                <Card key={job.id} className="rounded-3xl border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col border-l-4 border-l-amber-500 group"><CardHeader className="pb-2"><div className="flex justify-between items-center"><Badge className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase">In Progress</Badge></div><CardTitle className="text-base font-bold leading-tight mt-2">{job.title}</CardTitle></CardHeader><CardContent className="space-y-4"><div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-3 border dark:border-slate-800"><div className="flex items-center gap-3"><Avatar className="h-8 w-8 ring-2 ring-white"><AvatarFallback>{job.postedByName?.[0]}</AvatarFallback></Avatar><div className="flex flex-col"><span className="text-xs font-bold">{job.postedByName}</span><span className="text-[10px] text-slate-400">{job.location?.area}</span></div></div></div><Button className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12 shadow-lg shadow-emerald-500/20 transition-all active:scale-95" onClick={() => setCompletingJob(job)} disabled={actionLoading}>{actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}Mark Complete</Button></CardContent></Card>
+                <Card key={job.id} className="rounded-3xl border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col border-l-4 border-l-amber-500 group">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-center"><Badge className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase">In Progress</Badge></div>
+                    <CardTitle className="text-base font-bold leading-tight mt-2">{job.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl space-y-3 border dark:border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8 ring-2 ring-white"><AvatarFallback>{job.postedByName?.[0]}</AvatarFallback></Avatar>
+                        <div className="flex flex-col"><span className="text-sm font-bold">{job.postedByName}</span><span className="text-[10px] text-slate-400">{job.location?.area}</span></div>
+                      </div>
+                    </div>
+                    <Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 shadow-lg shadow-primary/20" onClick={() => setChatRequestId(job.id)}>
+                      <MessageSquare className="w-4 h-4" /> Chat with Client
+                    </Button>
+                    <Button className="w-full rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12 shadow-lg shadow-emerald-500/20 transition-all active:scale-95" onClick={() => setCompletingJob(job)} disabled={actionLoading}>
+                      {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}Mark Complete
+                    </Button>
+                  </CardContent>
+                </Card>
               ))}
             </section>
           </div>
         </div>
       </main>
+      
       <Dialog open={!!completingJob} onOpenChange={(open) => !open && setCompletingJob(null)}><DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[600px]"><DialogHeader><DialogTitle className="text-2xl font-headline font-bold">Job Finalization</DialogTitle><DialogDescription>Summarize your work and log time to finalize earnings.</DialogDescription></DialogHeader><div className="py-6 space-y-6"><div className="space-y-2"><Label className="font-bold">Work Summary (Optional)</Label><Textarea placeholder="Briefly describe what was done..." className="min-h-[100px] rounded-2xl resize-none" value={summary} onChange={(e) => setSummary(e.target.value)} /></div><div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label className="font-bold">Hours Spent</Label><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input type="number" min="0.5" step="0.5" className="pl-10 h-12 rounded-xl" value={duration} onChange={(e) => setDuration(e.target.value)} /></div></div><div className="space-y-2"><Label className="font-bold">Est. Earnings</Label><div className="h-12 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center px-4"><span className="text-emerald-700 font-black">₹{Number(duration) * (profile?.hourlyRate || 0)}</span></div></div></div></div><DialogFooter className="gap-3 sm:gap-0"><Button variant="ghost" className="flex-1 rounded-2xl font-bold h-14 text-slate-500" onClick={() => setCompletingJob(null)}>Cancel</Button><Button className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20" onClick={handleCompleteJob} disabled={actionLoading}>{actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}Complete Job</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={showCelebration} onOpenChange={setShowCelebration}><DialogContent className="rounded-[3rem] p-12 text-center"><DialogHeader><div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce"><PartyPopper className="w-12 h-12 text-emerald-600" /></div><DialogTitle className="text-4xl font-headline font-bold text-slate-900 mb-2">Great Work! 🎉</DialogTitle><DialogDescription className="text-slate-500 mb-8 font-medium">You've successfully resolved another community inquiry.</DialogDescription></DialogHeader><div className="bg-slate-50 rounded-[2rem] p-6 border mb-8 flex justify-around"><div className="text-center"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Earned</p><p className="text-2xl font-black text-emerald-600">₹{lastEarnings}</p></div><div className="w-px bg-slate-200" /><div className="text-center"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Jobs</p><p className="text-2xl font-black text-slate-900">{profile?.totalJobsDone || 0}</p></div></div><Button className="w-full h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => setShowCelebration(false)}>Back to Hub</Button></DialogContent></Dialog>
+      
+      {chatRequestId && (
+        <ChatModal 
+          requestId={chatRequestId} 
+          isOpen={!!chatRequestId} 
+          onClose={() => setChatRequestId(null)} 
+        />
+      )}
     </div>
   );
 }

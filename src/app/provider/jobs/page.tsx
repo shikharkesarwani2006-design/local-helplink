@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -56,6 +57,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { sendNotification } from "@/firebase/notifications";
 import { useToast } from "@/hooks/use-toast";
+import { createChat } from "@/firebase/chat";
 
 export default function ProviderAvailableJobsPage() {
   const { user, isUserLoading } = useUser();
@@ -143,7 +145,7 @@ export default function ProviderAvailableJobsPage() {
       const requestRef = doc(db, "requests", selectedJob.id);
       const responseTime = Date.now() - (selectedJob.createdAt?.toMillis() || Date.now());
       
-      // 1. Update Request status (using the specific update fields requested)
+      // 1. Update Request status
       updateDocumentNonBlocking(requestRef, {
         status: "accepted",
         acceptedBy: user.uid,
@@ -151,14 +153,16 @@ export default function ProviderAvailableJobsPage() {
         responseTime: responseTime
       });
 
-      // 2. Set provider as busy
+      // 2. Create Chat
+      await createChat(db, selectedJob, user.uid);
+
+      // 3. Set provider as busy
       const userRef = doc(db, "users", user.uid);
       updateDocumentNonBlocking(userRef, {
         isAvailable: false
       });
 
-      // 3. Write notification to requester
-      // Guard against missing createdBy
+      // 4. Write notification to requester
       if (selectedJob.createdBy) {
         await sendNotification(db, selectedJob.createdBy, {
           title: "Expert Assigned! 🔧",
@@ -205,7 +209,7 @@ export default function ProviderAvailableJobsPage() {
               <p className="text-slate-500 text-sm font-medium">Browse community service inquiries matching your expertise.</p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+            <div className="flex flex-wrap items-center gap-4 w-full lg:auto">
               <div className="flex items-center space-x-3 bg-slate-50 p-2 rounded-2xl border border-slate-100">
                 <Switch 
                   id="category-toggle" 

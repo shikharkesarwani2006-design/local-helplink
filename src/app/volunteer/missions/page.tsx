@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -35,6 +36,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { sendNotification } from "@/firebase/notifications";
 import { useToast } from "@/hooks/use-toast";
+import { createChat } from "@/firebase/chat";
 
 export default function BrowseMissionsPage() {
   const { user, isUserLoading } = useUser();
@@ -125,7 +127,10 @@ export default function BrowseMissionsPage() {
         });
       });
 
-      // Guarded against missing createdBy to avoid TypeError in sendNotification
+      // Create Chat
+      await createChat(db, acceptingRequest, user.uid);
+
+      // Notification
       if (acceptingRequest.createdBy) {
         await sendNotification(db, acceptingRequest.createdBy, {
           title: "Mission Accepted! 🚀",

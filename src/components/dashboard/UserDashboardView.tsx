@@ -56,8 +56,10 @@ import { sendNotification } from "@/firebase/notifications";
 import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
 import { RatingModal } from "@/components/profile/RatingModal";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
+import { ChatModal } from "@/components/chat/ChatModal";
+import { closeChat } from "@/firebase/chat";
 
-function HelperContactBox({ helperId }: { helperId: string }) {
+function HelperContactBox({ helperId, onChat }: { helperId: string, onChat: () => void }) {
   const db = useFirestore();
   const helperRef = useMemoFirebase(() => (db && helperId ? doc(db, "users", helperId) : null), [db, helperId]);
   const { data: helper } = useDoc(helperRef);
@@ -65,24 +67,29 @@ function HelperContactBox({ helperId }: { helperId: string }) {
   if (!helperId || !helper) return <Skeleton className="h-16 w-full rounded-xl" />;
 
   return (
-    <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30 flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
-          <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${helper.email}`} />
-          <AvatarFallback>{helper.name?.[0]}</AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none mb-1">Help is coming from</p>
-          <p className="text-sm font-bold text-slate-900 dark:text-white">{helper.name}</p>
+    <div className="mt-4 p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${helper.email}`} />
+            <AvatarFallback>{helper.name?.[0]}</AvatarFallback>
+          </Avatar>
+          <div>
+            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none mb-1">Help is coming from</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white">{helper.name}</p>
+          </div>
         </div>
+        {helper.phone && (
+          <Button size="sm" variant="outline" className="rounded-full bg-white dark:bg-slate-900 border-emerald-200 text-emerald-600 gap-2 h-9" asChild>
+            <a href={`tel:${helper.phone}`}>
+              <Phone className="w-3.5 h-3.5" /> Call
+            </a>
+          </Button>
+        )}
       </div>
-      {helper.phone && (
-        <Button size="sm" variant="outline" className="rounded-full bg-white dark:bg-slate-900 border-emerald-200 text-emerald-600 gap-2 h-9" asChild>
-          <a href={`tel:${helper.phone}`}>
-            <Phone className="w-3.5 h-3.5" /> {helper.phone}
-          </a>
-        </Button>
-      )}
+      <Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 shadow-lg shadow-primary/20" onClick={onChat}>
+        <MessageSquare className="w-4 h-4" /> Chat with Helper
+      </Button>
     </div>
   );
 }
@@ -94,6 +101,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [loading, setLoading] = useState(false);
   const [showRatingFor, setShowRatingFor] = useState<{ id: string, helperId: string } | null>(null);
+  const [chatRequestId, setChatRequestId] = useState<string | null>(null);
 
   const myRequestsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -163,6 +171,9 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         }
       });
 
+      // Close Chat
+      await closeChat(db, request.id);
+
       if (request.acceptedBy) {
         await sendNotification(db, request.acceptedBy, { 
           title: "Mission Completed! 🏆", 
@@ -217,7 +228,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
       </section>
 
       <main className="container px-4 sm:px-6 mx-auto -mt-12 relative z-20 space-y-8">
-        {/* Profile Completion Banner */}
         {isProfileIncomplete && (
           <div className="bg-amber-50 dark:bg-amber-950/20 border-2 border-dashed border-amber-200 dark:border-amber-900/50 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex items-center gap-4 text-center sm:text-left">
@@ -233,7 +243,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           </div>
         )}
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group">
             <CardContent className="pt-8 pb-8 flex items-center gap-6 px-8">
@@ -278,7 +287,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           </Card>
         </div>
 
-        {/* Quick Action Buttons */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {quickActions.map((action) => (
             <Link key={action.label} href={`/requests/new?cat=${action.cat}&urg=${action.urg}`}>
@@ -296,7 +304,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           ))}
         </div>
 
-        {/* My Active Broadcasts */}
         <section className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-headline font-bold text-slate-800 dark:text-white flex items-center gap-3">
@@ -343,7 +350,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
                   <CardContent className="flex-grow pl-8">
                     <p className="text-sm text-slate-500 line-clamp-2 mb-2">{req.description}</p>
                     {req.status === 'accepted' && req.acceptedBy && (
-                      <HelperContactBox helperId={req.acceptedBy} />
+                      <HelperContactBox helperId={req.acceptedBy} onChat={() => setChatRequestId(req.id)} />
                     )}
                   </CardContent>
                   <CardFooter className="pt-4 border-t border-slate-50 flex gap-2 pl-8 pr-6 pb-6">
@@ -363,7 +370,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           )}
         </section>
 
-        {/* Neighborhood Missions */}
         <section className="space-y-8">
           <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
             <div className="space-y-1">
@@ -470,6 +476,14 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           requestId={showRatingFor.id} 
           toUser={showRatingFor.helperId} 
           onClose={() => setShowRatingFor(null)} 
+        />
+      )}
+
+      {chatRequestId && (
+        <ChatModal 
+          requestId={chatRequestId} 
+          isOpen={!!chatRequestId} 
+          onClose={() => setChatRequestId(null)} 
         />
       )}
     </div>

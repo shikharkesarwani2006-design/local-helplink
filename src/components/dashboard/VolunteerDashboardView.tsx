@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -59,6 +60,8 @@ import { cn } from "@/lib/utils";
 import { User } from "firebase/auth";
 import { sendNotification } from "@/firebase/notifications";
 import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
+import { ChatModal } from "@/components/chat/ChatModal";
+import { createChat, closeChat } from "@/firebase/chat";
 
 export function VolunteerDashboardView({ profile, user }: { profile: any; user: User }) {
   const db = useFirestore();
@@ -69,6 +72,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
   const [acceptingRequest, setAcceptingRequest] = useState<any>(null);
   const [completingRequest, setCompletingRequest] = useState<any>(null);
   const [cancellingRequest, setCancellingRequest] = useState<any>(null);
+  const [chatRequestId, setChatRequestId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -146,6 +150,10 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         const reqRef = doc(db, "requests", acceptingRequest.id);
         transaction.update(reqRef, { status: "accepted", acceptedBy: user.uid, acceptedAt: serverTimestamp(), responseTime });
       });
+      
+      // Create Chat
+      await createChat(db, acceptingRequest, user.uid);
+
       if (acceptingRequest.createdBy) {
         await sendNotification(db, acceptingRequest.createdBy, { title: "Mission Accepted! 🚀", message: `${profile.name} is coming to help!`, type: "accepted", link: "/requests/my" });
       }
@@ -168,6 +176,10 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         transaction.update(reqRef, { status: "completed", completedAt: serverTimestamp() });
         transaction.update(volunteerRef, { totalHelped: increment(1) });
       });
+
+      // Close Chat
+      await closeChat(db, completingRequest.id);
+
       if (completingRequest.createdBy) {
         await sendNotification(db, completingRequest.createdBy, { title: "Mission Completed! 🎉", message: `Your request was marked as complete.`, type: "completed", link: "/profile" });
       }
@@ -230,7 +242,7 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         <section className="space-y-6">
           <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold flex items-center gap-3"><CheckCircle2 className="w-6 h-6 text-emerald-500" /> Missions In Progress</h2>{activeMissions.length > 0 && <Link href="/volunteer/active"><Button variant="ghost" className="text-primary font-bold gap-2">Manage Active <ChevronRight className="w-4 h-4" /></Button></Link>}</div>
           {isMissionsLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[1].map(i => <Skeleton key={i} className="h-48 rounded-3xl" />)}</div> : activeMissions.length === 0 ? <div className="p-12 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200"><p className="text-slate-500 font-medium">You aren't currently helping anyone. Check the feed below!</p></div> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{activeMissions.map((req) => (
-            <Card key={req.id} className="rounded-3xl border-none shadow-xl bg-white overflow-hidden flex flex-col group border-l-4 border-l-emerald-500"><CardHeader className="pb-2"><div className="flex justify-between items-center mb-2"><Badge className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">Active Help</Badge><span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Ongoing</span></div><CardTitle className="text-lg font-headline font-bold leading-tight">{req.title}</CardTitle></CardHeader><CardContent className="flex-grow space-y-4"><div className="p-4 bg-slate-50 rounded-2xl space-y-3"><div className="flex items-center gap-3"><Avatar className="h-10 w-10"><AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${req.createdBy}`} /><AvatarFallback>?</AvatarFallback></Avatar><div className="flex flex-col"><span className="text-sm font-bold">{req.postedByName}</span><span className="text-[10px] text-slate-400">{req.location?.area}</span></div></div><div className="pt-2 border-t flex flex-col gap-1"><div className="flex items-center gap-2 text-xs text-slate-600"><Phone className="w-3 h-3" /> Contact: {req.contactPreference || "In-App"}</div><div className="flex items-center gap-2 text-xs text-slate-600"><Mail className="w-3 h-3" /> {(req.postedByName || "member").toLowerCase().replace(/\s+/g, '.')}@university.edu</div></div></div></CardContent><CardFooter className="pt-4 border-t border-slate-50 flex gap-2"><Button variant="ghost" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => setCancellingRequest(req)}><XCircle className="w-4 h-4 mr-2" /> Cancel</Button><Button variant="default" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => setCompletingRequest(req)}>Mark Complete</Button></CardFooter></Card>
+            <Card key={req.id} className="rounded-3xl border-none shadow-xl bg-white overflow-hidden flex flex-col group border-l-4 border-l-emerald-500"><CardHeader className="pb-2"><div className="flex justify-between items-center mb-2"><Badge className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">Active Help</Badge><span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Ongoing</span></div><CardTitle className="text-lg font-headline font-bold leading-tight">{req.title}</CardTitle></CardHeader><CardContent className="flex-grow space-y-4"><div className="p-4 bg-slate-50 rounded-2xl space-y-3"><div className="flex items-center gap-3"><Avatar className="h-10 w-10"><AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${req.createdBy}`} /><AvatarFallback>?</AvatarFallback></Avatar><div className="flex flex-col"><span className="text-sm font-bold">{req.postedByName}</span><span className="text-[10px] text-slate-400">{req.location?.area}</span></div></div><div className="pt-2 border-t flex flex-col gap-1"><div className="flex items-center gap-2 text-xs text-slate-600"><Phone className="w-3 h-3" /> Contact: {req.contactPreference || "In-App"}</div><div className="flex items-center gap-2 text-xs text-slate-600"><Mail className="w-3 h-3" /> {(req.postedByName || "member").toLowerCase().replace(/\s+/g, '.')}@university.edu</div></div></div><Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 mt-4" onClick={() => setChatRequestId(req.id)}><MessageSquare className="w-4 h-4" /> Chat with Requester</Button></CardContent><CardFooter className="pt-4 border-t border-slate-50 flex gap-2"><Button variant="ghost" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => setCancellingRequest(req)}><XCircle className="w-4 h-4 mr-2" /> Cancel</Button><Button variant="default" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => setCompletingRequest(req)}>Mark Complete</Button></CardFooter></Card>
           ))}</div>}
         </section>
         <section className="space-y-8">
@@ -249,6 +261,14 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
       <Dialog open={!!completingRequest} onOpenChange={(open) => !open && setCompletingRequest(null)}><DialogContent className="rounded-3xl"><DialogHeader><DialogTitle className="text-2xl font-bold">Mark as Completed?</DialogTitle><DialogDescription>Great job! This mission will be removed from your active list.</DialogDescription></DialogHeader><DialogFooter className="gap-2 sm:gap-0 pt-6"><Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCompletingRequest(null)}>Not Yet</Button><Button className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={handleCompleteMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Yes, Completed"}</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={!!cancellingRequest} onOpenChange={(open) => !open && setCancellingRequest(null)}><DialogContent className="rounded-3xl"><DialogHeader><DialogTitle className="text-2xl font-bold">Cancel Mission?</DialogTitle><DialogDescription>If you can't help anymore, cancelling will put this request back in the public feed.</DialogDescription></DialogHeader><DialogFooter className="gap-2 sm:gap-0 pt-6"><Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCompletingRequest(null)}>Keep Helping</Button><Button variant="destructive" className="flex-1 rounded-xl font-bold" onClick={handleCancelMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Cancel Mission"}</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}><DialogContent className="rounded-[3rem] p-12 text-center"><DialogHeader><div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce"><PartyPopper className="w-12 h-12 text-emerald-600" /></div><DialogTitle className="text-4xl font-headline font-bold text-slate-900 mb-4">Great job! 🎉</DialogTitle><DialogDescription className="text-slate-500 mb-8 max-sm mx-auto">You've successfully helped a neighbor. Your impact points have been updated!</DialogDescription></DialogHeader><Button className="w-full h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => setShowSuccess(false)}>Back to Dashboard</Button></DialogContent></Dialog>
+      
+      {chatRequestId && (
+        <ChatModal 
+          requestId={chatRequestId} 
+          isOpen={!!chatRequestId} 
+          onClose={() => setChatRequestId(null)} 
+        />
+      )}
     </div>
   );
 }

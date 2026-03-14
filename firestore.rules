@@ -5,41 +5,33 @@ service cloud.firestore {
 
     /**
      * LOCAL HELPLINK SECURITY RULES
-     * Ensures robust 'read' and 'list' access for authenticated users.
      */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper to check for admin role safely
     function isAdmin() {
       return isSignedIn() && 
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // User Profiles: Authenticated users can view profiles; owners/admins edit anything.
-    // Neighbors can update impact/reputation fields during mission completion/rating.
     match /users/{userId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && (
         request.auth.uid == userId || 
         isAdmin() ||
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'totalRatingsCount', 'totalHelped', 'totalJobsDone', 'totalEarnings']))
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'totalRatingsCount', 'totalHelped', 'totalJobsDone', 'totalEarnings', 'isAvailable']))
       );
     }
 
-    // Help Requests: Authenticated users can browse (get/list) and create missions.
     match /requests/{requestId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn() && (
-        // Creator or Admin can modify anything
         resource.data.createdBy == request.auth.uid || 
         isAdmin() ||
-        // Allow acceptance: must transition from open to accepted, and setter must be the current user
         (resource.data.status == 'open' && request.resource.data.status == 'accepted' && request.resource.data.acceptedBy == request.auth.uid) ||
-        // Allow completion: must be the assigned responder or creator
         (resource.data.status == 'accepted' && (resource.data.acceptedBy == request.auth.uid || resource.data.createdBy == request.auth.uid) && request.resource.data.status == 'completed')
       );
       allow delete: if isSignedIn() && (
@@ -47,26 +39,40 @@ service cloud.firestore {
       );
     }
 
-    // Notifications: Strictly private to the recipient for reading, but allow others to send (create)
     match /notifications/{userId}/{allPaths=**} {
       allow read: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn(); // Allow responders to send notifications to requesters
+      allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // Ratings: Anyone signed in can view or leave a rating
     match /ratings/{ratingId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
     }
 
-    // Announcements: All users can read active ones; only admins can write
     match /announcements/{announcementId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Catch-all deny to ensure no unauthorized access
+    match /chats/{chatId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      allow write: if isSignedIn() && (
+        request.auth.uid in resource.data.participants ||
+        !exists(/databases/$(database)/documents/chats/$(chatId))
+      );
+      
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow update: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+      
+      match /typing/{userId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

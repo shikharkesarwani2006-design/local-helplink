@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -9,16 +10,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Inbox, CheckCircle2, Clock, MapPin, Star, History, ArrowRight, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, Inbox, CheckCircle2, Clock, MapPin, Star, History, ArrowRight, RefreshCw, AlertCircle, MessageSquare } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { RatingModal } from "@/components/profile/RatingModal";
 import { sendNotification } from "@/firebase/notifications";
 import { cn } from "@/lib/utils";
+import { ChatModal } from "@/components/chat/ChatModal";
+import { closeChat } from "@/firebase/chat";
 
 export default function MyRequestsHistoryPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
+  const [chatRequestId, setChatRequestId] = useState<string | null>(null);
+  
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
@@ -69,6 +74,9 @@ export default function MyRequestsHistoryPage() {
           });
         }
       });
+
+      // Close Chat
+      await closeChat(db, request.id);
 
       if (request.acceptedBy) {
         await sendNotification(db, request.acceptedBy, {
@@ -200,6 +208,12 @@ export default function MyRequestsHistoryPage() {
                         </div>
 
                         <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                          {req.status === 'accepted' && (
+                            <Button className="rounded-xl bg-primary text-white font-bold h-11 px-6 shadow-lg shadow-primary/20 gap-2" onClick={() => setChatRequestId(req.id)}>
+                              <MessageSquare className="w-4 h-4" /> Chat with Helper
+                            </Button>
+                          )}
+
                           {(req.status === 'completed' || (req.expiresAt?.toDate() < new Date() && req.status === 'open')) && (
                             <Button variant="outline" className="rounded-xl font-bold h-11 border-slate-200 gap-2" onClick={() => handleRepost(req)}>
                               <RefreshCw className="w-4 h-4" /> Repost Request
@@ -229,6 +243,14 @@ export default function MyRequestsHistoryPage() {
           )}
         </Tabs>
       </main>
+
+      {chatRequestId && (
+        <ChatModal 
+          requestId={chatRequestId} 
+          isOpen={!!chatRequestId} 
+          onClose={() => setChatRequestId(null)} 
+        />
+      )}
     </div>
   );
 }
