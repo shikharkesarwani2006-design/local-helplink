@@ -1,4 +1,3 @@
-
 "use client";
 
 import { 
@@ -24,7 +23,8 @@ import {
   LineChart,
   CircleDollarSign,
   MessageSquare,
-  Settings
+  Settings,
+  Droplets
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -118,6 +118,7 @@ export function AppSidebar() {
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Browse Missions", href: "/volunteer/missions", icon: Search },
         { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
+        { label: "Blood Registry", href: "/blood-donors", icon: Droplets },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
         { label: "Mission History", href: "/volunteer/history", icon: History },
       );
@@ -125,6 +126,7 @@ export function AppSidebar() {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
+        { label: "Blood Registry", href: "/blood-donors", icon: Droplets },
         { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
         { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
@@ -133,6 +135,7 @@ export function AppSidebar() {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
         { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
+        { label: "Blood Registry", href: "/blood-donors", icon: Droplets },
         { label: "Post Request", href: "/requests/new", icon: PlusCircle },
         { label: "My Requests", href: "/requests/my", icon: History },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },

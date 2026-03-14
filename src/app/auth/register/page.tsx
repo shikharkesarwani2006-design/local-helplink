@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -15,7 +14,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Loader2, User, HandHelping, Wrench, Check, ArrowRight, ArrowLeft, Plus, X, Clock } from "lucide-react";
+import { Heart, Loader2, User, HandHelping, Wrench, Check, ArrowRight, ArrowLeft, Plus, X, Clock, Droplets } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const SKILL_OPTIONS = [
@@ -31,6 +30,7 @@ const PROVIDER_CATEGORIES = [
   { label: "✂️ Other Services", value: "other" }
 ];
 
+const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 const EXPERIENCE_OPTIONS = ["Less than 1 year", "1-3 years", "3+ years"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -41,6 +41,7 @@ export default function RegisterPage() {
     email: "",
     password: "",
     phone: "",
+    bloodGroup: "",
     role: "user" as "user" | "volunteer" | "provider",
     skills: [] as string[],
     serviceCategory: "",
@@ -79,6 +80,8 @@ export default function RegisterPage() {
         email: formData.email,
         phone: formData.phone || "",
         role: formData.role,
+        bloodGroup: formData.bloodGroup || null,
+        isDonor: !!formData.bloodGroup,
         verified: false,
         createdAt: serverTimestamp(),
         rating: 5.0,
@@ -203,40 +206,58 @@ export default function RegisterPage() {
                     className="h-12"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Campus Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="name@university.edu"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                    className="h-12"
-                  />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Campus Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="name@university.edu"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number {formData.role === "provider" && <span className="text-red-500">*</span>}</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+91 00000 00000"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      required={formData.role === "provider"}
+                      className="h-12"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number {formData.role === "provider" && <span className="text-red-500">*</span>}</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 (555) 000-0000"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    required={formData.role === "provider"}
-                    className="h-12"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    required
-                    className="h-12"
-                  />
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      required
+                      className="h-12"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bloodGroup" className="flex items-center gap-2"><Droplets className="w-3.5 h-3.5 text-red-500" /> Blood Group (Optional)</Label>
+                    <Select value={formData.bloodGroup} onValueChange={(val) => setFormData({ ...formData, bloodGroup: val })}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue placeholder="Select Group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BLOOD_GROUPS.map(bg => (
+                          <SelectItem key={bg} value={bg}>{bg}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 
                 <div className="pt-4">

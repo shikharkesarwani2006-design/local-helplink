@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -42,6 +41,9 @@
         "totalJobsDone": { "type": "number" },
         "verified": { "type": "boolean" },
         "isAvailable": { "type": "boolean" },
+        "bloodGroup": { "type": "string", "enum": ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"] },
+        "isDonor": { "type": "boolean", "default": false },
+        "lastDonationDate": { "type": "string", "format": "date" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "name", "email", "role", "verified", "createdAt"]
