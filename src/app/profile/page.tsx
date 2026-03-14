@@ -103,7 +103,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20">
-      {/* 🚀 Profile Header */}
+      {/* Profile Header */}
       <div className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 pt-12 pb-24 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
         <div className="container max-w-6xl px-6 mx-auto flex flex-col md:flex-row items-center gap-8 relative z-10">
@@ -136,7 +136,7 @@ export default function ProfilePage() {
               {profile?.createdAt && (
                 <div className="flex items-center gap-1.5">
                   <Clock className="w-4 h-4" /> 
-                  Joined {format(profile.createdAt.toDate(), 'MMM yyyy')}
+                  Joined {profile.createdAt ? format(profile.createdAt.toDate(), 'MMM yyyy') : 'Recently'}
                 </div>
               )}
             </div>
@@ -154,7 +154,7 @@ export default function ProfilePage() {
 
       <main className="container max-w-6xl px-6 mx-auto -mt-16 relative z-20">
         <div className="grid lg:grid-cols-12 gap-8">
-          {/* 📊 Sidebar Stats */}
+          {/* Sidebar Stats */}
           <div className="lg:col-span-4 space-y-8">
             <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden">
               <CardHeader>
@@ -210,7 +210,7 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* 📜 Main Tabs Section */}
+          {/* Main Tabs Section */}
           <div className="lg:col-span-8">
             <Tabs defaultValue="posts" className="w-full">
               <TabsList className="bg-white dark:bg-slate-900 p-1.5 mb-8 shadow-sm border dark:border-slate-800 rounded-2xl w-full grid grid-cols-3 h-14">
