@@ -23,7 +23,8 @@ import {
   AlertTriangle,
   LineChart,
   CircleDollarSign,
-  MessageSquare
+  MessageSquare,
+  Settings
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -158,10 +159,12 @@ export function AppSidebar() {
         { label: "My Profile", href: "/provider/profile", icon: User },
         { label: "My Reviews", href: "/provider/profile?tab=reviews", icon: Star },
         { label: "Earnings Tracker", href: "/provider/profile?tab=earnings", icon: BarChart3 },
+        { label: "Settings", href: "/settings", icon: Settings },
       ];
     }
     return [
       { label: "My Profile", href: "/profile", icon: User },
+      { label: "Settings", href: "/settings", icon: Settings },
     ];
   }, [profile?.role, isAdmin]);
 

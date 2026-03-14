@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -73,6 +74,7 @@ export default function Navbar() {
     if (pathname === '/requests/new') return 'New Request';
     if (pathname === '/requests/my') return 'My Requests';
     if (pathname === '/profile') return 'My Profile';
+    if (pathname === '/settings') return 'Account Settings';
     if (pathname.startsWith('/provider/profile')) return 'Expert Profile';
     if (pathname.startsWith('/provider/jobs')) return 'Available Jobs';
     
@@ -150,7 +152,7 @@ export default function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="rounded-xl cursor-pointer py-2.5 font-medium text-slate-600 dark:text-slate-300 focus:bg-primary/5 focus:text-primary">
-                  <Link href="/profile" className="flex items-center w-full">
+                  <Link href="/settings" className="flex items-center w-full">
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </Link>
