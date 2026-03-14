@@ -4,7 +4,7 @@
 import { useMemo } from "react";
 import { query, collection, where, doc } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,9 +20,16 @@ import {
   MapPin,
   Mail,
   Phone,
-  PlusCircle
+  PlusCircle,
+  Zap,
+  TrendingUp,
+  Activity,
+  Calendar,
+  Heart,
+  Timer,
+  BarChart3
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { RatingModal } from "@/components/profile/RatingModal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +69,7 @@ export default function ProfilePage() {
     );
   }, [db, user?.uid]);
   const { data: rawHelpedHistory } = useCollection(helpedHistoryQuery);
+  
   const helpedHistory = useMemo(() => {
     if (!rawHelpedHistory) return [];
     return [...rawHelpedHistory]
@@ -78,10 +86,56 @@ export default function ProfilePage() {
     );
   }, [db, user?.uid]);
   const { data: rawMyPosts } = useCollection(myPostsQuery);
+  
   const myPosts = useMemo(() => {
     if (!rawMyPosts) return [];
     return [...rawMyPosts].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawMyPosts]);
+
+  // ANALYTICS COMPUTATION
+  const analytics = useMemo(() => {
+    if (!profile || !myPosts || !helpedHistory) return null;
+
+    // A. My Requests Analytics
+    const totalPosted = myPosts.length;
+    const fulfilled = myPosts.filter(r => r.status === 'completed').length;
+    const fulfillmentRate = totalPosted > 0 ? Math.round((fulfilled / totalPosted) * 100) : 0;
+    
+    const responseTimes = myPosts
+      .map(r => r.responseTime)
+      .filter(t => t !== undefined && t !== null);
+    const avgResponseReceived = responseTimes.length > 0 
+      ? Math.round((responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length) / 60000)
+      : 0;
+
+    const postCategories = myPosts.reduce((acc: any, r) => {
+      acc[r.category] = (acc[r.category] || 0) + 1;
+      return acc;
+    }, {});
+    const bestPostingCategory = Object.entries(postCategories).sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "None";
+
+    const memberDays = profile.createdAt ? differenceInDays(new Date(), profile.createdAt.toDate()) : 0;
+
+    // B. Volunteer/Provider Analytics
+    const hoursContributed = helpedHistory.reduce((acc, r) => acc + (r.duration || 0), 0);
+    const helpingCategories = helpedHistory.reduce((acc: any, r) => {
+      acc[r.category] = (acc[r.category] || 0) + 1;
+      return acc;
+    }, {});
+    const topSkillUsed = Object.entries(helpingCategories).sort((a: any, b: any) => b[1] - a[1])[0]?.[0] || "None";
+
+    return {
+      totalPosted,
+      fulfillmentRate,
+      avgResponseReceived,
+      bestPostingCategory,
+      memberDays,
+      hoursContributed,
+      topSkillUsed,
+      totalHelped: helpedHistory.length,
+      rating: profile.rating || 5.0
+    };
+  }, [profile, myPosts, helpedHistory]);
 
   if (isUserLoading || isProfileLoading) {
     return (
@@ -141,7 +195,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <p className="text-slate-500 dark:text-slate-400 max-w-lg mx-auto md:mx-0 leading-relaxed">
+            <p className="text-slate-500 dark:text-slate-400 max-w-xl mx-auto md:mx-0 leading-relaxed">
               {profile?.bio || "No bio added yet. Help your neighbors get to know you!"}
             </p>
           </div>
@@ -154,48 +208,91 @@ export default function ProfilePage() {
 
       <main className="container max-w-6xl px-6 mx-auto -mt-16 relative z-20">
         <div className="grid lg:grid-cols-12 gap-8">
-          {/* Sidebar Stats */}
+          {/* Sidebar Stats & Impact */}
           <div className="lg:col-span-4 space-y-8">
+            {/* MY IMPACT CARD */}
             <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2rem] overflow-hidden">
               <CardHeader>
                 <CardTitle className="text-lg font-headline flex items-center gap-2">
-                  <Award className="w-5 h-5 text-primary" /> Neighborhood Impact
+                  <Zap className="w-5 h-5 text-primary" /> My Request Impact
                 </CardTitle>
+                <CardDescription>Stats from needs you've broadcasted</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between text-xs font-black uppercase tracking-widest text-slate-400">
-                    <span>Rank Progress</span>
-                    <span>{Math.min(100, (profile?.totalHelped || 0) * 10)}%</span>
-                  </div>
-                  <Progress value={(profile?.totalHelped || 0) * 10} className="h-3 bg-slate-100 dark:bg-slate-800" />
-                </div>
-                
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-amber-50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-100 dark:border-amber-900/30">
-                    <Star className="w-5 h-5 text-amber-500 fill-amber-400 mb-2" />
-                    <div className="text-xl font-black text-slate-900 dark:text-white">{profile?.rating?.toFixed(1) || "5.0"}</div>
-                    <div className="text-[10px] uppercase font-bold text-amber-600">Avg Rating</div>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex flex-col items-center text-center">
+                    <PlusCircle className="w-5 h-5 text-indigo-500 mb-2" />
+                    <span className="text-xl font-black text-slate-900 dark:text-white">{analytics?.totalPosted || 0}</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400">Total Posted</span>
                   </div>
-                  <div className="bg-emerald-50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex flex-col items-center text-center">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 mb-2" />
-                    <div className="text-xl font-black text-slate-900 dark:text-white">{profile?.totalHelped || 0}</div>
-                    <div className="text-[10px] uppercase font-bold text-emerald-600">Missions</div>
+                    <span className="text-xl font-black text-slate-900 dark:text-white">{analytics?.fulfillmentRate || 0}%</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400">Fulfilled</span>
+                  </div>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex flex-col items-center text-center">
+                    <Timer className="w-5 h-5 text-amber-500 mb-2" />
+                    <span className="text-xl font-black text-slate-900 dark:text-white">{analytics?.avgResponseReceived || 0}m</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400">Avg Response</span>
+                  </div>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex flex-col items-center text-center">
+                    <Calendar className="w-5 h-5 text-blue-500 mb-2" />
+                    <span className="text-xl font-black text-slate-900 dark:text-white">{analytics?.memberDays || 0}</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400">Days Active</span>
                   </div>
                 </div>
-
-                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex items-center gap-4">
-                  <Clock className="w-5 h-5 text-primary" />
-                  <div>
-                    <div className="text-sm font-bold text-slate-700 dark:text-slate-300">~15 mins</div>
-                    <div className="text-[10px] uppercase font-black text-slate-400">Avg Response</div>
+                <div className="pt-2 px-1">
+                  <div className="flex justify-between items-center text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">
+                    <span>Most used category</span>
+                    <span className="text-primary font-bold">{analytics?.bestPostingCategory}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* VOLUNTEER/PROVIDER IMPACT */}
+            {(profile?.role === 'volunteer' || profile?.role === 'provider') && (
+              <Card className="shadow-xl border-none bg-slate-900 text-white rounded-[2rem] overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-6 opacity-10">
+                  <Trophy className="w-24 h-24" />
+                </div>
+                <CardHeader>
+                  <CardTitle className="text-lg font-headline flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-rose-500 fill-rose-500" /> Neighborhood Service
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 relative z-10">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex flex-col items-center text-center">
+                      <Users className="w-5 h-5 text-indigo-400 mb-2" />
+                      <span className="text-xl font-black text-white">{analytics?.totalHelped || 0}</span>
+                      <span className="text-[9px] uppercase font-bold opacity-50">People Helped</span>
+                    </div>
+                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10 flex flex-col items-center text-center">
+                      <Clock className="w-5 h-5 text-emerald-400 mb-2" />
+                      <span className="text-xl font-black text-white">{analytics?.hoursContributed || 0}</span>
+                      <span className="text-[9px] uppercase font-bold opacity-50">Hours Given</span>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                      <span className="text-xs font-bold opacity-60">Top Expertise</span>
+                      <Badge className="bg-primary/20 text-primary-foreground border-none capitalize">{analytics?.topSkillUsed}</Badge>
+                    </div>
+                    <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                      <span className="text-xs font-bold opacity-60">Avg Rating</span>
+                      <div className="flex items-center gap-1.5 text-amber-400 font-bold">
+                        <Star className="w-4 h-4 fill-current" />
+                        {analytics?.rating.toFixed(1)}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {profile?.skills && profile.skills.length > 0 && (
-              <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2rem]">
+              <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-[2.5rem]">
                 <CardHeader>
                   <CardTitle className="text-xl font-headline font-bold">Verified Skills</CardTitle>
                 </CardHeader>
@@ -242,7 +339,7 @@ export default function ProfilePage() {
                             {req.status}
                           </Badge>
                           <span className="text-[10px] font-bold text-slate-400">
-                            {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
+                            {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "Recently"} ago
                           </span>
                         </div>
                         <h4 className="font-bold text-slate-900 dark:text-white">{req.title}</h4>
@@ -267,7 +364,7 @@ export default function ProfilePage() {
                         <Badge className="bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase mb-1">Impact Made</Badge>
                         <h4 className="font-bold text-slate-900 dark:text-white">{req.title}</h4>
                         <p className="text-[10px] font-bold text-slate-400">
-                          Completed on {req.createdAt ? format(req.createdAt.toDate(), 'PPP') : 'Recently'}
+                          Completed on {req.completedAt ? req.completedAt.toDate().toLocaleDateString() : 'Recently'}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -298,7 +395,7 @@ export default function ProfilePage() {
                           ))}
                         </div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {r.createdAt ? formatDistanceToNow(r.createdAt.toDate()) : "just now"} ago
+                          {r.createdAt ? formatDistanceToNow(r.createdAt.toDate()) : "Recently"} ago
                         </span>
                       </div>
                       <p className="text-slate-600 dark:text-slate-400 italic leading-relaxed font-medium">
