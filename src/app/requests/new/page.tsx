@@ -4,8 +4,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where } from "firebase/firestore";
-import { useFirestore, useUser } from "@/firebase";
+import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where, increment, doc } from "firebase/firestore";
+import { useFirestore, useUser, updateDocumentNonBlocking } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -98,7 +98,6 @@ export default function NewRequest() {
   const notifyMatchingHelpers = async (requestId: string, request: any) => {
     if (!db) return 0;
 
-    // RULE: FETCH BASE ROLES AND FILTER IN JS TO AVOID COMPOSITE INDEXES
     const [volSnaps, provSnap] = await Promise.all([
       getDocs(query(collection(db, 'users'), where('role', '==', 'volunteer'))),
       getDocs(query(collection(db, 'users'), where('role', '==', 'provider')))
@@ -106,7 +105,6 @@ export default function NewRequest() {
 
     const helpersToNotifyMap = new Map<string, any>();
 
-    // logic for volunteers
     volSnaps.docs.forEach(doc => {
       const data = doc.data();
       if (doc.id === user!.uid) return;
@@ -122,7 +120,6 @@ export default function NewRequest() {
       }
     });
 
-    // logic for providers
     provSnap.docs.forEach(doc => {
       const data = doc.data();
       if (doc.id === user!.uid) return;
@@ -194,6 +191,12 @@ export default function NewRequest() {
 
       const docRef = await addDoc(collection(db, "requests"), requestPayload);
       const notifiedCount = await notifyMatchingHelpers(docRef.id, requestPayload);
+
+      // Increment Requests Posted count on user profile
+      const userRef = doc(db, "users", user.uid);
+      updateDocumentNonBlocking(userRef, {
+        totalRatingsCount: increment(1)
+      });
 
       setSuccessData({ notified: notifiedCount });
       
@@ -269,8 +272,6 @@ export default function NewRequest() {
   return (
     <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50 pb-20 pt-8">
       <main className="container max-w-5xl px-4 mx-auto grid lg:grid-cols-2 gap-8 items-start">
-        
-        {/* Form Section */}
         <div className="space-y-6">
           <div className="space-y-1">
             <h1 className="text-3xl font-headline font-bold text-slate-900 dark:text-white">Broadcast a Need</h1>
@@ -436,7 +437,6 @@ export default function NewRequest() {
           </Card>
         </div>
 
-        {/* Live Preview Section */}
         <div className="sticky top-24 space-y-6">
           <div className="space-y-1">
             <h2 className="text-xl font-headline font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -446,7 +446,6 @@ export default function NewRequest() {
           </div>
 
           <div className="relative group perspective-1000">
-            {/* Animated background glow */}
             <div className="absolute -inset-1 bg-gradient-to-r from-primary to-secondary rounded-[2.5rem] blur opacity-10 group-hover:opacity-20 transition duration-1000 group-hover:duration-200"></div>
             
             <Card className={cn(

@@ -99,6 +99,7 @@ export default function RegisterPage() {
         profilePayload.workingHours = formData.workingHours;
         profilePayload.hourlyRate = formData.hourlyRate ? Number(formData.hourlyRate) : null;
         profilePayload.totalJobsDone = 0;
+        profilePayload.totalEarnings = 0;
         profilePayload.isAvailable = true;
       }
 
