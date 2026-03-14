@@ -280,7 +280,7 @@ export default function BloodRegistryPage() {
             <div className="p-6 bg-red-50 dark:bg-red-950/20 rounded-[2rem] border-2 border-dashed border-red-100 dark:border-red-900/30 space-y-3">
               <Heart className="w-6 h-6 text-red-600" />
               <h4 className="font-bold text-red-900 dark:text-red-400">Why register?</h4>
-              <p className="text-xs text-red-800/70 dark:text-red-500/70 leading-relaxed">
+              <p className="text-xs text-red-900 dark:text-red-200 leading-relaxed font-semibold">
                 Campus blood shortages happen often. By being on this list, you're a first responder for neighbors in critical need.
               </p>
             </div>
