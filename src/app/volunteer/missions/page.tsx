@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -111,7 +110,7 @@ export default function BrowseMissionsPage() {
   const matchedCount = filteredMissions.filter(m => m.isMatch).length;
 
   const handleAcceptMission = async () => {
-    if (!db || !user || !acceptingRequest || !profile) return;
+    if (!db || !user || !acceptingRequest || !profile || !acceptingRequest.createdBy) return;
     setLoading(true);
     try {
       const responseTime = Date.now() - (acceptingRequest.createdAt?.toDate().getTime() || Date.now());
@@ -126,12 +125,15 @@ export default function BrowseMissionsPage() {
         });
       });
 
-      await sendNotification(db, acceptingRequest.createdBy, {
-        title: "Mission Accepted! 🚀",
-        message: `${profile.name} is coming to help with "${acceptingRequest.title}"!`,
-        type: "accepted",
-        link: "/requests/my"
-      });
+      // Guarded against missing createdBy to avoid TypeError in sendNotification
+      if (acceptingRequest.createdBy) {
+        await sendNotification(db, acceptingRequest.createdBy, {
+          title: "Mission Accepted! 🚀",
+          message: `${profile.name} is coming to help with "${acceptingRequest.title}"!`,
+          type: "accepted",
+          link: "/requests/my"
+        });
+      }
 
       toast({ title: "Mission Accepted!", description: "Go help your neighbor." });
       setAcceptingRequest(null);

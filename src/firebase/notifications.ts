@@ -20,6 +20,13 @@ export async function sendNotification(
   recipientId: string,
   notification: Omit<Notification, 'id' | 'createdAt' | 'read'>
 ) {
+  // Defensive check to prevent "Cannot read properties of undefined (reading 'indexOf')"
+  // which occurs when path segments passed to collection() are invalid.
+  if (!db || !recipientId) {
+    console.warn('sendNotification skipped: missing db or recipientId', { recipientId });
+    return;
+  }
+
   try {
     const notificationsRef = collection(db, 'notifications', recipientId, 'items');
     // Using addDoc here within a utility. The caller handles the async flow.

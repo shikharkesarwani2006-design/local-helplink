@@ -117,7 +117,7 @@ export default function ProviderAvailableJobsPage() {
   }, [rawOpenRequests, myCategoryOnly, urgencyFilter, searchQuery, sortBy, profile?.serviceCategory, user?.uid]);
 
   const handleAcceptJob = async () => {
-    if (!db || !user || !profile || !selectedJob) return;
+    if (!db || !user || !profile || !selectedJob || !selectedJob.createdBy) return;
 
     // VERIFICATION CHECK
     if (!profile.verified) {
@@ -158,12 +158,15 @@ export default function ProviderAvailableJobsPage() {
       });
 
       // 3. Write notification to requester
-      await sendNotification(db, selectedJob.createdBy, {
-        title: "Expert Assigned! 🔧",
-        message: `${profile.name} has accepted your request.`,
-        type: "accepted",
-        link: "/requests/my"
-      });
+      // Guard against missing createdBy
+      if (selectedJob.createdBy) {
+        await sendNotification(db, selectedJob.createdBy, {
+          title: "Expert Assigned! 🔧",
+          message: `${profile.name} has accepted your request.`,
+          type: "accepted",
+          link: "/requests/my"
+        });
+      }
 
       setAcceptedJobData(selectedJob);
       setSelectedJob(null);
@@ -176,8 +179,8 @@ export default function ProviderAvailableJobsPage() {
     } catch (e: any) {
       toast({
         variant: "destructive",
-        title: "Acceptance Failed",
-        description: e.message || "Could not accept job right now.",
+        title: "Error",
+        description: "Failed to accept mission.",
       });
     } finally {
       setLoading(false);

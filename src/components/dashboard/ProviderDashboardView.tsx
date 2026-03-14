@@ -163,7 +163,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   };
 
   const handleAcceptJob = async (request: any) => {
-    if (!db || !user?.uid || !profile) return;
+    if (!db || !user?.uid || !profile || !request || !request.createdBy) return;
 
     // VERIFICATION CHECK
     if (!profile.verified) {
@@ -195,12 +195,15 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       });
 
       // Write notification
-      await sendNotification(db, request.createdBy, {
-        title: "Expert Assigned! 🔧",
-        message: `${profile.name} has accepted your request.`,
-        type: "accepted",
-        link: "/requests/my"
-      });
+      // Guarded against missing createdBy to avoid TypeError in sendNotification
+      if (request.createdBy) {
+        await sendNotification(db, request.createdBy, {
+          title: "Expert Assigned! 🔧",
+          message: `${profile.name} has accepted your request.`,
+          type: "accepted",
+          link: "/requests/my"
+        });
+      }
 
       toast({ title: "Job Accepted!" });
     } catch (e) {
@@ -211,7 +214,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
   };
 
   const handleCompleteJob = async () => {
-    if (!db || !user?.uid || !completingJob) return;
+    if (!db || !user?.uid || !completingJob || !completingJob.createdBy) return;
     setActionLoading(true);
     try {
       const hours = Number(duration);
@@ -222,7 +225,12 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
         transaction.update(reqRef, { status: "completed", completedAt: serverTimestamp(), duration: hours, summary: summary });
         transaction.update(providerRef, { totalJobsDone: increment(1), totalEarnings: increment(earnings), isAvailable: true });
       });
-      await sendNotification(db, completingJob.createdBy, { title: "Job Completed! 🎉", message: `${profile.name} marked the service as complete.`, type: "completed", link: "/profile" });
+
+      // Guard against missing createdBy
+      if (completingJob.createdBy) {
+        await sendNotification(db, completingJob.createdBy, { title: "Job Completed! 🎉", message: `${profile.name} marked the service as complete.`, type: "completed", link: "/profile" });
+      }
+
       setLastEarnings(earnings);
       setShowCelebration(true);
       setCompletingJob(null);
