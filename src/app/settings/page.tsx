@@ -49,7 +49,10 @@ import {
   MapPin,
   Clock,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Zap,
+  MessageSquare,
+  Star
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { format } from "date-fns";
