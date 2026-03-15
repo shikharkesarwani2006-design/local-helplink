@@ -21,13 +21,22 @@ import { sendNotification } from "@/firebase/notifications";
 import { cn } from "@/lib/utils";
 
 export function RatingModal({ requestId, toUser, onClose }: { requestId: string; toUser: string; onClose?: () => void }) {
-  const [open, setOpen] = useState(true);
+  // Logic fix: only open by default if the parent is explicitly controlling mount (onClose provided).
+  // If no onClose is provided, it's an inline button that should start closed.
+  const [open, setOpen] = useState(!!onClose);
   const [loading, setLoading] = useState(false);
   const [score, setScore] = useState(5);
   const [comment, setComment] = useState("");
   const db = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
+
+  const handleOpenChange = (val: boolean) => {
+    setOpen(val);
+    if (!val && onClose) {
+      onClose();
+    }
+  };
 
   const handleClose = () => {
     setOpen(false);
@@ -94,7 +103,7 @@ export function RatingModal({ requestId, toUser, onClose }: { requestId: string;
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       {!onClose && (
         <DialogTrigger asChild>
           <Button size="sm" variant="outline" className="text-primary hover:bg-primary/10 font-bold gap-2 rounded-full border-primary h-9 px-5">
