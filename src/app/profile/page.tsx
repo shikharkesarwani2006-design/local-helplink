@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useMemo } from "react";
@@ -8,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { 
   Star, 
   ShieldCheck, 
@@ -27,7 +25,8 @@ import {
   Calendar,
   Heart,
   Timer,
-  BarChart3
+  BarChart3,
+  Trophy
 } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
