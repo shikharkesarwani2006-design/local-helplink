@@ -257,8 +257,44 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
               ))}</div>}
         </section>
       </main>
-      <Dialog open={!!acceptingRequest} onOpenChange={(open) => !open && setAcceptingRequest(null)}><DialogContent className="rounded-3xl"><DialogHeader><DialogTitle className="text-2xl font-bold">Accept Mission?</DialogTitle><DialogDescription>You are committing to help with <strong>"{acceptingRequest?.title}"</strong>.</DialogDescription></DialogHeader><div className="py-6 space-y-4"><div className="p-4 bg-slate-50 rounded-2xl space-y-2 border"><p className="text-xs font-black text-slate-400 uppercase tracking-widest">Requester Contact</p><div className="flex items-center gap-3"><Avatar className="h-8 w-8"><AvatarFallback>?</AvatarFallback></Avatar><div><p className="text-sm font-bold">{acceptingRequest?.postedByName}</p><p className="text-xs text-slate-500">Member since 2024</p></div></div></div><div className="flex items-center gap-2 text-xs text-amber-600 font-medium"><AlertTriangle className="w-4 h-4" /> Please coordinate safely in public campus areas.</div></div><DialogFooter className="gap-2 sm:gap-0"><Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setAcceptingRequest(null)}>Cancel</Button><Button className="flex-1 rounded-xl bg-primary text-white font-bold" onClick={handleAcceptMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Confirm & Help</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={!!completingRequest} onOpenChange={(open) => !open && setCompletingRequest(null)}><DialogContent className="rounded-3xl"><DialogHeader><DialogTitle className="text-2xl font-bold">Mark as Completed?</DialogTitle><DialogDescription>Great job! This mission will be removed from your active list.</DialogDescription></DialogHeader><DialogFooter className="gap-2 sm:gap-0 pt-6"><Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCompletingRequest(null)}>Not Yet</Button><Button className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={handleCompleteMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Yes, Completed"}</Button></DialogFooter></DialogContent></Dialog>
+      <Dialog open={!!acceptingRequest} onOpenChange={(open) => !open && setAcceptingRequest(null)}>
+        <DialogContent className="rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+          <div className="flex flex-col max-h-[90vh]">
+            <div className="flex-grow overflow-y-auto p-8">
+              <DialogHeader><DialogTitle className="text-2xl font-bold">Accept Mission?</DialogTitle><DialogDescription>You are committing to help with <strong>"{acceptingRequest?.title}"</strong>.</DialogDescription></DialogHeader>
+              <div className="py-6 space-y-4">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl space-y-2 border dark:border-slate-700">
+                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Requester Contact</p>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8 ring-2 ring-white dark:ring-slate-700"><AvatarFallback>?</AvatarFallback></Avatar>
+                    <div><p className="text-sm font-bold text-slate-900 dark:text-white">{acceptingRequest?.postedByName}</p><p className="text-xs text-slate-500">Member since 2024</p></div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                  <AlertTriangle className="w-4 h-4" /> Please coordinate safely in public campus areas.
+                </div>
+              </div>
+            </div>
+            <DialogFooter className="p-8 pt-4 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-800 flex flex-row gap-2 sm:gap-0">
+              <Button variant="ghost" className="flex-1 rounded-xl font-bold h-12 text-slate-500" onClick={() => setAcceptingRequest(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl bg-primary text-white font-bold h-12" onClick={handleAcceptMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Confirm & Help</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!completingRequest} onOpenChange={(open) => !open && setCompletingRequest(null)}>
+        <DialogContent className="rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+          <div className="flex flex-col max-h-[90vh]">
+            <div className="flex-grow overflow-y-auto p-8">
+              <DialogHeader><DialogTitle className="text-2xl font-bold">Mark as Completed?</DialogTitle><DialogDescription>Great job! This mission will be removed from your active list.</DialogDescription></DialogHeader>
+            </div>
+            <DialogFooter className="p-8 pt-4 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-800 flex flex-row gap-2 sm:gap-0">
+              <Button variant="ghost" className="flex-1 rounded-xl font-bold h-12 text-slate-500" onClick={() => setCompletingRequest(null)}>Not Yet</Button>
+              <Button className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-12" onClick={handleCompleteMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Yes, Completed"}</Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={!!cancellingRequest} onOpenChange={(open) => !open && setCancellingRequest(null)}><DialogContent className="rounded-3xl"><DialogHeader><DialogTitle className="text-2xl font-bold">Cancel Mission?</DialogTitle><DialogDescription>If you can't help anymore, cancelling will put this request back in the public feed.</DialogDescription></DialogHeader><DialogFooter className="gap-2 sm:gap-0 pt-6"><Button variant="ghost" className="flex-1 rounded-xl font-bold" onClick={() => setCompletingRequest(null)}>Keep Helping</Button><Button variant="destructive" className="flex-1 rounded-xl font-bold" onClick={handleCancelMission} disabled={loading}>{loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : "Cancel Mission"}</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={showSuccess} onOpenChange={setShowSuccess}><DialogContent className="rounded-[3rem] p-12 text-center"><DialogHeader><div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce"><PartyPopper className="w-12 h-12 text-emerald-600" /></div><DialogTitle className="text-4xl font-headline font-bold text-slate-900 mb-4">Great job! 🎉</DialogTitle><DialogDescription className="text-slate-500 mb-8 max-sm mx-auto">You've successfully helped a neighbor. Your impact points have been updated!</DialogDescription></DialogHeader><Button className="w-full h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => setShowSuccess(false)}>Back to Dashboard</Button></DialogContent></Dialog>
       

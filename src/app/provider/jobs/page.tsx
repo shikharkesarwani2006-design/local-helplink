@@ -366,152 +366,160 @@ export default function ProviderAvailableJobsPage() {
       </main>
 
       <Dialog open={!!selectedJob} onOpenChange={(open) => !open && (setSelectedJob(null), setConfirmChecked(false))}>
-        <DialogContent className="rounded-[2.5rem] p-8 sm:max-w-[600px] overflow-hidden">
-          <DialogHeader>
-            <div className="flex justify-between items-start mb-4">
-              <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center">
-                <Zap className="w-8 h-8 text-primary" />
-              </div>
-              <Badge className={cn(
-                "capitalize px-4 py-1.5 font-black text-[10px] rounded-full border-2",
-                selectedJob?.urgency === 'high' ? "border-red-500/50 bg-red-50 text-red-600" : "bg-slate-50 text-slate-600"
-              )}>
-                {selectedJob?.urgency} Urgency
-              </Badge>
-            </div>
-            <DialogTitle className="text-2xl font-headline font-bold text-slate-900 leading-tight">
-              Confirm & Accept Job
-            </DialogTitle>
-            <DialogDescription className="text-slate-500 font-medium text-base pt-2">
-              Review details and confirm your commitment to help.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="rounded-[2.5rem] p-0 sm:max-w-[600px] overflow-hidden border-none">
+          <div className="flex flex-col max-h-[90vh]">
+            <div className="flex-grow overflow-y-auto p-8">
+              <DialogHeader>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center">
+                    <Zap className="w-8 h-8 text-primary" />
+                  </div>
+                  <Badge className={cn(
+                    "capitalize px-4 py-1.5 font-black text-[10px] rounded-full border-2",
+                    selectedJob?.urgency === 'high' ? "border-red-500/50 bg-red-50 text-red-600" : "bg-slate-50 text-slate-600"
+                  )}>
+                    {selectedJob?.urgency} Urgency
+                  </Badge>
+                </div>
+                <DialogTitle className="text-2xl font-headline font-bold text-slate-900 dark:text-white leading-tight">
+                  Confirm & Accept Job
+                </DialogTitle>
+                <DialogDescription className="text-slate-500 font-medium text-base pt-2">
+                  Review details and confirm your commitment to help.
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="py-6 space-y-6">
-            <div className="p-5 bg-slate-50 rounded-3xl space-y-3 border border-slate-100">
-              <h4 className="text-lg font-bold text-slate-900 leading-tight">{selectedJob?.title}</h4>
-              <p className="text-sm text-slate-500 line-clamp-3">{selectedJob?.description}</p>
-            </div>
+              <div className="py-6 space-y-6">
+                <div className="p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl space-y-3 border border-slate-100 dark:border-slate-700">
+                  <h4 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{selectedJob?.title}</h4>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{selectedJob?.description}</p>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Requester</p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold">{selectedJob?.postedByName}</span>
-                  <div className="flex items-center gap-0.5 text-amber-500">
-                    <Star className="w-3 h-3 fill-current" />
-                    <span className="text-[10px] font-black">4.9</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-1">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Requester</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedJob?.postedByName}</span>
+                      <div className="flex items-center gap-0.5 text-amber-500">
+                        <Star className="w-3 h-3 fill-current" />
+                        <span className="text-[10px] font-black">4.9</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-1">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Rate</p>
+                    <p className="text-sm font-bold text-emerald-600">
+                      {profile?.hourlyRate ? `₹${profile.hourlyRate}/hr` : 'Volunteer Service'}
+                    </p>
                   </div>
                 </div>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-1">
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Rate</p>
-                <p className="text-sm font-bold text-emerald-600">
-                  {profile?.hourlyRate ? `₹${profile.hourlyRate}/hr` : 'Volunteer Service'}
-                </p>
+
+                <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10 flex items-center justify-between">
+                   <div className="flex items-center gap-3">
+                     <div className="bg-primary/20 p-2 rounded-xl"><MessageSquare className="w-4 h-4 text-primary" /></div>
+                     <div className="space-y-0.5">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preference</p>
+                       <p className="text-xs font-bold text-slate-700 dark:text-slate-300 capitalize">{selectedJob?.contactPreference || "In-App Chat"}</p>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-3">
+                     <div className="bg-emerald-100 dark:bg-emerald-900/50 p-2 rounded-xl"><MapPin className="w-4 h-4 text-emerald-600" /></div>
+                     <div className="space-y-0.5">
+                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p>
+                       <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedJob?.location?.area}</p>
+                     </div>
+                   </div>
+                </div>
+
+                <div className="flex items-start space-x-3 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-amber-100 dark:border-amber-900/50">
+                  <Checkbox 
+                    id="confirm-accept" 
+                    checked={confirmChecked} 
+                    onCheckedChange={(val) => setConfirmChecked(!!val)}
+                    className="mt-1"
+                  />
+                  <Label htmlFor="confirm-accept" className="text-xs font-bold text-amber-800 dark:text-amber-400 leading-relaxed cursor-pointer">
+                    I confirm I can complete this job and will coordinate professionally with the neighbor.
+                  </Label>
+                </div>
               </div>
             </div>
 
-            <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center justify-between">
-               <div className="flex items-center gap-3">
-                 <div className="bg-primary/20 p-2 rounded-xl"><MessageSquare className="w-4 h-4 text-primary" /></div>
-                 <div className="space-y-0.5">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Preference</p>
-                   <p className="text-xs font-bold text-slate-700 capitalize">{selectedJob?.contactPreference || "In-App Chat"}</p>
-                 </div>
-               </div>
-               <div className="flex items-center gap-3">
-                 <div className="bg-emerald-100 p-2 rounded-xl"><MapPin className="w-4 h-4 text-emerald-600" /></div>
-                 <div className="space-y-0.5">
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</p>
-                   <p className="text-xs font-bold text-slate-700">{selectedJob?.location?.area}</p>
-                 </div>
-               </div>
-            </div>
-
-            <div className="flex items-start space-x-3 p-4 bg-amber-50 rounded-2xl border border-amber-100">
-              <Checkbox 
-                id="confirm-accept" 
-                checked={confirmChecked} 
-                onCheckedChange={(val) => setConfirmChecked(!!val)}
-                className="mt-1"
-              />
-              <Label htmlFor="confirm-accept" className="text-xs font-bold text-amber-800 leading-relaxed cursor-pointer">
-                I confirm I can complete this job and will coordinate professionally with the neighbor.
-              </Label>
-            </div>
+            <DialogFooter className="p-8 pt-4 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-800 flex flex-row gap-3">
+              <Button variant="ghost" className="flex-1 rounded-2xl font-bold h-14 text-slate-500" onClick={() => setSelectedJob(null)}>
+                Cancel
+              </Button>
+              <Button 
+                className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20 active:scale-95 transition-all" 
+                onClick={handleAcceptJob}
+                disabled={loading || !confirmChecked}
+              >
+                {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
+                Confirm & Accept
+              </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter className="gap-3 sm:gap-0 pt-2">
-            <Button variant="ghost" className="flex-1 rounded-2xl font-bold h-14 text-slate-500" onClick={() => setSelectedJob(null)}>
-              Cancel
-            </Button>
-            <Button 
-              className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20 active:scale-95 transition-all" 
-              onClick={handleAcceptJob}
-              disabled={loading || !confirmChecked}
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
-              Confirm & Accept
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!acceptedJobData} onOpenChange={(open) => !open && setAcceptedJobData(null)}>
-        <DialogContent className="rounded-[3rem] p-10 sm:max-w-[500px] text-center">
-          <DialogHeader>
-            <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
-              <PartyPopper className="w-12 h-12 text-emerald-600" />
-            </div>
-            <DialogTitle className="text-3xl font-headline font-bold text-slate-900 mb-2">Job Accepted! 🎉</DialogTitle>
-            <DialogDescription className="text-slate-500 mb-8 font-medium">You are now the expert assigned to this mission.</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="rounded-[3rem] p-0 sm:max-w-[500px] overflow-hidden border-none shadow-2xl">
+          <div className="flex flex-col max-h-[90vh]">
+            <div className="flex-grow overflow-y-auto p-10 text-center">
+              <DialogHeader>
+                <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
+                  <PartyPopper className="w-12 h-12 text-emerald-600" />
+                </div>
+                <DialogTitle className="text-3xl font-headline font-bold text-slate-900 mb-2">Job Accepted! 🎉</DialogTitle>
+                <DialogDescription className="text-slate-500 mb-8 font-medium">You are now the expert assigned to this mission.</DialogDescription>
+              </DialogHeader>
 
-          <div className="bg-slate-50 rounded-[2rem] p-6 text-left border space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
-                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${acceptedJobData?.createdBy}`} />
-                  <AvatarFallback>{acceptedJobData?.postedByName?.[0]}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requester</p>
-                  <p className="text-base font-bold text-slate-900">{acceptedJobData?.postedByName}</p>
+              <div className="bg-slate-50 rounded-[2rem] p-6 text-left border space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${acceptedJobData?.createdBy}`} />
+                      <AvatarFallback>{acceptedJobData?.postedByName?.[0]}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Requester</p>
+                      <p className="text-base font-bold text-slate-900">{acceptedJobData?.postedByName}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 text-primary border-slate-200" asChild>
+                      <a href={`tel:${acceptedJobData?.phone || '0000000000'}`}><Phone className="w-4 h-4" /></a>
+                    </Button>
+                    {acceptedJobData?.contactPreference === 'whatsapp' && (
+                      <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 text-emerald-500 border-slate-200" asChild>
+                        <a href={`https://wa.me/${acceptedJobData?.phone || '0000000000'}`} target="_blank"><Smartphone className="w-4 h-4" /></a>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                   <div className="flex items-center gap-3 text-sm text-slate-600 font-medium">
+                     <MapPin className="w-4 h-4 text-primary" />
+                     <span>Location: <span className="font-bold text-slate-900">{acceptedJobData?.location?.area}</span></span>
+                   </div>
+                   <Button variant="secondary" className="w-full rounded-xl font-bold h-11 bg-white border shadow-sm gap-2" asChild>
+                     <a href={`https://www.google.com/maps/search/?api=1&query=${acceptedJobData?.location?.area}`} target="_blank">
+                       <ExternalLink className="w-4 h-4" /> Get Directions
+                     </a>
+                   </Button>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 text-primary border-slate-200" asChild>
-                  <a href={`tel:${acceptedJobData?.phone || '0000000000'}`}><Phone className="w-4 h-4" /></a>
+
+              <div className="mt-8 flex flex-col gap-3">
+                <Button className="h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => router.push('/dashboard?tab=active')}>
+                  Go to Active Jobs
                 </Button>
-                {acceptedJobData?.contactPreference === 'whatsapp' && (
-                  <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 text-emerald-500 border-slate-200" asChild>
-                    <a href={`https://wa.me/${acceptedJobData?.phone || '0000000000'}`} target="_blank"><Smartphone className="w-4 h-4" /></a>
-                  </Button>
-                )}
+                <Button variant="ghost" className="font-bold text-slate-400" onClick={() => setAcceptedJobData(null)}>
+                  Dismiss
+                </Button>
               </div>
             </div>
-
-            <div className="space-y-3">
-               <div className="flex items-center gap-3 text-sm text-slate-600 font-medium">
-                 <MapPin className="w-4 h-4 text-primary" />
-                 <span>Location: <span className="font-bold text-slate-900">{acceptedJobData?.location?.area}</span></span>
-               </div>
-               <Button variant="secondary" className="w-full rounded-xl font-bold h-11 bg-white border shadow-sm gap-2" asChild>
-                 <a href={`https://www.google.com/maps/search/?api=1&query=${acceptedJobData?.location?.area}`} target="_blank">
-                   <ExternalLink className="w-4 h-4" /> Get Directions
-                 </a>
-               </Button>
-            </div>
-          </div>
-
-          <div className="mt-8 flex flex-col gap-3">
-            <Button className="h-14 rounded-2xl bg-slate-900 text-white font-bold text-lg" onClick={() => router.push('/dashboard?tab=active')}>
-              Go to Active Jobs
-            </Button>
-            <Button variant="ghost" className="font-bold text-slate-400" onClick={() => setAcceptedJobData(null)}>
-              Dismiss
-            </Button>
           </div>
         </DialogContent>
       </Dialog>
