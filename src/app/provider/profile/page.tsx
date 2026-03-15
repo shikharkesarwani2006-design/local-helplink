@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { query, collection, where, doc } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
@@ -39,7 +38,7 @@ import { ProviderEditProfileModal } from "@/components/profile/ProviderEditProfi
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-export default function ProviderProfilePage() {
+function ProviderProfileContent() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const searchParams = useSearchParams();
@@ -51,27 +50,23 @@ export default function ProviderProfilePage() {
   }, [db, user?.uid]);
   const { data: profile, isLoading: isProfileLoading } = useDoc(profileRef);
 
-  // REMOVED orderBy
   const ratingsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(collection(db, "ratings"), where("toUser", "==", user.uid));
   }, [db, user?.uid]);
   const { data: rawReviews } = useCollection(ratingsQuery);
 
-  // SORT IN JS
   const reviews = useMemo(() => {
     if (!rawReviews) return [];
     return [...rawReviews].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
   }, [rawReviews]);
 
-  // REMOVED orderBy, removed composite where
   const jobsQuery = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
     return query(collection(db, "requests"), where("acceptedBy", "==", user.uid));
   }, [db, user?.uid]);
   const { data: rawJobs } = useCollection(jobsQuery);
 
-  // JS FILTER AND SORT
   const completedJobs = useMemo(() => {
     if (!rawJobs) return [];
     return [...rawJobs]
@@ -91,7 +86,6 @@ export default function ProviderProfilePage() {
       return isWithinInterval(date, { start, end });
     });
 
-    // Use agreed service charge if available, otherwise fallback to duration * hourlyRate
     const monthEarnings = monthJobs.reduce((acc, j) => {
       if (j.finalEarning !== undefined) return acc + j.finalEarning;
       if (j.serviceCharge !== undefined && j.chargeType !== 'hourly') return acc + j.serviceCharge;
@@ -481,5 +475,13 @@ export default function ProviderProfilePage() {
         </Tabs>
       </main>
     </div>
+  );
+}
+
+export default function ProviderProfilePage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+      <ProviderProfileContent />
+    </Suspense>
   );
 }

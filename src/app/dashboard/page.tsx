@@ -1,6 +1,6 @@
-
 "use client";
 
+import { Suspense } from "react";
 import { useUser, useDoc, useMemoFirebase, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { Loader2 } from "lucide-react";
@@ -8,7 +8,7 @@ import { UserDashboardView } from "@/components/dashboard/UserDashboardView";
 import { VolunteerDashboardView } from "@/components/dashboard/VolunteerDashboardView";
 import { ProviderDashboardView } from "@/components/dashboard/ProviderDashboardView";
 
-export default function Dashboard() {
+function DashboardContent() {
   const { user, isUserLoading, authInitialized } = useUser();
   const db = useFirestore();
 
@@ -33,4 +33,12 @@ export default function Dashboard() {
   }
 
   return <UserDashboardView profile={profile} user={user!} />;
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+      <DashboardContent />
+    </Suspense>
+  );
 }

@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { collection, addDoc, serverTimestamp, Timestamp, getDocs, query, where, increment, doc } from "firebase/firestore";
@@ -33,7 +32,7 @@ import { cn } from "@/lib/utils";
 
 const MAX_DESC_LENGTH = 500;
 
-export default function NewRequest() {
+function NewRequestContent() {
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     title: searchParams.get("title") || "",
@@ -58,7 +57,6 @@ export default function NewRequest() {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Handle category, urgency and skills pre-fill from query params if they change
     const cat = searchParams.get("cat");
     const urg = searchParams.get("urg");
     const title = searchParams.get("title");
@@ -328,5 +326,13 @@ export default function NewRequest() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function NewRequest() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+      <NewRequestContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
+import { Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { MobileNav } from '@/components/MobileNav';
@@ -9,6 +9,7 @@ import { AppSidebar } from '@/components/AppSidebar';
 import Navbar from '@/components/Navbar';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { CriticalAlertBanner } from '@/components/notifications/CriticalAlertBanner';
+import { Loader2 } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Local HelpLink | Hyperlocal Emergency & Skill Exchange',
@@ -35,20 +36,22 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <SidebarProvider>
-              <div className="flex min-h-screen w-full overflow-x-hidden">
-                <AppSidebar />
-                <div className="flex flex-col flex-1 min-w-0">
-                  <Navbar />
-                  <CriticalAlertBanner />
-                  <main className="flex-1" role="main">
-                    {children}
-                  </main>
+            <Suspense fallback={<div className="flex h-screen w-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+              <SidebarProvider>
+                <div className="flex min-h-screen w-full overflow-x-hidden">
+                  <AppSidebar />
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <Navbar />
+                    <CriticalAlertBanner />
+                    <main className="flex-1" role="main">
+                      {children}
+                    </main>
+                  </div>
                 </div>
-              </div>
-              <MobileNav />
-              <Toaster />
-            </SidebarProvider>
+                <MobileNav />
+                <Toaster />
+              </SidebarProvider>
+            </Suspense>
           </ThemeProvider>
         </FirebaseClientProvider>
       </body>

@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { 
   collection, 
@@ -63,7 +62,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createChat } from "@/firebase/chat";
 import Link from "next/link";
 
-export default function ProviderAvailableJobsPage() {
+function ProviderAvailableJobsContent() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
@@ -146,7 +145,6 @@ export default function ProviderAvailableJobsPage() {
   const handleAcceptJob = async () => {
     if (!db || !user || !profile || !selectedJob || !selectedJob.createdBy) return;
 
-    // Validation
     if (pricingType === 'paid' && (!chargeAmount || Number(chargeAmount) <= 0)) {
       toast({
         variant: "destructive",
@@ -156,7 +154,6 @@ export default function ProviderAvailableJobsPage() {
       return;
     }
 
-    // VERIFICATION CHECK
     if (!profile.verified) {
       toast({
         variant: "destructive",
@@ -186,7 +183,6 @@ export default function ProviderAvailableJobsPage() {
         isFreeService: pricingType === 'free'
       };
 
-      // 1. Update Request status with pricing
       updateDocumentNonBlocking(requestRef, {
         status: "accepted",
         acceptedBy: user.uid,
@@ -195,16 +191,13 @@ export default function ProviderAvailableJobsPage() {
         ...pricingInfo
       });
 
-      // 2. Create Chat with pricing context
       await createChat(db, selectedJob, user.uid, pricingInfo);
 
-      // 3. Set provider as busy
       const userRef = doc(db, "users", user.uid);
       updateDocumentNonBlocking(userRef, {
         isAvailable: false
       });
 
-      // 4. Write notification to requester
       if (selectedJob.createdBy) {
         await sendNotification(db, selectedJob.createdBy, {
           title: "Expert Assigned! 🔧",
@@ -459,7 +452,6 @@ export default function ProviderAvailableJobsPage() {
                   <p className="text-sm text-slate-500 dark:text-slate-400">{selectedJob?.description}</p>
                 </div>
 
-                {/* PRICING SECTION */}
                 <div className="space-y-4">
                   <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Your Charge</Label>
                   
@@ -631,5 +623,13 @@ export default function ProviderAvailableJobsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ProviderAvailableJobsPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>}>
+      <ProviderAvailableJobsContent />
+    </Suspense>
   );
 }
