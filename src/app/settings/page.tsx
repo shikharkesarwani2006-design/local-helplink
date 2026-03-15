@@ -36,7 +36,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { 
   User, 
-  ShieldLock, 
+  ShieldCheck, 
   Bell, 
   EyeOff, 
   Palette, 
@@ -233,7 +233,7 @@ export default function SettingsPage() {
           <aside className="lg:col-span-3 space-y-2">
             {[
               { id: "profile", label: "Profile Settings", icon: User },
-              { id: "account", label: "Account Security", icon: ShieldLock },
+              { id: "account", label: "Account Security", icon: ShieldCheck },
               { id: "notifications", label: "Notifications", icon: Bell },
               { id: "privacy", label: "Privacy Controls", icon: EyeOff },
             ].map(item => (
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-6">
-                      <h4 className="font-bold flex items-center gap-2 text-lg"><ShieldLock className="w-5 h-5 text-primary" /> Change Password</h4>
+                      <h4 className="font-bold flex items-center gap-2 text-lg"><ShieldCheck className="w-5 h-5 text-primary" /> Change Password</h4>
                       <div className="grid gap-4 max-w-md">
                         <div className="space-y-2">
                           <Label className="font-bold text-xs uppercase text-slate-400">Current Password</Label>
@@ -486,7 +486,7 @@ export default function SettingsPage() {
                   </CardHeader>
                   <CardContent className="p-8 space-y-6">
                     <div className="p-6 bg-blue-50 dark:bg-blue-950/20 rounded-3xl border border-blue-100 dark:border-blue-900/30 flex items-center gap-4 mb-4">
-                      <ShieldLock className="w-10 h-10 text-blue-600" />
+                      <ShieldCheck className="w-10 h-10 text-blue-600" />
                       <p className="text-sm text-blue-800 dark:text-blue-400 font-medium leading-relaxed">
                         Security Reminder: Your contact details are only shown to neighbors <strong>after</strong> you accept a mission or they accept yours.
                       </p>
