@@ -1,4 +1,3 @@
-
 "use client";
 
 import { 
@@ -41,15 +40,15 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore, updateDocumentNonBlocking, useCollection } from "@/firebase";
-import { doc, collection, query, where, onSnapshot } from "firebase/firestore";
+import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore, updateDocumentNonBlocking, useCollection, useUnreadChatCount } from "@/firebase";
+import { doc, collection, query, where } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -59,7 +58,7 @@ export function AppSidebar() {
   const { auth } = useAuth();
   const db = useFirestore();
   const { isMobile, setOpenMobile } = useSidebar();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useUnreadChatCount();
 
   const userRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -69,8 +68,7 @@ export function AppSidebar() {
 
   const isAdmin = profile?.role === 'admin';
 
-  // Helper to determine if a link is active, considering query params
-  const isItemActive = (href: string) => {
+  const isItemActive = useCallback((href: string) => {
     const [basePath, queryStr] = href.split('?');
     if (pathname !== basePath) return false;
     
@@ -79,30 +77,10 @@ export function AppSidebar() {
       return searchParams.get('tab') === params.get('tab');
     }
     
-    // For base dashboard, only active if no tab param is present in URL
     if (href === '/dashboard') return !searchParams.get('tab');
     
     return true;
-  };
-
-  // Listen for unread messages globally
-  useEffect(() => {
-    if (!db || !user?.uid) return;
-    
-    // Use single filter to avoid composite index requirement
-    const q = query(
-      collection(db, "notifications", user.uid, "items"),
-      where("read", "==", false)
-    );
-    
-    const unsub = onSnapshot(q, (snap) => {
-      // Filter for chat messages in JS
-      const chatUnread = snap.docs.filter(d => d.data().type === 'chat_message');
-      setUnreadCount(chatUnread.length);
-    });
-    
-    return () => unsub();
-  }, [db, user?.uid]);
+  }, [pathname, searchParams]);
 
   const pendingQuery = useMemoFirebase(() => {
     if (!db || !isAdmin) return null;
@@ -190,12 +168,12 @@ export function AppSidebar() {
     ];
   }, [profile?.role, isAdmin]);
 
-  const handleToggleAvailability = (checked: boolean) => {
+  const handleToggleAvailability = useCallback((checked: boolean) => {
     if (!db || !user?.uid) return;
     updateDocumentNonBlocking(doc(db, "users", user.uid), { isAvailable: checked });
-  };
+  }, [db, user?.uid]);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       if (!auth) return;
       await signOut(auth);
@@ -204,7 +182,7 @@ export function AppSidebar() {
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  };
+  }, [auth, router, isMobile, setOpenMobile]);
 
   if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 

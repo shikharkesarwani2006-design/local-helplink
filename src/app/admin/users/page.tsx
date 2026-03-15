@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { query, collection, doc, writeBatch } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase, updateDocumentNonBlocking } from "@/firebase";
@@ -68,6 +68,99 @@ import {
 import { sendNotification } from "@/firebase/notifications";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const UserRow = React.memo(({ u, onUpdate, onWarn, onSuspend, onView }: any) => {
+  return (
+    <TableRow className={cn(
+      "border-slate-50 hover:bg-slate-50/30 transition-colors",
+      u.suspended && "bg-red-50/50"
+    )}>
+      <TableCell className="py-4 pl-8">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-9 w-9 border">
+            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.email}`} />
+            <AvatarFallback className="bg-primary/10 text-primary font-bold">{u.name?.[0] || '?'}</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="font-bold text-slate-900 flex items-center gap-2">
+              {u.name}
+              {u.suspended && <Badge variant="destructive" className="h-4 text-[8px] px-1 font-black">SUSPENDED</Badge>}
+            </span>
+            <span className="text-xs text-slate-400">{u.email}</span>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge className={cn("uppercase text-[9px] font-black text-white border-none", 
+          u.role === 'admin' ? "bg-red-500" : 
+          u.role === 'provider' ? "bg-amber-500" : 
+          u.role === 'volunteer' ? "bg-purple-500" : "bg-blue-500"
+        )}>
+          {u.role}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {u.verified ? (
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase">
+            <ShieldCheck className="w-3 h-3" /> Verified
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase">
+            Pending
+          </div>
+        )}
+      </TableCell>
+      <TableCell className="text-xs text-slate-500 font-medium">
+        {u.createdAt ? format(u.createdAt.toDate(), 'MMM dd, yyyy') : '-'}
+      </TableCell>
+      <TableCell className="text-right pr-8">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9"><MoreVertical className="w-4 h-4" /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="right" className="rounded-2xl w-56 p-2 shadow-2xl">
+            <DropdownMenuLabel className="text-xs font-black uppercase text-slate-400 px-3">Citizen Actions</DropdownMenuLabel>
+            <DropdownMenuItem className="rounded-xl gap-2 font-bold cursor-pointer" onClick={() => onView(u)}>
+              <Eye className="w-4 h-4" /> View Full Profile
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="rounded-xl gap-2 font-bold">
+                <RefreshCw className="w-4 h-4" /> Change Role
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="rounded-xl p-2 min-w-[160px]">
+                {['user', 'volunteer', 'provider', 'admin'].map(role => (
+                  <DropdownMenuItem key={role} className="rounded-lg font-bold cursor-pointer gap-2 capitalize" onClick={() => onUpdate(u.id, { role })}>
+                    <div className={cn("w-2 h-2 rounded-full", role === 'admin' ? "bg-red-500" : role === 'provider' ? "bg-amber-500" : role === 'volunteer' ? "bg-purple-500" : "bg-blue-500")} />
+                    Make {role}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            {!u.verified ? (
+              <DropdownMenuItem className="rounded-xl gap-2 font-bold text-emerald-600 cursor-pointer" onClick={() => onUpdate(u.id, { verified: true })}>
+                <UserCheck className="w-4 h-4" /> Verify Account
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem className="rounded-xl gap-2 font-bold text-red-600 cursor-pointer" onClick={() => onUpdate(u.id, { verified: false })}>
+                <UserX className="w-4 h-4" /> Revoke Verification
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem className="rounded-xl gap-2 font-bold text-amber-600 cursor-pointer" onClick={() => onWarn(u)}>
+              <AlertTriangle className="w-4 h-4" /> Warn User
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="rounded-xl gap-2 font-bold text-red-600 cursor-pointer" onClick={() => onSuspend(u)}>
+              <ShieldAlert className="w-4 h-4" /> Suspend Account
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+});
+UserRow.displayName = "UserRow";
 
 export default function CitizenDirectory() {
   const { user, isUserLoading } = useUser();
@@ -76,6 +169,7 @@ export default function CitizenDirectory() {
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [cleaning, setCleaning] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
 
@@ -83,6 +177,11 @@ export default function CitizenDirectory() {
   const [warnUser, setWarnUser] = useState<any>(null);
   const [warningMessage, setWarningMessage] = useState("");
   const [suspendUser, setSuspendUser] = useState<any>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -98,14 +197,12 @@ export default function CitizenDirectory() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
-  // REMOVED orderBy to avoid index
   const usersQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(collection(db, "users"));
   }, [db, profile?.role]);
   const { data: rawUsers, isLoading: isUsersLoading } = useCollection(usersQuery);
 
-  // SORT AND FILTER IN JS
   const filteredUsers = useMemo(() => {
     if (!rawUsers) return [];
     const seenEmails = new Set();
@@ -117,12 +214,12 @@ export default function CitizenDirectory() {
         return true;
       })
       .filter(u => {
-        const matchesSearch = u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = u.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+                             u.email?.toLowerCase().includes(debouncedSearch.toLowerCase());
         const matchesTab = activeTab === "all" || u.role === activeTab;
         return matchesSearch && matchesTab;
       });
-  }, [rawUsers, searchQuery, activeTab]);
+  }, [rawUsers, debouncedSearch, activeTab]);
 
   const stats = useMemo(() => {
     if (!rawUsers) return { total: 0, admin: 0, volunteer: 0, provider: 0, user: 0 };
@@ -132,7 +229,6 @@ export default function CitizenDirectory() {
       seenEmails.add(u.email);
       return true;
     });
-
     return {
       total: uniqueUsers.length,
       admin: uniqueUsers.filter(u => u.role === 'admin').length,
@@ -142,13 +238,13 @@ export default function CitizenDirectory() {
     };
   }, [rawUsers]);
 
-  const handleUpdateUser = (userId: string, data: any) => {
+  const handleUpdateUser = useCallback((userId: string, data: any) => {
     if (!db) return;
     updateDocumentNonBlocking(doc(db, "users", userId), data);
     toast({ title: "User Updated", description: "Account record has been modified." });
-  };
+  }, [db, toast]);
 
-  const handleSendWarning = async () => {
+  const handleSendWarning = useCallback(async () => {
     if (!db || !warnUser || !warningMessage) return;
     await sendNotification(db, warnUser.id, {
       title: "⚠️ Official Admin Warning",
@@ -159,55 +255,14 @@ export default function CitizenDirectory() {
     toast({ title: "Warning Sent", description: `A formal alert was sent to ${warnUser.name}.` });
     setWarnUser(null);
     setWarningMessage("");
-  };
+  }, [db, warnUser, warningMessage, toast]);
 
-  const handleSuspend = async () => {
+  const handleSuspend = useCallback(async () => {
     if (!db || !suspendUser) return;
     updateDocumentNonBlocking(doc(db, "users", suspendUser.id), { suspended: true });
     toast({ variant: "destructive", title: "Account Suspended", description: `${suspendUser.name} no longer has platform access.` });
     setSuspendUser(null);
-  };
-
-  const cleanDuplicates = async () => {
-    if (!db || !rawUsers) return;
-    setCleaning(true);
-    try {
-      const emailMap = new Map();
-      const duplicatesToDelete: string[] = [];
-
-      rawUsers.forEach(u => {
-        if (emailMap.has(u.email)) {
-          duplicatesToDelete.push(u.id);
-        } else {
-          emailMap.set(u.email, u.id);
-        }
-      });
-
-      if (duplicatesToDelete.length === 0) {
-        toast({ title: "No Duplicates Found", description: "Database is already clean." });
-        return;
-      }
-
-      const batch = writeBatch(db);
-      duplicatesToDelete.forEach(id => batch.delete(doc(db, "users", id)));
-      await batch.commit();
-
-      toast({ title: "Cleanup Success", description: `Removed ${duplicatesToDelete.length} duplicate accounts.` });
-    } catch (e) {
-      toast({ variant: "destructive", title: "Cleanup Failed" });
-    } finally {
-      setCleaning(false);
-    }
-  };
-
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case 'admin': return <Badge className="bg-red-500 text-white border-none uppercase text-[9px] font-black">Admin</Badge>;
-      case 'provider': return <Badge className="bg-amber-500 text-white border-none uppercase text-[9px] font-black">Provider</Badge>;
-      case 'volunteer': return <Badge className="bg-purple-500 text-white border-none uppercase text-[9px] font-black">Volunteer</Badge>;
-      default: return <Badge className="bg-blue-500 text-white border-none uppercase text-[9px] font-black">User</Badge>;
-    }
-  };
+  }, [db, suspendUser, toast]);
 
   if (isUserLoading || isProfileLoading) return null;
 
@@ -221,15 +276,6 @@ export default function CitizenDirectory() {
               <p className="text-slate-500 text-sm">Manage neighborhood members and account permissions.</p>
             </div>
             <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                className="rounded-xl font-bold h-11 gap-2 border-slate-200"
-                onClick={cleanDuplicates}
-                disabled={cleaning}
-              >
-                {cleaning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldAlert className="w-4 h-4 text-amber-500" />}
-                Clean Duplicates
-              </Button>
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <Input 
@@ -272,7 +318,7 @@ export default function CitizenDirectory() {
         <Card className="border-none shadow-sm overflow-hidden bg-white rounded-2xl">
           <Table>
             <TableHeader className="bg-slate-50/50">
-              <TableRow className="border-slate-100">
+              <TableRow className="border-slate-100 hover:bg-transparent">
                 <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 pl-8">Citizen</TableHead>
                 <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Role</TableHead>
                 <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Verification</TableHead>
@@ -282,101 +328,24 @@ export default function CitizenDirectory() {
             </TableHeader>
             <TableBody>
               {isUsersLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-20 text-slate-400">Loading directory...</TableCell></TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="pl-8 py-4"><Skeleton className="h-10 w-40 animate-pulse rounded-lg" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 animate-pulse rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24 animate-pulse rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32 animate-pulse rounded-lg" /></TableCell>
+                    <TableCell className="text-right pr-8"><Skeleton className="h-8 w-8 animate-pulse rounded-full ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : filteredUsers.map((u) => (
-                <TableRow key={u.id} className={cn(
-                  "border-slate-50 hover:bg-slate-50/30 transition-colors",
-                  u.suspended && "bg-red-50/50"
-                )}>
-                  <TableCell className="py-4 pl-8">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9 border">
-                        <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.email}`} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-bold">{u.name?.[0] || '?'}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-900 flex items-center gap-2">
-                          {u.name}
-                          {u.suspended && <Badge variant="destructive" className="h-4 text-[8px] px-1 font-black">SUSPENDED</Badge>}
-                        </span>
-                        <span className="text-xs text-slate-400">{u.email}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {getRoleBadge(u.role)}
-                  </TableCell>
-                  <TableCell>
-                    {u.verified ? (
-                      <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-black uppercase">
-                        <ShieldCheck className="w-3 h-3" /> Verified
-                      </div>
-                    ) : (
-                      <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase">
-                        Pending
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-500 font-medium">
-                    {u.createdAt ? format(u.createdAt.toDate(), 'MMM dd, yyyy') : '-'}
-                  </TableCell>
-                  <TableCell className="text-right pr-8">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9"><MoreVertical className="w-4 h-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="right" className="rounded-2xl w-56 p-2 shadow-2xl">
-                        <DropdownMenuLabel className="text-xs font-black uppercase text-slate-400 px-3">Citizen Actions</DropdownMenuLabel>
-                        
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold cursor-pointer" onClick={() => setViewUser(u)}>
-                          <Eye className="w-4 h-4" /> View Full Profile
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuSeparator />
-
-                        <DropdownMenuSub>
-                          <DropdownMenuSubTrigger className="rounded-xl gap-2 font-bold">
-                            <RefreshCw className="w-4 h-4" /> Change Role
-                          </DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="rounded-xl p-2 min-w-[160px]">
-                            <DropdownMenuItem className="rounded-lg font-bold cursor-pointer gap-2" onClick={() => handleUpdateUser(u.id, { role: 'user' })}>
-                              <div className="w-2 h-2 rounded-full bg-blue-500" /> Make User
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-lg font-bold cursor-pointer gap-2" onClick={() => handleUpdateUser(u.id, { role: 'volunteer' })}>
-                              <div className="w-2 h-2 rounded-full bg-purple-500" /> Make Volunteer
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-lg font-bold cursor-pointer gap-2" onClick={() => handleUpdateUser(u.id, { role: 'provider' })}>
-                              <div className="w-2 h-2 rounded-full bg-amber-500" /> Make Provider
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="rounded-lg font-bold cursor-pointer gap-2" onClick={() => handleUpdateUser(u.id, { role: 'admin' })}>
-                              <div className="w-2 h-2 rounded-full bg-red-500" /> Make Admin
-                            </DropdownMenuItem>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-
-                        {!u.verified ? (
-                          <DropdownMenuItem className="rounded-xl gap-2 font-bold text-emerald-600 cursor-pointer" onClick={() => handleUpdateUser(u.id, { verified: true })}>
-                            <UserCheck className="w-4 h-4" /> Verify Account
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem className="rounded-xl gap-2 font-bold text-red-600 cursor-pointer" onClick={() => handleUpdateUser(u.id, { verified: false })}>
-                            <UserX className="w-4 h-4" /> Revoke Verification
-                          </DropdownMenuItem>
-                        )}
-
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-amber-600 cursor-pointer" onClick={() => setWarnUser(u)}>
-                          <AlertTriangle className="w-4 h-4" /> Warn User
-                        </DropdownMenuItem>
-                        
-                        <DropdownMenuSeparator />
-                        
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-red-600 cursor-pointer" onClick={() => setSuspendUser(u)}>
-                          <ShieldAlert className="w-4 h-4" /> Suspend Account
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
+                <UserRow 
+                  key={u.id} 
+                  u={u} 
+                  onUpdate={handleUpdateUser} 
+                  onWarn={setWarnUser} 
+                  onSuspend={setSuspendUser} 
+                  onView={setViewUser} 
+                />
               ))}
             </TableBody>
           </Table>
@@ -397,13 +366,12 @@ export default function CitizenDirectory() {
                   <div className="space-y-1">
                     <DialogTitle className="text-3xl font-headline font-bold">{viewUser.name}</DialogTitle>
                     <div className="flex gap-2">
-                      {getRoleBadge(viewUser.role)}
+                      <Badge className="bg-primary text-white border-none uppercase text-[9px] font-black">{viewUser.role}</Badge>
                       {viewUser.verified && <Badge className="bg-emerald-500/20 text-emerald-400 border-none px-2 h-5 text-[8px] font-black uppercase">Verified Expert</Badge>}
                     </div>
                   </div>
                 </div>
               </div>
-              
               <div className="p-8 grid md:grid-cols-2 gap-8 bg-white">
                 <div className="space-y-6">
                   <div className="space-y-4">
@@ -412,49 +380,29 @@ export default function CitizenDirectory() {
                       <p className="text-sm font-medium flex items-center gap-3 text-slate-600"><Mail className="w-4 h-4 text-primary" /> {viewUser.email}</p>
                       <p className="text-sm font-medium flex items-center gap-3 text-slate-600"><Phone className="w-4 h-4 text-primary" /> {viewUser.phone || "No phone added"}</p>
                       <p className="text-sm font-medium flex items-center gap-3 text-slate-600"><MapPin className="w-4 h-4 text-primary" /> {viewUser.location?.area || "No area set"}</p>
-                      <p className="text-sm font-medium flex items-center gap-3 text-slate-600"><Clock className="w-4 h-4 text-primary" /> Joined {format(viewUser.createdAt?.toDate(), 'MMM yyyy')}</p>
+                      <p className="text-sm font-medium flex items-center gap-3 text-slate-600"><Clock className="w-4 h-4 text-primary" /> Joined {viewUser.createdAt ? format(viewUser.createdAt.toDate(), 'MMM yyyy') : 'Recently'}</p>
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Reputation</h4>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100">
-                        <Star className="w-4 h-4 text-amber-500 fill-amber-400 mb-1" />
-                        <p className="text-xl font-black text-slate-900">{viewUser.rating?.toFixed(1) || "5.0"}</p>
-                        <p className="text-[8px] font-bold text-amber-600 uppercase">Avg Rating</p>
-                      </div>
-                      <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 mb-1" />
-                        <p className="text-xl font-black text-slate-900">{viewUser.totalHelped || 0}</p>
-                        <p className="text-[8px] font-bold text-emerald-600 uppercase">Missions</p>
-                      </div>
+                      <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100"><Star className="w-4 h-4 text-amber-500 fill-amber-400 mb-1" /><p className="text-xl font-black text-slate-900">{viewUser.rating?.toFixed(1) || "5.0"}</p><p className="text-[8px] font-bold text-amber-600 uppercase">Avg Rating</p></div>
+                      <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100"><CheckCircle2 className="w-4 h-4 text-emerald-500 mb-1" /><p className="text-xl font-black text-slate-900">{viewUser.totalHelped || 0}</p><p className="text-[8px] font-bold text-emerald-600 uppercase">Missions</p></div>
                     </div>
                   </div>
                 </div>
-
                 <div className="space-y-6">
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Expertise</h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {viewUser.skills?.length > 0 ? viewUser.skills.map((s: string) => (
-                        <Badge key={s} variant="secondary" className="bg-slate-50 text-slate-600 border font-bold text-[10px]">{s}</Badge>
-                      )) : <p className="text-xs text-slate-400 italic">No specific skills listed.</p>}
-                    </div>
+                    <div className="flex flex-wrap gap-1.5">{viewUser.skills?.length > 0 ? viewUser.skills.map((s: string) => (<Badge key={s} variant="secondary" className="bg-slate-50 text-slate-600 border font-bold text-[10px]">{s}</Badge>)) : <p className="text-xs text-slate-400 italic">No specific skills listed.</p>}</div>
                   </div>
-
                   <div className="space-y-4">
                     <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Bio</h4>
-                    <p className="text-sm text-slate-500 italic leading-relaxed">
-                      "{viewUser.bio || "No biography provided by this neighborhood member."}"
-                    </p>
+                    <p className="text-sm text-slate-500 italic leading-relaxed">"{viewUser.bio || "No biography provided by this neighborhood member."}"</p>
                   </div>
                 </div>
               </div>
-              
-              <div className="p-6 bg-slate-50 border-t flex justify-end">
-                <Button variant="outline" className="rounded-xl font-bold" onClick={() => setViewUser(null)}>Dismiss Details</Button>
-              </div>
+              <div className="p-6 bg-slate-50 border-t flex justify-end"><Button variant="outline" className="rounded-xl font-bold" onClick={() => setViewUser(null)}>Dismiss Details</Button></div>
             </div>
           )}
         </DialogContent>
@@ -463,12 +411,8 @@ export default function CitizenDirectory() {
       <Dialog open={!!warnUser} onOpenChange={() => setWarnUser(null)}>
         <DialogContent className="rounded-3xl p-8">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-              <AlertTriangle className="text-amber-500 w-6 h-6" /> Issue System Warning
-            </DialogTitle>
-            <DialogDescription>
-              Sending a warning to <strong>{warnUser?.name}</strong>. They will receive a notification in their activity feed.
-            </DialogDescription>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2"><AlertTriangle className="text-amber-500 w-6 h-6" /> Issue System Warning</DialogTitle>
+            <DialogDescription>Sending a warning to <strong>{warnUser?.name}</strong>. They will receive a notification in their activity feed.</DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
@@ -483,13 +427,7 @@ export default function CitizenDirectory() {
           </div>
           <DialogFooter className="gap-3">
             <Button variant="ghost" className="rounded-xl font-bold" onClick={() => setWarnUser(null)}>Cancel</Button>
-            <Button 
-              className="rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white"
-              disabled={!warningMessage}
-              onClick={handleSendWarning}
-            >
-              Issue Formal Warning
-            </Button>
+            <Button className="rounded-xl font-bold bg-amber-500 hover:bg-amber-600 text-white" disabled={!warningMessage} onClick={handleSendWarning}>Issue Formal Warning</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -498,15 +436,11 @@ export default function CitizenDirectory() {
         <AlertDialogContent className="rounded-[2rem] p-8">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-2xl font-bold text-red-600">Suspend Account?</AlertDialogTitle>
-            <AlertDialogDescription className="text-base">
-              Are you sure you want to suspend <strong>{suspendUser?.name}</strong>? This will revoke all platform access and mark the account as restricted.
-            </AlertDialogDescription>
+            <AlertDialogDescription className="text-base">Are you sure you want to suspend <strong>{suspendUser?.name}</strong>? This will revoke all platform access and mark the account as restricted.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">
             <AlertDialogCancel className="rounded-xl font-bold">Nevermind</AlertDialogCancel>
-            <AlertDialogAction className="rounded-xl font-bold bg-red-600 hover:bg-red-700" onClick={handleSuspend}>
-              Yes, Suspend Account
-            </AlertDialogAction>
+            <AlertDialogAction className="rounded-xl font-bold bg-red-600 hover:bg-red-700" onClick={handleSuspend}>Yes, Suspend Account</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

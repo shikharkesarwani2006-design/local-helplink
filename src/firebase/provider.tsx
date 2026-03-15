@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { Loader2 } from 'lucide-react';
@@ -29,6 +29,7 @@ export interface FirebaseContextState {
   isUserLoading: boolean;
   userError: Error | null;
   isAuthInitialized: boolean;
+  unreadChatCount: number;
 }
 
 export interface FirebaseServicesAndUser {
@@ -63,6 +64,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   auth,
 }) => {
   const [isAuthInitialized, setIsAuthInitialized] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
     user: null,
     isUserLoading: true,
@@ -76,7 +78,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    // CRITICAL: onAuthStateChanged is used to determine when the initial auth check is done.
     const unsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
@@ -92,6 +93,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe();
   }, [auth]);
 
+  // Centralized Notification Listener for Chat Unread Count
+  useEffect(() => {
+    if (!firestore || !userAuthState.user?.uid) {
+      setUnreadChatCount(0);
+      return;
+    }
+
+    const q = query(
+      collection(firestore, "notifications", userAuthState.user.uid, "items"),
+      where("read", "==", false)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const chatUnread = snap.docs.filter(d => d.data().type === 'chat_message');
+      setUnreadChatCount(chatUnread.length);
+    });
+
+    return () => unsub();
+  }, [firestore, userAuthState.user?.uid]);
+
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
     return {
@@ -103,11 +124,10 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
       isAuthInitialized,
+      unreadChatCount,
     };
-  }, [firebaseApp, firestore, auth, userAuthState, isAuthInitialized]);
+  }, [firebaseApp, firestore, auth, userAuthState, isAuthInitialized, unreadChatCount]);
 
-  // Loading Gate: Do NOT render children until the initial auth state is known.
-  // This ensures all hooks (like useCollection) start with a known auth state.
   if (!isAuthInitialized) {
     return (
       <div className="fixed inset-0 flex flex-col items-center justify-center bg-background z-[9999]">
@@ -129,15 +149,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
 export const useFirebase = (): FirebaseServicesAndUser => {
   const context = useContext(FirebaseContext);
-
   if (context === undefined) {
     throw new Error('useFirebase must be used within a FirebaseProvider.');
   }
-
   if (!context.areServicesAvailable || !context.firebaseApp || !context.firestore || !context.auth) {
     throw new Error('Firebase core services not available.');
   }
-
   return {
     firebaseApp: context.firebaseApp,
     firestore: context.firestore,
@@ -159,6 +176,11 @@ export const useAuth = () => {
   };
 };
 
+export const useUnreadChatCount = () => {
+  const context = useContext(FirebaseContext);
+  return context?.unreadChatCount || 0;
+};
+
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   return firestore;
@@ -173,10 +195,8 @@ type MemoFirebase <T> = T & {__memo?: boolean};
 
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
   const memoized = useMemo(factory, deps);
-  
   if(typeof memoized !== 'object' || memoized === null) return memoized;
   (memoized as MemoFirebase<T>).__memo = true;
-  
   return memoized;
 }
 

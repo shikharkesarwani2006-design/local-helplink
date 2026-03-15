@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { 
   collection, 
@@ -59,7 +58,7 @@ import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { ChatModal } from "@/components/chat/ChatModal";
 import { closeChat } from "@/firebase/chat";
 
-function HelperContactBox({ helperId, onChat }: { helperId: string, onChat: () => void }) {
+const HelperContactBox = React.memo(({ helperId, onChat }: { helperId: string, onChat: () => void }) => {
   const db = useFirestore();
   const helperRef = useMemoFirebase(() => (db && helperId ? doc(db, "users", helperId) : null), [db, helperId]);
   const { data: helper } = useDoc(helperRef);
@@ -92,16 +91,71 @@ function HelperContactBox({ helperId, onChat }: { helperId: string, onChat: () =
       </Button>
     </div>
   );
-}
+});
+HelperContactBox.displayName = "HelperContactBox";
+
+const MissionCard = React.memo(({ req, onCancel, onComplete, onChat }: any) => {
+  return (
+    <Card className="rounded-3xl border-none shadow-lg bg-white dark:bg-slate-900 overflow-hidden flex flex-col group relative">
+      <div className={cn(
+        "absolute left-0 top-0 bottom-0 w-1.5",
+        req.urgency === 'high' ? "bg-red-500" : req.urgency === 'medium' ? "bg-amber-500" : "bg-emerald-500"
+      )} />
+      <CardHeader className="pb-2 pt-6 pl-8">
+        <div className="flex justify-between items-start">
+          <Badge className={cn(
+            "capitalize px-3 py-1 text-[10px] font-black rounded-full border-none",
+            req.status === 'open' ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
+          )}>
+            {req.status === 'open' ? "Waiting for Help" : "Help is Coming"}
+          </Badge>
+          <span className="text-[10px] font-bold text-slate-400">
+            {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
+          </span>
+        </div>
+        <CardTitle className="text-lg font-headline font-bold mt-3 leading-tight flex items-center gap-2">
+          <span className="text-xl">
+            {req.category === 'blood' ? '🩸' : req.category === 'tutor' ? '📚' : req.category === 'repair' ? '🔧' : req.category === 'emergency' ? '🚨' : '💬'}
+          </span>
+          {req.title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-grow pl-8">
+        <p className="text-sm text-slate-500 line-clamp-2 mb-2">{req.description}</p>
+        {req.status === 'accepted' && req.acceptedBy && (
+          <HelperContactBox helperId={req.acceptedBy} onChat={onChat} />
+        )}
+      </CardContent>
+      <CardFooter className="pt-4 border-t border-slate-50 flex gap-2 pl-8 pr-6 pb-6">
+        {req.status === 'open' ? (
+          <Button variant="ghost" size="sm" className="flex-1 rounded-xl text-red-500 font-bold hover:bg-red-50" onClick={() => onCancel(req.id)}>
+            <XCircle className="w-4 h-4 mr-2" /> Cancel Request
+          </Button>
+        ) : (
+          <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => onComplete(req)}>
+            <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Complete
+          </Button>
+        )}
+      </CardFooter>
+    </Card>
+  );
+});
+MissionCard.displayName = "MissionCard";
 
 export function UserDashboardView({ profile, user }: { profile: any; user: User }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [loading, setLoading] = useState(false);
   const [showRatingFor, setShowRatingFor] = useState<{ id: string, helperId: string } | null>(null);
   const [chatRequestId, setChatRequestId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const myRequestsQuery = useMemoFirebase(() => {
     if (!db || !user) return null;
@@ -121,7 +175,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
     const succeeded = rawMyRequests?.filter(req => req.status === 'completed').length || 0;
     const ratingVal = profile?.rating;
     const rating = ratingVal && ratingVal > 0 ? ratingVal.toFixed(1) : "New";
-    
     return { posted, succeeded, rating };
   }, [rawMyRequests, profile?.rating]);
 
@@ -138,21 +191,21 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         const isNotMine = req.createdBy !== user?.uid;
         const title = req.title || "";
         const description = req.description || "";
-        const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                             description.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesSearch = title.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+                             description.toLowerCase().includes(debouncedSearch.toLowerCase());
         const matchesCategory = categoryFilter === "all" || req.category === categoryFilter;
         return isNotMine && matchesSearch && matchesCategory;
       })
       .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-  }, [rawNearby, searchQuery, categoryFilter, user?.uid]);
+  }, [rawNearby, debouncedSearch, categoryFilter, user?.uid]);
 
-  const handleCancelRequest = (requestId: string) => {
+  const handleCancelRequest = useCallback((requestId: string) => {
     if (!db) return;
     deleteDocumentNonBlocking(doc(db, "requests", requestId));
     toast({ title: "Request Cancelled" });
-  };
+  }, [db, toast]);
 
-  const handleCompleteRequest = async (request: any) => {
+  const handleCompleteRequest = useCallback(async (request: any) => {
     if (!db || !user) return;
     setLoading(true);
     try {
@@ -171,7 +224,6 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
         }
       });
 
-      // Close Chat
       await closeChat(db, request.id);
 
       if (request.acceptedBy) {
@@ -190,24 +242,22 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
     } finally {
       setLoading(false);
     }
-  };
+  }, [db, user, toast]);
 
-  const isProfileIncomplete = !profile?.phone || !profile?.location?.area;
-
-  const categories = [
+  const categories = useMemo(() => [
     { id: "all", label: "All", icon: Filter },
     { id: "blood", label: "Blood", icon: Droplets, color: "text-red-500" },
     { id: "tutor", label: "Tutor", icon: BookOpen, color: "text-blue-500" },
     { id: "repair", label: "Repair", icon: Wrench, color: "text-amber-500" },
     { id: "emergency", label: "Emergency", icon: AlertTriangle, color: "text-rose-500" },
-  ];
+  ], []);
 
-  const quickActions = [
+  const quickActions = useMemo(() => [
     { label: "Need Blood", icon: "🩸", cat: "blood", urg: "high", color: "bg-red-50 text-red-600 border-red-100" },
     { label: "Need Tutor", icon: "📚", cat: "tutor", urg: "low", color: "bg-blue-50 text-blue-600 border-blue-100" },
     { label: "Need Repair", icon: "🔧", cat: "repair", urg: "medium", color: "bg-amber-50 text-amber-600 border-amber-100" },
     { label: "Emergency", icon: "🚨", cat: "emergency", urg: "high", color: "bg-rose-50 text-rose-600 border-rose-100" },
-  ];
+  ], []);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 pb-20">
@@ -228,7 +278,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
       </section>
 
       <main className="container px-4 sm:px-6 mx-auto -mt-12 relative z-20 space-y-8">
-        {isProfileIncomplete && (
+        {!profile?.phone || !profile?.location?.area ? (
           <div className="bg-amber-50 dark:bg-amber-950/20 border-2 border-dashed border-amber-200 dark:border-amber-900/50 rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="flex items-center gap-4 text-center sm:text-left">
               <div className="bg-amber-100 dark:bg-amber-900/50 p-3 rounded-2xl">
@@ -241,7 +291,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
             </div>
             <EditProfileModal profile={profile} />
           </div>
-        )}
+        ) : null}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group">
@@ -252,7 +302,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
               <div>
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Requests Posted</p>
                 <h3 className="text-3xl font-black text-slate-900 dark:text-white">
-                  {isMyRequestsLoading ? <Skeleton className="h-9 w-12" /> : stats.posted}
+                  {isMyRequestsLoading ? <Skeleton className="h-9 w-12 animate-pulse" /> : stats.posted}
                 </h3>
               </div>
             </CardContent>
@@ -266,7 +316,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
               <div>
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Missions Succeeded</p>
                 <h3 className="text-3xl font-black text-slate-900 dark:text-white">
-                  {isMyRequestsLoading ? <Skeleton className="h-9 w-12" /> : stats.succeeded}
+                  {isMyRequestsLoading ? <Skeleton className="h-9 w-12 animate-pulse" /> : stats.succeeded}
                 </h3>
               </div>
             </CardContent>
@@ -314,7 +364,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           
           {isMyRequestsLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2].map(i => <Skeleton key={i} className="h-48 rounded-3xl" />)}
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-48 rounded-3xl animate-pulse" />)}
             </div>
           ) : myActiveRequests.length === 0 ? (
             <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800">
@@ -323,48 +373,13 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {myActiveRequests.map((req) => (
-                <Card key={req.id} className="rounded-3xl border-none shadow-lg bg-white dark:bg-slate-900 overflow-hidden flex flex-col group relative">
-                  <div className={cn(
-                    "absolute left-0 top-0 bottom-0 w-1.5",
-                    req.urgency === 'high' ? "bg-red-500" : req.urgency === 'medium' ? "bg-amber-500" : "bg-emerald-500"
-                  )} />
-                  <CardHeader className="pb-2 pt-6 pl-8">
-                    <div className="flex justify-between items-start">
-                      <Badge className={cn(
-                        "capitalize px-3 py-1 text-[10px] font-black rounded-full border-none",
-                        req.status === 'open' ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
-                      )}>
-                        {req.status === 'open' ? "Waiting for Help" : "Help is Coming"}
-                      </Badge>
-                      <span className="text-[10px] font-bold text-slate-400">
-                        {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago
-                      </span>
-                    </div>
-                    <CardTitle className="text-lg font-headline font-bold mt-3 leading-tight flex items-center gap-2">
-                      <span className="text-xl">
-                        {req.category === 'blood' ? '🩸' : req.category === 'tutor' ? '📚' : req.category === 'repair' ? '🔧' : req.category === 'emergency' ? '🚨' : '💬'}
-                      </span>
-                      {req.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-grow pl-8">
-                    <p className="text-sm text-slate-500 line-clamp-2 mb-2">{req.description}</p>
-                    {req.status === 'accepted' && req.acceptedBy && (
-                      <HelperContactBox helperId={req.acceptedBy} onChat={() => setChatRequestId(req.id)} />
-                    )}
-                  </CardContent>
-                  <CardFooter className="pt-4 border-t border-slate-50 flex gap-2 pl-8 pr-6 pb-6">
-                    {req.status === 'open' ? (
-                      <Button variant="ghost" size="sm" className="flex-1 rounded-xl text-red-500 font-bold hover:bg-red-50" onClick={() => handleCancelRequest(req.id)}>
-                        <XCircle className="w-4 h-4 mr-2" /> Cancel Request
-                      </Button>
-                    ) : (
-                      <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => handleCompleteRequest(req)} disabled={loading}>
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Mark as Complete
-                      </Button>
-                    )}
-                  </CardFooter>
-                </Card>
+                <MissionCard 
+                  key={req.id} 
+                  req={req} 
+                  onCancel={handleCancelRequest} 
+                  onComplete={handleCompleteRequest} 
+                  onChat={() => setChatRequestId(req.id)}
+                />
               ))}
             </div>
           )}
@@ -407,7 +422,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
 
           {isNearbyLoading ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-64 rounded-[2.5rem]" />)}
+              {[1, 2, 3].map(i => <Skeleton key={i} className="h-64 rounded-[2.5rem] animate-pulse" />)}
             </div>
           ) : filteredNearby.length === 0 ? (
             <div className="py-24 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed flex flex-col items-center gap-4">
