@@ -26,7 +26,8 @@ import {
   Heart,
   Timer,
   BarChart3,
-  Trophy
+  Trophy,
+  Users
 } from "lucide-react";
 import { formatDistanceToNow, format, differenceInDays } from "date-fns";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
