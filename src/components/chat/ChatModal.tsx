@@ -287,7 +287,7 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
             <form onSubmit={handleSend} className="relative flex items-center gap-2">
               <Input
                 placeholder="Type your message..."
-                className="flex-grow h-12 rounded-2xl bg-slate-50 border-none focus-visible:ring-primary/20 pr-12"
+                className="flex-grow h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-primary/20 pr-12"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onFocus={() => handleTyping(true)}
