@@ -19,7 +19,7 @@ import {
 /**
  * Creates a chat for a specific request if it doesn't exist.
  */
-export async function createChat(db: Firestore, request: any, acceptorId: string) {
+export async function createChat(db: Firestore, request: any, acceptorId: string, pricing?: any) {
   const chatId = request.id + '_chat';
   const chatRef = doc(db, 'chats', chatId);
   
@@ -36,11 +36,30 @@ export async function createChat(db: Firestore, request: any, acceptorId: string
       status: 'active'
     });
     
-    // Add system message
+    // Add primary system message
     await addDoc(
       collection(db, 'chats', chatId, 'messages'),
       {
         text: 'Chat started. You can now coordinate!',
+        senderId: 'system',
+        senderName: 'System',
+        timestamp: serverTimestamp(),
+        read: true,
+        type: 'system'
+      }
+    );
+
+    // Add pricing system message
+    let pricingMsg = "🤝 Provider is offering free service.";
+    if (pricing && !pricing.isFreeService) {
+      const typeLabel = pricing.chargeType === 'fixed' ? 'Fixed' : pricing.chargeType === 'hourly' ? 'Per Hour' : 'Negotiable';
+      pricingMsg = `💰 Service charge agreed: ₹${pricing.serviceCharge} (${typeLabel}). Please pay after service is completed.`;
+    }
+    
+    await addDoc(
+      collection(db, 'chats', chatId, 'messages'),
+      {
+        text: pricingMsg,
         senderId: 'system',
         senderName: 'System',
         timestamp: serverTimestamp(),

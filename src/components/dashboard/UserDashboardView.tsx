@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
@@ -46,7 +47,8 @@ import {
   Loader2,
   Phone,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  CircleDollarSign
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -58,7 +60,7 @@ import { EditProfileModal } from "@/components/profile/EditProfileModal";
 import { ChatModal } from "@/components/chat/ChatModal";
 import { closeChat } from "@/firebase/chat";
 
-const HelperContactBox = React.memo(({ helperId, onChat }: { helperId: string, onChat: () => void }) => {
+const HelperContactBox = React.memo(({ helperId, request, onChat }: { helperId: string, request: any, onChat: () => void }) => {
   const db = useFirestore();
   const helperRef = useMemoFirebase(() => (db && helperId ? doc(db, "users", helperId) : null), [db, helperId]);
   const { data: helper } = useDoc(helperRef);
@@ -74,7 +76,7 @@ const HelperContactBox = React.memo(({ helperId, onChat }: { helperId: string, o
             <AvatarFallback>{helper.name?.[0]}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none mb-1">Help is coming from</p>
+            <p className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none mb-1">Assigned Neighbor</p>
             <p className="text-sm font-bold text-slate-900 dark:text-white">{helper.name}</p>
           </div>
         </div>
@@ -86,8 +88,30 @@ const HelperContactBox = React.memo(({ helperId, onChat }: { helperId: string, o
           </Button>
         )}
       </div>
+
+      {/* Agreed Charge Display */}
+      {request.serviceCharge > 0 ? (
+        <div className="mb-4 px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CircleDollarSign className="w-4 h-4 text-emerald-600" />
+            <span className="text-[10px] font-black uppercase text-slate-400">Agreed Charge</span>
+          </div>
+          <span className="text-sm font-black text-emerald-600">
+            ₹{request.serviceCharge} <span className="text-[10px] uppercase opacity-60">({request.chargeType})</span>
+          </span>
+        </div>
+      ) : request.isFreeService && (
+        <div className="mb-4 px-3 py-2 bg-white dark:bg-slate-900 rounded-xl border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Heart className="w-4 h-4 text-blue-500" />
+            <span className="text-[10px] font-black uppercase text-slate-400">Service Fee</span>
+          </div>
+          <span className="text-[10px] font-black text-blue-600 uppercase">Free Service</span>
+        </div>
+      )}
+
       <Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 shadow-lg shadow-primary/20" onClick={onChat}>
-        <MessageSquare className="w-4 h-4" /> Chat with Helper
+        <MessageSquare className="w-4 h-4" /> Open Coordination Chat
       </Button>
     </div>
   );
@@ -96,7 +120,7 @@ HelperContactBox.displayName = "HelperContactBox";
 
 const MissionCard = React.memo(({ req, onCancel, onComplete, onChat }: any) => {
   return (
-    <Card className="rounded-3xl border-none shadow-lg bg-white dark:bg-slate-900 overflow-hidden flex flex-col group relative">
+    <Card className="rounded-3xl border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col group relative">
       <div className={cn(
         "absolute left-0 top-0 bottom-0 w-1.5",
         req.urgency === 'high' ? "bg-red-500" : req.urgency === 'medium' ? "bg-amber-500" : "bg-emerald-500"
@@ -123,17 +147,17 @@ const MissionCard = React.memo(({ req, onCancel, onComplete, onChat }: any) => {
       <CardContent className="flex-grow pl-8">
         <p className="text-sm text-slate-500 line-clamp-2 mb-2">{req.description}</p>
         {req.status === 'accepted' && req.acceptedBy && (
-          <HelperContactBox helperId={req.acceptedBy} onChat={onChat} />
+          <HelperContactBox helperId={req.acceptedBy} request={req} onChat={onChat} />
         )}
       </CardContent>
-      <CardFooter className="pt-4 border-t border-slate-50 flex gap-2 pl-8 pr-6 pb-6">
+      <CardFooter className="pt-4 border-t border-slate-50 dark:border-slate-800 flex gap-2 pl-8 pr-6 pb-6">
         {req.status === 'open' ? (
           <Button variant="ghost" size="sm" className="flex-1 rounded-xl text-red-500 font-bold hover:bg-red-50" onClick={() => onCancel(req.id)}>
             <XCircle className="w-4 h-4 mr-2" /> Cancel Request
           </Button>
         ) : (
           <Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => onComplete(req)}>
-            <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Complete
+            <CheckCircle2 className="w-4 h-4 mr-2" /> Mark Resolved
           </Button>
         )}
       </CardFooter>
@@ -477,7 +501,7 @@ export function UserDashboardView({ profile, user }: { profile: any; user: User 
                     </div>
                   </CardContent>
                   <CardFooter className="pt-4 pb-8 pl-8 pr-6">
-                    <p className="text-[10px] italic text-slate-400 text-center w-full">Only volunteers can accept this mission</p>
+                    <p className="text-[10px] italic text-slate-400 text-center w-full">Only verified helpers can accept this mission</p>
                   </CardFooter>
                 </Card>
               ))}

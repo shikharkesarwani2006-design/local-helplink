@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Inbox, CheckCircle2, Clock, MapPin, Star, History, ArrowRight, RefreshCw, AlertCircle, MessageSquare } from "lucide-react";
+import { Loader2, Inbox, CheckCircle2, Clock, MapPin, Star, History, ArrowRight, RefreshCw, AlertCircle, MessageSquare, CircleDollarSign, Heart } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { RatingModal } from "@/components/profile/RatingModal";
@@ -163,7 +163,7 @@ export default function MyRequestsHistoryPage() {
           ) : (
             <div className="grid gap-6">
               {filteredRequests.map((req) => (
-                <Card key={req.id} className="hover:shadow-xl transition-all bg-white border-none rounded-[2.5rem] overflow-hidden group">
+                <Card key={req.id} className="hover:shadow-xl transition-all bg-white dark:bg-slate-900 border-none rounded-[2.5rem] overflow-hidden group">
                   <div className="flex flex-col md:flex-row">
                     <div className={cn(
                       "md:w-2",
@@ -176,27 +176,50 @@ export default function MyRequestsHistoryPage() {
                             {getUrgencyBadge(req.urgency)}
                             {getStatusBadge(req)}
                           </div>
-                          <CardTitle className="text-2xl font-headline font-bold text-slate-900">{req.title}</CardTitle>
+                          <CardTitle className="text-2xl font-headline font-bold text-slate-900 dark:text-white">{req.title}</CardTitle>
                           <div className="flex items-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest pt-1">
                             <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Posted {req.createdAt ? format(req.createdAt.toDate(), 'MMM dd, HH:mm') : 'Recently'}</span>
                             <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {req.location?.area}</span>
                           </div>
                         </div>
-                        <div className="bg-slate-50 p-2 rounded-2xl flex items-center justify-center w-12 h-12 text-2xl shadow-inner">
+                        <div className="bg-slate-50 dark:bg-slate-800 p-2 rounded-2xl flex items-center justify-center w-12 h-12 text-2xl shadow-inner">
                           {req.category === 'blood' ? '🩸' : req.category === 'tutor' ? '📚' : req.category === 'repair' ? '🔧' : req.category === 'emergency' ? '🚨' : '💬'}
                         </div>
                       </div>
 
-                      <p className="text-slate-600 leading-relaxed mb-8 max-w-2xl">{req.description}</p>
+                      <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-6 max-w-2xl">{req.description}</p>
                       
-                      <div className="flex flex-col md:flex-row justify-between items-end gap-6 pt-6 border-t border-slate-50">
+                      {/* Pricing Info */}
+                      {(req.status === 'accepted' || req.status === 'completed') && (
+                        <div className="mb-8 flex flex-wrap gap-4">
+                          {req.serviceCharge > 0 ? (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+                              <CircleDollarSign className="w-4 h-4 text-emerald-600" />
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase text-slate-400 leading-none">Agreed Charge</span>
+                                <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">₹{req.serviceCharge} <span className="text-[10px] opacity-60">({req.chargeType})</span></span>
+                              </div>
+                            </div>
+                          ) : req.isFreeService && (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                              <Heart className="w-4 h-4 text-blue-500" />
+                              <div className="flex flex-col">
+                                <span className="text-[10px] font-black uppercase text-slate-400 leading-none">Service Type</span>
+                                <span className="text-sm font-bold text-blue-700 dark:text-blue-400">Free Help</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex flex-col md:flex-row justify-between items-end gap-6 pt-6 border-t border-slate-50 dark:border-slate-800">
                         <div className="w-full md:w-auto">
                           {req.status === 'accepted' && (
                             <div className="flex items-center gap-3">
                               <div className="bg-emerald-50 p-3 rounded-full"><CheckCircle2 className="w-5 h-5 text-emerald-600" /></div>
                               <div>
                                 <p className="text-[10px] font-black uppercase text-slate-400">Assigned Neighbor</p>
-                                <p className="text-sm font-bold text-slate-900">Member #...{req.acceptedBy?.slice(-4)}</p>
+                                <p className="text-sm font-bold text-slate-900 dark:text-white">Member #...{req.acceptedBy?.slice(-4)}</p>
                               </div>
                             </div>
                           )}
@@ -223,7 +246,7 @@ export default function MyRequestsHistoryPage() {
                           
                           {req.status === 'accepted' && (
                             <Button className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-11 px-6 shadow-lg shadow-emerald-500/20" onClick={() => handleCompleteRequest(req)} disabled={actionLoading}>
-                              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Mark Completed
+                              {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Mark Resolved
                             </Button>
                           )}
 

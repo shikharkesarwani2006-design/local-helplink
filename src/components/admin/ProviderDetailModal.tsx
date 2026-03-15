@@ -113,8 +113,16 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
       const jobDate = startOfDay(job.completedAt.toDate());
       const match = last7Days.find(d => d.rawDate.getTime() === jobDate.getTime());
       if (match) {
-        const earnings = (job.duration || 0) * (provider.hourlyRate || 0);
-        match.amount += earnings;
+        // Use finalEarning if available, else agreed service charge, else fallback calculation
+        let earning = job.finalEarning || 0;
+        if (!earning) {
+          if (job.serviceCharge !== undefined && job.chargeType !== 'hourly') {
+            earning = job.serviceCharge;
+          } else {
+            earning = (job.duration || 0) * (job.serviceCharge || provider.hourlyRate || 0);
+          }
+        }
+        match.amount += earning;
       }
     });
     return last7Days;
@@ -235,9 +243,9 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                     <h3 className="text-4xl font-black">₹{provider.totalEarnings || 0}</h3>
                   </Card>
                   <Card className="bg-white rounded-3xl p-6 shadow-sm">
-                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Hourly Rate</p>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Default Rate</p>
                     <h3 className="text-2xl font-black text-slate-900">₹{provider.hourlyRate || 0}/hr</h3>
-                    <p className="text-xs text-slate-400 mt-2">Professional Service Level</p>
+                    <p className="text-xs text-slate-400 mt-2">Base service level</p>
                   </Card>
                   <Card className="bg-white rounded-3xl p-6 shadow-sm border-l-4 border-l-primary">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Weekly Volume</p>
@@ -274,7 +282,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                         <TableHead className="font-bold text-[10px] uppercase pl-8">Request Title</TableHead>
                         <TableHead className="font-bold text-[10px] uppercase">Requester</TableHead>
                         <TableHead className="font-bold text-[10px] uppercase">Elapsed Time</TableHead>
-                        <TableHead className="font-bold text-[10px] uppercase text-right pr-8">Actions</TableHead>
+                        <TableHead className="font-bold text-[10px] uppercase text-right pr-8">Agreed Charge</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -283,23 +291,22 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                       ) : pendingJobs.map((job) => (
                         <TableRow key={job.id} className="border-slate-50">
                           <TableCell className="pl-8 py-4">
-                            <span className="font-bold block">{job.title}</span>
+                            <span className="font-bold block text-slate-900">{job.title}</span>
                             <span className="text-[10px] uppercase text-red-500 font-black">{job.urgency} Urgency</span>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
                               <Avatar className="h-6 w-6"><AvatarFallback className="text-[8px]">{job.postedByName?.[0]}</AvatarFallback></Avatar>
-                              <span className="text-xs font-bold">{job.postedByName}</span>
+                              <span className="text-xs font-bold text-slate-700">{job.postedByName}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Badge className="bg-emerald-50 text-emerald-700 font-black h-6">{elapsedTimes[job.id] || "Just now"}</Badge>
                           </TableCell>
                           <TableCell className="text-right pr-8">
-                            <div className="flex justify-end gap-2">
-                              <Button variant="ghost" size="sm" className="rounded-xl text-emerald-600 font-bold" onClick={() => updateDocumentNonBlocking(doc(db, "requests", job.id), { status: "completed", completedAt: new Date() })}>Force Complete</Button>
-                              <Button variant="ghost" size="sm" className="rounded-xl text-amber-600 font-bold" onClick={() => updateDocumentNonBlocking(doc(db, "requests", job.id), { status: "open", acceptedBy: null, acceptedAt: null })}>Reassign</Button>
-                            </div>
+                            <span className="text-sm font-black text-emerald-600">
+                              {job.isFreeService ? 'FREE' : `₹${job.serviceCharge}`}
+                            </span>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -334,7 +341,7 @@ export function ProviderDetailModal({ provider, onClose }: { provider: any; onCl
                           </TableCell>
                           <TableCell className="text-xs font-bold text-slate-700">{job.duration || 0} hrs</TableCell>
                           <TableCell className="text-right pr-8 font-black text-emerald-600">
-                            ₹{(job.duration || 0) * (provider.hourlyRate || 0)}
+                            ₹{job.finalEarning || job.serviceCharge || 0}
                           </TableCell>
                         </TableRow>
                       ))}

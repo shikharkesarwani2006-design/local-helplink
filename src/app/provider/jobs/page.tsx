@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   collection, 
@@ -52,7 +52,8 @@ import {
   Star,
   ExternalLink,
   PartyPopper,
-  AlertCircle
+  AlertCircle,
+  Coins
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -67,22 +68,42 @@ export default function ProviderAvailableJobsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // State
+  // Feed State
   const [searchQuery, setSearchQuery] = useState("");
   const [myCategoryOnly, setMyCategoryOnly] = useState(true);
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "urgency">("newest");
   
+  // Modal State
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [acceptedJobData, setAcceptedJobData] = useState<any>(null);
-  const [estimatedHours, setEstimatedHours] = useState(1);
+  
+  // Pricing State
+  const [pricingType, setPricingType] = useState<'paid' | 'free'>('free');
+  const [chargeAmount, setChargeAmount] = useState<string | number>('');
+  const [chargeType, setChargeType] = useState<'fixed' | 'hourly' | 'negotiable'>('fixed');
   
   const [loading, setLoading] = useState(false);
 
   // 1. Fetch Provider Profile
   const profileRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
   const { data: profile } = useDoc(profileRef);
+
+  // Pre-fill pricing when modal opens
+  useEffect(() => {
+    if (selectedJob && profile) {
+      if (profile.hourlyRate) {
+        setPricingType('paid');
+        setChargeAmount(profile.hourlyRate);
+        setChargeType('hourly');
+      } else {
+        setPricingType('free');
+        setChargeAmount('');
+        setChargeType('fixed');
+      }
+    }
+  }, [selectedJob, profile]);
 
   // 2. Fetch Open Requests
   const requestsQuery = useMemoFirebase(() => {
@@ -124,6 +145,16 @@ export default function ProviderAvailableJobsPage() {
   const handleAcceptJob = async () => {
     if (!db || !user || !profile || !selectedJob || !selectedJob.createdBy) return;
 
+    // Validation
+    if (pricingType === 'paid' && (!chargeAmount || Number(chargeAmount) <= 0)) {
+      toast({
+        variant: "destructive",
+        title: "Pricing Required",
+        description: "Please enter your charge amount for this service.",
+      });
+      return;
+    }
+
     // VERIFICATION CHECK
     if (!profile.verified) {
       toast({
@@ -148,16 +179,23 @@ export default function ProviderAvailableJobsPage() {
       const requestRef = doc(db, "requests", selectedJob.id);
       const responseTime = Date.now() - (selectedJob.createdAt?.toMillis() || Date.now());
       
-      // 1. Update Request status
+      const pricingInfo = {
+        serviceCharge: pricingType === 'paid' ? Number(chargeAmount) : 0,
+        chargeType: chargeType,
+        isFreeService: pricingType === 'free'
+      };
+
+      // 1. Update Request status with pricing
       updateDocumentNonBlocking(requestRef, {
         status: "accepted",
         acceptedBy: user.uid,
         acceptedAt: serverTimestamp(),
-        responseTime: responseTime
+        responseTime: responseTime,
+        ...pricingInfo
       });
 
-      // 2. Create Chat
-      await createChat(db, selectedJob, user.uid);
+      // 2. Create Chat with pricing context
+      await createChat(db, selectedJob, user.uid, pricingInfo);
 
       // 3. Set provider as busy
       const userRef = doc(db, "users", user.uid);
@@ -175,10 +213,9 @@ export default function ProviderAvailableJobsPage() {
         });
       }
 
-      setAcceptedJobData(selectedJob);
+      setAcceptedJobData({ ...selectedJob, ...pricingInfo });
       setSelectedJob(null);
       setConfirmChecked(false);
-      setEstimatedHours(1);
       
       toast({
         title: "Job Accepted! 🎉",
@@ -196,13 +233,11 @@ export default function ProviderAvailableJobsPage() {
   };
 
   const getCheckboxLabel = () => {
-    if (profile?.role === 'provider' && profile?.hourlyRate) {
-      return `I confirm I will complete this job at ₹${profile.hourlyRate}/hr and coordinate professionally.`;
+    if (pricingType === 'paid') {
+      const label = chargeType === 'fixed' ? 'total' : chargeType === 'hourly' ? 'per hour' : 'negotiable';
+      return `I confirm I will complete this job at ₹${chargeAmount} (${label}) and coordinate professionally.`;
     }
-    if (profile?.role === 'provider') {
-      return `I confirm I will complete this job for free and coordinate professionally.`;
-    }
-    return `I confirm I can complete this job and will coordinate professionally with the neighbor.`;
+    return `I confirm I will complete this job for free and coordinate professionally.`;
   }
 
   if (isUserLoading || isRequestsLoading) {
@@ -275,11 +310,11 @@ export default function ProviderAvailableJobsPage() {
               <div className="flex items-center gap-3">
                 <AlertCircle className="w-5 h-5 text-primary" />
                 <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Set your hourly rate in Profile Settings to charge for your services
+                  Set your default hourly rate in Settings to simplify job acceptance.
                 </p>
               </div>
               <Button variant="link" className="text-primary font-bold text-xs" asChild>
-                <Link href="/provider/profile">Edit Profile</Link>
+                <Link href="/settings">Edit Settings</Link>
               </Button>
             </div>
           )}
@@ -393,8 +428,8 @@ export default function ProviderAvailableJobsPage() {
         )}
       </main>
 
-      <Dialog open={!!selectedJob} onOpenChange={(open) => !open && (setSelectedJob(null), setConfirmChecked(false), setEstimatedHours(1))}>
-        <DialogContent className="rounded-[2.5rem] p-0 sm:max-w-[600px] overflow-hidden border-none">
+      <Dialog open={!!selectedJob} onOpenChange={(open) => !open && (setSelectedJob(null), setConfirmChecked(false))}>
+        <DialogContent className="rounded-[2.5rem] p-0 sm:max-w-[600px] overflow-hidden border-none shadow-2xl">
           <div className="flex flex-col max-h-[90vh]">
             <div className="flex-grow overflow-y-auto p-8">
               <DialogHeader>
@@ -413,87 +448,81 @@ export default function ProviderAvailableJobsPage() {
                   Confirm & Accept Job
                 </DialogTitle>
                 <DialogDescription className="text-slate-500 font-medium text-base pt-2">
-                  Review details and confirm your commitment to help.
+                  Review details and specify your charge before committing.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="py-6 space-y-6">
+              <div className="py-6 space-y-8">
                 <div className="p-5 bg-slate-50 dark:bg-slate-800 rounded-3xl space-y-3 border border-slate-100 dark:border-slate-700">
                   <h4 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{selectedJob?.title}</h4>
                   <p className="text-sm text-slate-500 dark:text-slate-400">{selectedJob?.description}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Requester</p>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedJob?.postedByName}</span>
-                      <div className="flex items-center gap-0.5 text-amber-500">
-                        <Star className="w-3 h-3 fill-current" />
-                        <span className="text-[10px] font-black">4.9</span>
-                      </div>
-                    </div>
+                {/* PRICING SECTION */}
+                <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Your Charge</Label>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      type="button"
+                      variant={pricingType === 'paid' ? 'default' : 'outline'}
+                      className={cn("flex-1 rounded-xl h-12 font-bold", pricingType === 'paid' ? "bg-emerald-500 text-white border-none shadow-lg shadow-emerald-500/20" : "")}
+                      onClick={() => setPricingType('paid')}
+                    >
+                      <CircleDollarSign className="w-4 h-4 mr-2" /> Paid Service
+                    </Button>
+                    <Button 
+                      type="button"
+                      variant={pricingType === 'free' ? 'default' : 'outline'}
+                      className={cn("flex-1 rounded-xl h-12 font-bold", pricingType === 'free' ? "bg-blue-500 text-white border-none shadow-lg shadow-blue-500/20" : "")}
+                      onClick={() => setPricingType('free')}
+                    >
+                      <Heart className="w-4 h-4 mr-2" /> Free Service
+                    </Button>
                   </div>
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Rate</p>
-                    {profile?.role === 'provider' && profile?.hourlyRate ? (
-                      <div>
-                        <span className="text-emerald-500 font-bold text-lg">
-                          ₹{profile.hourlyRate}/hr
-                        </span>
-                        <p className="text-slate-400 text-[10px] font-medium">
-                          Paid service
-                        </p>
-                      </div>
-                    ) : profile?.role === 'provider' && !profile?.hourlyRate ? (
-                      <div>
-                        <span className="text-blue-500 font-bold">
-                          Free Service
-                        </span>
-                        <p className="text-slate-400 text-[10px] font-medium">
-                          No charge
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <span className="text-orange-500 font-bold">
-                          Volunteer Service
-                        </span>
-                        <p className="text-slate-400 text-[10px] font-medium">
-                          No charge
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                {profile?.role === 'provider' && profile?.hourlyRate && (
-                  <div className="p-5 bg-emerald-50 dark:bg-emerald-950/20 rounded-3xl border border-emerald-100 dark:border-emerald-900/50 space-y-4">
-                    <div className="flex items-center gap-2">
-                      <CircleDollarSign className="w-5 h-5 text-emerald-600" />
-                      <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-400">Estimated Earnings</h4>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center text-xs font-medium text-emerald-700/70 dark:text-emerald-500/70">
-                        <span>Based on ₹{profile.hourlyRate}/hr</span>
-                        <div className="flex items-center gap-2">
-                          <span>Expected hours:</span>
+                  {pricingType === 'paid' && (
+                    <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-3xl border dark:border-slate-700 space-y-4 animate-in fade-in slide-in-from-top-2">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex-grow">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 font-black text-xl">₹</span>
                           <Input 
-                            type="number" 
-                            min="1" 
-                            className="w-16 h-8 text-xs font-bold bg-white dark:bg-slate-900 border-emerald-200" 
-                            value={estimatedHours}
-                            onChange={(e) => setEstimatedHours(Math.max(1, parseInt(e.target.value) || 1))}
+                            type="number"
+                            value={chargeAmount}
+                            onChange={(e) => setChargeAmount(e.target.value)}
+                            placeholder="Amount"
+                            min="0"
+                            className="h-14 pl-10 rounded-2xl bg-white dark:bg-slate-900 border-none text-xl font-black text-slate-900 dark:text-white shadow-inner"
                           />
                         </div>
+                        <select 
+                          value={chargeType}
+                          onChange={(e) => setChargeType(e.target.value as any)}
+                          className="h-14 bg-white dark:bg-slate-900 border-none rounded-2xl px-4 text-sm font-bold text-slate-600 dark:text-slate-300 outline-none shadow-inner"
+                        >
+                          <option value="fixed">Fixed</option>
+                          <option value="hourly">Per Hour</option>
+                          <option value="negotiable">Negotiable</option>
+                        </select>
                       </div>
-                      <div className="pt-2 border-t border-emerald-200 dark:border-emerald-900/50 flex justify-between items-center">
-                        <span className="text-sm font-bold text-emerald-900 dark:text-emerald-400">Estimated Total:</span>
-                        <span className="text-lg font-black text-emerald-600">₹{profile.hourlyRate * estimatedHours}</span>
-                      </div>
+                      
+                      {chargeAmount && Number(chargeAmount) > 0 && (
+                        <p className="text-emerald-600 dark:text-emerald-400 font-bold text-sm px-1">
+                          {chargeType === 'fixed' && `✅ Total mission charge: ₹${chargeAmount}`}
+                          {chargeType === 'hourly' && `✅ Rate: ₹${chargeAmount} per hour`}
+                          {chargeType === 'negotiable' && `✅ Starting from ₹${chargeAmount} (negotiable)`}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {pricingType === 'free' && (
+                    <div className="p-6 bg-blue-50 dark:bg-blue-950/20 rounded-3xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+                      <Heart className="w-6 h-6 text-blue-500" />
+                      <p className="text-blue-700 dark:text-blue-400 font-bold">You are offering this service for free. Strengthening community bonds!</p>
+                    </div>
+                  )}
+                </div>
 
                 <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10 flex items-center justify-between">
                    <div className="flex items-center gap-3">
@@ -533,7 +562,7 @@ export default function ProviderAvailableJobsPage() {
               <Button 
                 className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20 active:scale-95 transition-all" 
                 onClick={handleAcceptJob}
-                disabled={loading || !confirmChecked}
+                disabled={loading || !confirmChecked || (pricingType === 'paid' && (!chargeAmount || Number(chargeAmount) <= 0))}
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <CheckCircle2 className="w-5 h-5 mr-2" />}
                 Confirm & Accept
@@ -551,8 +580,8 @@ export default function ProviderAvailableJobsPage() {
                 <div className="bg-emerald-100 w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto mb-8 animate-bounce">
                   <PartyPopper className="w-12 h-12 text-emerald-600" />
                 </div>
-                <DialogTitle className="text-3xl font-headline font-bold text-slate-900 mb-2">Job Accepted! 🎉</DialogTitle>
-                <DialogDescription className="text-slate-500 mb-8 font-medium">You are now the expert assigned to this mission.</DialogDescription>
+                <DialogTitle className="text-3xl font-headline font-bold text-slate-900 mb-2">Mission Locked! 🎉</DialogTitle>
+                <DialogDescription className="text-slate-500 mb-8 font-medium">You've successfully taken on this community need.</DialogDescription>
               </DialogHeader>
 
               <div className="bg-slate-50 rounded-[2rem] p-6 text-left border space-y-6">
@@ -567,15 +596,11 @@ export default function ProviderAvailableJobsPage() {
                       <p className="text-base font-bold text-slate-900">{acceptedJobData?.postedByName}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 text-primary border-slate-200" asChild>
-                      <a href={`tel:${acceptedJobData?.phone || '0000000000'}`}><Phone className="w-4 h-4" /></a>
-                    </Button>
-                    {acceptedJobData?.contactPreference === 'whatsapp' && (
-                      <Button variant="outline" size="icon" className="rounded-xl h-10 w-10 text-emerald-500 border-slate-200" asChild>
-                        <a href={`https://wa.me/${acceptedJobData?.phone || '0000000000'}`} target="_blank"><Smartphone className="w-4 h-4" /></a>
-                      </Button>
-                    )}
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Agreed Charge</p>
+                    <p className="text-lg font-black text-emerald-600">
+                      {acceptedJobData?.isFreeService ? 'FREE' : `₹${acceptedJobData?.serviceCharge}`}
+                    </p>
                   </div>
                 </div>
 

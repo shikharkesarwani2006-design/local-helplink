@@ -51,7 +51,9 @@ import {
   BarChart as BarChartIcon,
   PartyPopper,
   MessageSquare,
-  Phone
+  Phone,
+  CircleDollarSign,
+  Heart
 } from "lucide-react";
 import { 
   BarChart, 
@@ -198,14 +200,22 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
       const requestRef = doc(db, "requests", request.id);
       const responseTime = Date.now() - (request.createdAt?.toMillis() || Date.now());
       
+      // Default pricing for quick accept: use profile hourly rate or free
+      const pricingInfo = {
+        serviceCharge: profile.hourlyRate || 0,
+        chargeType: profile.hourlyRate ? 'hourly' : 'fixed',
+        isFreeService: !profile.hourlyRate
+      };
+
       updateDocumentNonBlocking(requestRef, {
         status: "accepted",
         acceptedBy: user.uid,
         acceptedAt: serverTimestamp(),
-        responseTime: responseTime
+        responseTime: responseTime,
+        ...pricingInfo
       });
 
-      await createChat(db, request, user.uid);
+      await createChat(db, request, user.uid, pricingInfo);
 
       const userRef = doc(db, "users", user.uid);
       updateDocumentNonBlocking(userRef, { isAvailable: false });
@@ -231,22 +241,43 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
     if (!db || !user?.uid || !completingJob || !completingJob.createdBy) return;
     setActionLoading(true);
     try {
-      const hours = Number(duration);
-      const earnings = hours * (profile?.hourlyRate || 0);
+      // Calculate final earnings
+      let finalEarnings = completingJob.serviceCharge || 0;
+      if (completingJob.chargeType === 'hourly') {
+        finalEarnings = Number(duration) * (completingJob.serviceCharge || 0);
+      }
+
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, "requests", completingJob.id);
         const providerRef = doc(db, "users", user.uid);
-        transaction.update(reqRef, { status: "completed", completedAt: serverTimestamp(), duration: hours, summary: summary });
-        transaction.update(providerRef, { totalJobsDone: increment(1), totalEarnings: increment(earnings), isAvailable: true });
+        
+        transaction.update(reqRef, { 
+          status: "completed", 
+          completedAt: serverTimestamp(), 
+          duration: Number(duration), 
+          summary: summary,
+          finalEarning: finalEarnings 
+        });
+        
+        transaction.update(providerRef, { 
+          totalJobsDone: increment(1), 
+          totalEarnings: increment(finalEarnings), 
+          isAvailable: true 
+        });
       });
 
       await closeChat(db, completingJob.id);
 
       if (completingJob.createdBy) {
-        await sendNotification(db, completingJob.createdBy, { title: "Job Completed! 🎉", message: `${profile.name} marked the service as complete.`, type: "completed", link: "/profile" });
+        await sendNotification(db, completingJob.createdBy, { 
+          title: "Job Completed! 🎉", 
+          message: `${profile.name} marked the service as complete.`, 
+          type: "completed", 
+          link: "/profile" 
+        });
       }
 
-      setLastEarnings(earnings);
+      setLastEarnings(finalEarnings);
       setShowCelebration(true);
       setCompletingJob(null);
       setSummary("");
@@ -322,8 +353,8 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                   <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold flex items-center gap-3"><Zap className="w-6 h-6 text-primary" /> New Job Requests</h2><Button variant="ghost" className="text-primary font-bold text-sm" asChild><a href="/provider/jobs">View All Jobs →</a></Button></div>
                   {isIncomingLoading ? <div className="grid grid-cols-1 gap-4">{[1, 2].map(i => <Skeleton key={i} className="h-32 rounded-3xl" />)}</div> : incomingRequests.length === 0 ? <div className="py-16 text-center bg-white dark:bg-slate-900 rounded-[2.5rem] border-2 border-dashed"><AlertCircle className="w-12 h-12 text-slate-200 mx-auto mb-3" /><p className="text-slate-500 font-medium">No new inquiries in your category yet.</p></div> : <div className="grid grid-cols-1 gap-4">{incomingRequests.map((req) => (
                     <Card key={req.id} className="rounded-3xl border-none shadow-sm bg-white dark:bg-slate-900 overflow-hidden flex flex-col md:flex-row hover:shadow-md transition-shadow group">
-                      <div className={cn("w-full md:w-2", req.urgency === 'high' ? "bg-red-500" : "bg-emerald-500")} />
-                      <div className="p-6 flex-grow flex flex-col md:flex-row justify-between items-center gap-6"><div className="space-y-1 text-center md:text-left flex-grow"><div className="flex items-center gap-2 justify-center md:justify-start mb-1"><Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none text-[9px] font-black uppercase">{req.urgency}</Badge><span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span></div><h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{req.title}</h4><p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1 justify-center md:justify-start"><MapPin className="w-3 h-3" /> {req.location?.area}</p></div><Button className="rounded-2xl bg-slate-900 dark:bg-slate-800 text-white font-bold h-12 px-8 active:scale-95 transition-all w-full md:w-auto" onClick={() => handleAcceptJob(req)} disabled={isUnverified || actionLoading}>Quick Accept</Button></div>
+                      <div className={cn("w-full md:w-2", req.urgency === 'high' ? "bg-red-500" : req.urgency === 'medium' ? "bg-amber-500" : "bg-emerald-500")} />
+                      <div className="p-6 flex-grow flex flex-col md:flex-row justify-between items-center gap-6"><div className="space-y-1 text-center md:text-left flex-grow"><div className="flex items-center gap-2 justify-center md:justify-start mb-1"><Badge className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-none text-[9px] font-black uppercase">{req.urgency}</Badge><span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span></div><h4 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">{req.title}</h4><p className="text-xs text-slate-500 line-clamp-1 flex items-center gap-1 justify-center md:justify-start"><MapPin className="w-3.5 h-3.5" /> {req.location?.area}</p></div><Button className="rounded-2xl bg-slate-900 dark:bg-slate-800 text-white font-bold h-12 px-8 active:scale-95 transition-all w-full md:w-auto" onClick={() => handleAcceptJob(req)} disabled={isUnverified || actionLoading}>Quick Accept</Button></div>
                     </Card>
                   ))}</div>}
                 </section>
@@ -345,6 +376,12 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                             <div className="flex flex-col"><span className="text-sm font-bold">{job.postedByName}</span><span className="text-[10px] text-slate-400">{job.location?.area}</span></div>
                           </div>
                         </div>
+                        {job.serviceCharge > 0 && (
+                          <div className="flex items-center justify-between px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/50">
+                            <span className="text-[10px] font-black uppercase text-slate-400">Agreed</span>
+                            <span className="text-sm font-black text-emerald-600">₹{job.serviceCharge} ({job.chargeType})</span>
+                          </div>
+                        )}
                         <Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 shadow-lg shadow-primary/20" onClick={() => setChatRequestId(job.id)}>
                           <MessageSquare className="w-4 h-4" /> Chat with Client
                         </Button>
@@ -391,6 +428,20 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
                     </CardHeader>
                     <CardContent className="p-8 pt-0 flex-grow space-y-6">
                       <p className="text-sm text-slate-500 line-clamp-2">{job.description}</p>
+                      
+                      {/* Price Badge */}
+                      {job.serviceCharge > 0 ? (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 w-fit">
+                          <CircleDollarSign className="w-4 h-4 text-emerald-600" />
+                          <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">₹{job.serviceCharge} ({job.chargeType})</span>
+                        </div>
+                      ) : job.isFreeService && (
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-2xl border border-blue-100 dark:border-blue-900/30 w-fit">
+                          <Heart className="w-4 h-4 text-blue-500" />
+                          <span className="text-[10px] font-black text-blue-600 uppercase">Free Service</span>
+                        </div>
+                      )}
+
                       <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800 flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
@@ -432,12 +483,40 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
               <DialogHeader><DialogTitle className="text-2xl font-headline font-bold">Job Finalization</DialogTitle><DialogDescription>Summarize your work and log time to finalize earnings.</DialogDescription></DialogHeader>
               <div className="py-6 space-y-6">
                 <div className="space-y-2"><Label className="font-bold">Work Summary (Optional)</Label><Textarea placeholder="Briefly describe what was done..." className="min-h-[100px] rounded-2xl resize-none" value={summary} onChange={(e) => setSummary(e.target.value)} /></div>
-                <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label className="font-bold">Hours Spent</Label><div className="relative"><Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input type="number" min="0.5" step="0.5" className="pl-10 h-12 rounded-xl" value={duration} onChange={(e) => setDuration(e.target.value)} /></div></div><div className="space-y-2"><Label className="font-bold">Est. Earnings</Label><div className="h-12 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center px-4"><span className="text-emerald-700 font-black">₹{Number(duration) * (profile?.hourlyRate || 0)}</span></div></div></div>
+                
+                {completingJob?.chargeType === 'hourly' ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="font-bold">Hours Spent</Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Input type="number" min="0.5" step="0.5" className="pl-10 h-12 rounded-xl" value={duration} onChange={(e) => setDuration(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-bold">Total Earning</Label>
+                      <div className="h-12 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/50 flex items-center px-4">
+                        <span className="text-emerald-700 dark:text-emerald-400 font-black">₹{Number(duration) * (completingJob?.serviceCharge || 0)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : completingJob?.serviceCharge > 0 ? (
+                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 space-y-1">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Agreed Fixed Amount</p>
+                    <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">₹{completingJob.serviceCharge}</p>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-2xl border border-blue-100 dark:border-blue-900/50 flex items-center gap-3 text-blue-700 dark:text-blue-400 font-bold">
+                    <Heart className="w-5 h-5" /> Free community service
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter className="p-8 pt-4 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-800 flex flex-row gap-3">
               <Button variant="ghost" className="flex-1 rounded-2xl font-bold h-14 text-slate-500" onClick={() => setCompletingJob(null)}>Cancel</Button>
-              <Button className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20" onClick={handleCompleteJob} disabled={actionLoading}>{actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}Complete Job</Button>
+              <Button className="flex-[2] rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-14 shadow-xl shadow-emerald-500/20" onClick={handleCompleteJob} disabled={actionLoading}>
+                {actionLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Complete Job
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>

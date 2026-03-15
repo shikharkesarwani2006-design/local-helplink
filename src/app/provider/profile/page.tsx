@@ -91,7 +91,12 @@ export default function ProviderProfilePage() {
       return isWithinInterval(date, { start, end });
     });
 
-    const monthEarnings = monthJobs.reduce((acc, j) => acc + ((j.duration || 0) * (profile?.hourlyRate || 0)), 0);
+    // Use agreed service charge if available, otherwise fallback to duration * hourlyRate
+    const monthEarnings = monthJobs.reduce((acc, j) => {
+      if (j.finalEarning !== undefined) return acc + j.finalEarning;
+      if (j.serviceCharge !== undefined && j.chargeType !== 'hourly') return acc + j.serviceCharge;
+      return acc + ((j.duration || 0) * (j.serviceCharge || profile?.hourlyRate || 0));
+    }, 0);
 
     return {
       monthJobs: monthJobs.length,
@@ -109,7 +114,11 @@ export default function ProviderProfilePage() {
         return isWithinInterval(date, { start, end });
       }) || [];
       
-      const earnings = weekJobs.reduce((acc, j) => acc + ((j.duration || 0) * (profile?.hourlyRate || 0)), 0);
+      const earnings = weekJobs.reduce((acc, j) => {
+        if (j.finalEarning !== undefined) return acc + j.finalEarning;
+        if (j.serviceCharge !== undefined && j.chargeType !== 'hourly') return acc + j.serviceCharge;
+        return acc + ((j.duration || 0) * (j.serviceCharge || profile?.hourlyRate || 0));
+      }, 0);
       
       data.push({
         name: i === 0 ? "This Week" : `W-${i}`,
@@ -259,7 +268,7 @@ export default function ProviderProfilePage() {
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Hourly Rate</p>
+                        <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Default Rate</p>
                         <p className="text-2xl font-black text-emerald-600">
                           {profile?.hourlyRate ? `₹${profile.hourlyRate}/hr` : "Free Service"}
                         </p>
