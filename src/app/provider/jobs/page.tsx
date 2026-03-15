@@ -51,13 +51,15 @@ import {
   CircleDollarSign,
   Star,
   ExternalLink,
-  PartyPopper
+  PartyPopper,
+  AlertCircle
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { sendNotification } from "@/firebase/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { createChat } from "@/firebase/chat";
+import Link from "next/link";
 
 export default function ProviderAvailableJobsPage() {
   const { user, isUserLoading } = useUser();
@@ -74,6 +76,7 @@ export default function ProviderAvailableJobsPage() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [acceptedJobData, setAcceptedJobData] = useState<any>(null);
+  const [estimatedHours, setEstimatedHours] = useState(1);
   
   const [loading, setLoading] = useState(false);
 
@@ -175,6 +178,7 @@ export default function ProviderAvailableJobsPage() {
       setAcceptedJobData(selectedJob);
       setSelectedJob(null);
       setConfirmChecked(false);
+      setEstimatedHours(1);
       
       toast({
         title: "Job Accepted! 🎉",
@@ -190,6 +194,16 @@ export default function ProviderAvailableJobsPage() {
       setLoading(false);
     }
   };
+
+  const getCheckboxLabel = () => {
+    if (profile?.role === 'provider' && profile?.hourlyRate) {
+      return `I confirm I will complete this job at ₹${profile.hourlyRate}/hr and coordinate professionally.`;
+    }
+    if (profile?.role === 'provider') {
+      return `I confirm I will complete this job for free and coordinate professionally.`;
+    }
+    return `I confirm I can complete this job and will coordinate professionally with the neighbor.`;
+  }
 
   if (isUserLoading || isRequestsLoading) {
     return (
@@ -255,6 +269,20 @@ export default function ProviderAvailableJobsPage() {
               </div>
             </div>
           </div>
+
+          {profile?.role === 'provider' && (profile?.hourlyRate === undefined || profile?.hourlyRate === null) && (
+            <div className="bg-primary/10 border-2 border-dashed border-primary/30 rounded-2xl p-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-primary" />
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Set your hourly rate in Profile Settings to charge for your services
+                </p>
+              </div>
+              <Button variant="link" className="text-primary font-bold text-xs" asChild>
+                <Link href="/provider/profile">Edit Profile</Link>
+              </Button>
+            </div>
+          )}
 
           {!profile?.verified && (
             <div className="bg-amber-50 border-2 border-dashed border-amber-200 rounded-2xl p-4 flex items-center gap-3">
@@ -339,7 +367,7 @@ export default function ProviderAvailableJobsPage() {
                       {profile?.hourlyRate && (
                         <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">
                           <CircleDollarSign className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-black">₹{profile.hourlyRate}/hr</span>
+                          <span className="text-[10px] font-black">Your rate: ₹{profile.hourlyRate}/hr</span>
                         </div>
                       )}
                     </div>
@@ -365,7 +393,7 @@ export default function ProviderAvailableJobsPage() {
         )}
       </main>
 
-      <Dialog open={!!selectedJob} onOpenChange={(open) => !open && (setSelectedJob(null), setConfirmChecked(false))}>
+      <Dialog open={!!selectedJob} onOpenChange={(open) => !open && (setSelectedJob(null), setConfirmChecked(false), setEstimatedHours(1))}>
         <DialogContent className="rounded-[2.5rem] p-0 sm:max-w-[600px] overflow-hidden border-none">
           <div className="flex flex-col max-h-[90vh]">
             <div className="flex-grow overflow-y-auto p-8">
@@ -408,11 +436,64 @@ export default function ProviderAvailableJobsPage() {
                   </div>
                   <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 space-y-1">
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Your Rate</p>
-                    <p className="text-sm font-bold text-emerald-600">
-                      {profile?.hourlyRate ? `₹${profile.hourlyRate}/hr` : 'Volunteer Service'}
-                    </p>
+                    {profile?.role === 'provider' && profile?.hourlyRate ? (
+                      <div>
+                        <span className="text-emerald-500 font-bold text-lg">
+                          ₹{profile.hourlyRate}/hr
+                        </span>
+                        <p className="text-slate-400 text-[10px] font-medium">
+                          Paid service
+                        </p>
+                      </div>
+                    ) : profile?.role === 'provider' && !profile?.hourlyRate ? (
+                      <div>
+                        <span className="text-blue-500 font-bold">
+                          Free Service
+                        </span>
+                        <p className="text-slate-400 text-[10px] font-medium">
+                          No charge
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-orange-500 font-bold">
+                          Volunteer Service
+                        </span>
+                        <p className="text-slate-400 text-[10px] font-medium">
+                          No charge
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {profile?.role === 'provider' && profile?.hourlyRate && (
+                  <div className="p-5 bg-emerald-50 dark:bg-emerald-950/20 rounded-3xl border border-emerald-100 dark:border-emerald-900/50 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <CircleDollarSign className="w-5 h-5 text-emerald-600" />
+                      <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-400">Estimated Earnings</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-xs font-medium text-emerald-700/70 dark:text-emerald-500/70">
+                        <span>Based on ₹{profile.hourlyRate}/hr</span>
+                        <div className="flex items-center gap-2">
+                          <span>Expected hours:</span>
+                          <Input 
+                            type="number" 
+                            min="1" 
+                            className="w-16 h-8 text-xs font-bold bg-white dark:bg-slate-900 border-emerald-200" 
+                            value={estimatedHours}
+                            onChange={(e) => setEstimatedHours(Math.max(1, parseInt(e.target.value) || 1))}
+                          />
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-emerald-200 dark:border-emerald-900/50 flex justify-between items-center">
+                        <span className="text-sm font-bold text-emerald-900 dark:text-emerald-400">Estimated Total:</span>
+                        <span className="text-lg font-black text-emerald-600">₹{profile.hourlyRate * estimatedHours}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/10 flex items-center justify-between">
                    <div className="flex items-center gap-3">
@@ -439,7 +520,7 @@ export default function ProviderAvailableJobsPage() {
                     className="mt-1"
                   />
                   <Label htmlFor="confirm-accept" className="text-xs font-bold text-amber-800 dark:text-amber-400 leading-relaxed cursor-pointer">
-                    I confirm I can complete this job and will coordinate professionally with the neighbor.
+                    {getCheckboxLabel()}
                   </Label>
                 </div>
               </div>
