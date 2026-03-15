@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { 
   updatePassword, 
   deleteUser, 
-  reauthenticateWithEmailAndPassword, 
+  reauthenticateWithCredential, 
   EmailAuthProvider 
 } from "firebase/auth";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -155,7 +154,7 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const credential = EmailAuthProvider.credential(user.email, passwords.current);
-      await reauthenticateWithEmailAndPassword(user, passwords.current); // Simplified for prototype
+      await reauthenticateWithCredential(user, credential);
       await updatePassword(user, passwords.new);
       toast({ title: "Password changed successfully" });
       setPasswords({ current: "", new: "", confirm: "" });
