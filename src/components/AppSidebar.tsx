@@ -1,3 +1,4 @@
+
 "use client";
 
 import { 
@@ -39,7 +40,7 @@ import {
   SidebarGroupContent,
   useSidebar
 } from "@/components/ui/sidebar";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useUser, useDoc, useMemoFirebase, useAuth, useFirestore, updateDocumentNonBlocking, useCollection } from "@/firebase";
 import { doc, collection, query, where, onSnapshot } from "firebase/firestore";
 import { signOut } from "firebase/auth";
@@ -52,6 +53,7 @@ import { useMemo, useState, useEffect } from "react";
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useUser();
   const { auth } = useAuth();
@@ -67,11 +69,26 @@ export function AppSidebar() {
 
   const isAdmin = profile?.role === 'admin';
 
+  // Helper to determine if a link is active, considering query params
+  const isItemActive = (href: string) => {
+    const [basePath, queryStr] = href.split('?');
+    if (pathname !== basePath) return false;
+    
+    if (queryStr) {
+      const params = new URLSearchParams(queryStr);
+      return searchParams.get('tab') === params.get('tab');
+    }
+    
+    // For base dashboard, only active if no tab param is present in URL
+    if (href === '/dashboard') return !searchParams.get('tab');
+    
+    return true;
+  };
+
   // Listen for unread messages globally
   useEffect(() => {
     if (!db || !user?.uid) return;
     
-    // This is a simple counter listener for unread notifications of type chat_message
     const q = query(
       collection(db, "notifications", user.uid, "items"),
       where("type", "==", "chat_message"),
@@ -85,7 +102,6 @@ export function AppSidebar() {
     return () => unsub();
   }, [db, user?.uid]);
 
-  // REMOVED orderBy
   const pendingQuery = useMemoFirebase(() => {
     if (!db || !isAdmin) return null;
     return query(collection(db, "users"), where("role", "==", "provider"));
@@ -116,6 +132,7 @@ export function AppSidebar() {
     if (profile?.role === 'volunteer') {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Active Missions", href: "/dashboard?tab=active", icon: Briefcase },
         { label: "Browse Missions", href: "/volunteer/missions", icon: Search },
         { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
         { label: "Blood Registry", href: "/blood-donors", icon: Droplets },
@@ -125,10 +142,10 @@ export function AppSidebar() {
     } else if (profile?.role === 'provider') {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+        { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
+        { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
         { label: "Leaderboard", href: "/leaderboard", icon: Trophy },
         { label: "Blood Registry", href: "/blood-donors", icon: Droplets },
-        { label: "Available Jobs", href: "/provider/jobs", icon: Zap },
-        { label: "Active Jobs", href: "/dashboard?tab=active", icon: Briefcase },
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
       );
     } else {
@@ -217,9 +234,28 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainLinks.map((item) => (
-                <SidebarMenuItem key={item.label}><SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} className={cn("h-11 px-3 rounded-xl transition-all duration-200", pathname === item.href ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5")}><Link href={item.href}><item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} /><span>{item.label}</span>{item.badge !== undefined && item.badge > 0 && <span className="ml-auto bg-destructive text-[10px] text-white px-1.5 rounded-full font-black">{item.badge}</span>}</Link></SidebarMenuButton></SidebarMenuItem>
-              ))}
+              {mainLinks.map((item) => {
+                const active = isItemActive(item.href);
+                return (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={active} 
+                      tooltip={item.label} 
+                      className={cn(
+                        "h-11 px-3 rounded-xl transition-all duration-200", 
+                        active ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className={cn("w-5 h-5", active ? "text-white" : "text-white/40")} />
+                        <span>{item.label}</span>
+                        {item.badge !== undefined && item.badge > 0 && <span className="ml-auto bg-destructive text-[10px] text-white px-1.5 rounded-full font-black">{item.badge}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -227,12 +263,49 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">{isAdmin ? 'Moderation' : profile?.role === 'provider' ? 'Business' : 'Community'}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {moderationLinks.map((item) => (
-                <SidebarMenuItem key={item.label}><SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} className={cn("h-11 px-3 rounded-xl transition-all duration-200", pathname === item.href ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5")}><Link href={item.href}><item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} /><span>{item.label}</span>{item.badge !== undefined && item.badge > 0 && <span className={cn("ml-auto text-[10px] text-white px-1.5 rounded-full font-black", item.badgeColor || "bg-primary")}>{item.badge}</span>}</Link></SidebarMenuButton></SidebarMenuItem>
-              ))}
-              {profileLinks.map((item) => (
-                <SidebarMenuItem key={item.label}><SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} className={cn("h-11 px-3 rounded-xl transition-all duration-200", pathname === item.href ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5")}><Link href={item.href}><item.icon className={cn("w-5 h-5", pathname === item.href ? "text-white" : "text-white/40")} /><span>{item.label}</span></Link></SidebarMenuButton></SidebarMenuItem>
-              ))}
+              {moderationLinks.map((item) => {
+                const active = isItemActive(item.href);
+                return (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={active} 
+                      tooltip={item.label} 
+                      className={cn(
+                        "h-11 px-3 rounded-xl transition-all duration-200", 
+                        active ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className={cn("w-5 h-5", active ? "text-white" : "text-white/40")} />
+                        <span>{item.label}</span>
+                        {item.badge !== undefined && item.badge > 0 && <span className={cn("ml-auto text-[10px] text-white px-1.5 rounded-full font-black", item.badgeColor || "bg-primary")}>{item.badge}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+              {profileLinks.map((item) => {
+                const active = isItemActive(item.href);
+                return (
+                  <SidebarMenuItem key={item.label}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={active} 
+                      tooltip={item.label} 
+                      className={cn(
+                        "h-11 px-3 rounded-xl transition-all duration-200", 
+                        active ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5"
+                      )}
+                    >
+                      <Link href={item.href}>
+                        <item.icon className={cn("w-5 h-5", active ? "text-white" : "text-white/40")} />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

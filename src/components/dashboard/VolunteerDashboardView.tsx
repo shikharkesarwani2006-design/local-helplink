@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -53,7 +54,9 @@ import {
   XCircle,
   Loader2,
   PartyPopper,
-  Medal
+  Medal,
+  Briefcase,
+  Inbox
 } from "lucide-react";
 import { formatDistanceToNow, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -62,10 +65,16 @@ import { sendNotification } from "@/firebase/notifications";
 import { AnnouncementBanner } from "@/components/announcements/AnnouncementBanner";
 import { ChatModal } from "@/components/chat/ChatModal";
 import { createChat, closeChat } from "@/firebase/chat";
+import { useSearchParams, useRouter } from "next/navigation";
 
 export function VolunteerDashboardView({ profile, user }: { profile: any; user: User }) {
   const db = useFirestore();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
+  const activeTab = searchParams.get("tab") || "overview";
+
   const [searchQuery, setSearchQuery] = useState("");
   const [skillFilter, setSkillFilter] = useState<string | null>(null);
   
@@ -141,6 +150,13 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
       });
   }, [rawAvailable, profile?.skills, searchQuery, skillFilter, user?.uid]);
 
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === 'overview') params.delete('tab');
+    else params.set('tab', value);
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
   const handleAcceptMission = async () => {
     if (!db || !user || !acceptingRequest) return;
     setLoading(true);
@@ -151,7 +167,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         transaction.update(reqRef, { status: "accepted", acceptedBy: user.uid, acceptedAt: serverTimestamp(), responseTime });
       });
       
-      // Create Chat
       await createChat(db, acceptingRequest, user.uid);
 
       if (acceptingRequest.createdBy) {
@@ -177,7 +192,6 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
         transaction.update(volunteerRef, { totalHelped: increment(1) });
       });
 
-      // Close Chat
       await closeChat(db, completingRequest.id);
 
       if (completingRequest.createdBy) {
@@ -236,27 +250,116 @@ export function VolunteerDashboardView({ profile, user }: { profile: any; user: 
             { label: "Avg Response", value: stats.avgResponse, icon: Clock, color: "bg-purple-100 text-purple-600" },
             { label: "Neighbor Rating", value: profile?.rating?.toFixed(1) || "5.0", icon: Star, color: "bg-amber-100 text-amber-600" },
           ].map((stat, i) => (
-            <Card key={i} className="border-none shadow-xl bg-white rounded-3xl group"><CardContent className="pt-6 pb-6 flex items-center gap-4 px-6"><div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110", stat.color)}><stat.icon className="w-5 h-5" /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p><h3 className="text-2xl font-black text-slate-900">{stat.value}</h3></div></CardContent></Card>
+            <Card key={i} className="border-none shadow-xl bg-white dark:bg-slate-900 rounded-3xl group overflow-hidden"><CardContent className="pt-6 pb-6 flex items-center gap-4 px-6"><div className={cn("p-3 rounded-xl transition-transform group-hover:scale-110", stat.color)}><stat.icon className="w-5 h-5" /></div><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">{stat.label}</p><h3 className="text-2xl font-black text-slate-900 dark:text-white">{stat.value}</h3></div></CardContent></Card>
           ))}
         </div>
-        <section className="space-y-6">
-          <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold flex items-center gap-3"><CheckCircle2 className="w-6 h-6 text-emerald-500" /> Missions In Progress</h2>{activeMissions.length > 0 && <Link href="/volunteer/active"><Button variant="ghost" className="text-primary font-bold gap-2">Manage Active <ChevronRight className="w-4 h-4" /></Button></Link>}</div>
-          {isMissionsLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[1].map(i => <Skeleton key={i} className="h-48 rounded-3xl" />)}</div> : activeMissions.length === 0 ? <div className="p-12 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200"><p className="text-slate-500 font-medium">You aren't currently helping anyone. Check the feed below!</p></div> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{activeMissions.map((req) => (
-            <Card key={req.id} className="rounded-3xl border-none shadow-xl bg-white overflow-hidden flex flex-col group border-l-4 border-l-emerald-500"><CardHeader className="pb-2"><div className="flex justify-between items-center mb-2"><Badge className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">Active Help</Badge><span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Ongoing</span></div><CardTitle className="text-lg font-headline font-bold leading-tight">{req.title}</CardTitle></CardHeader><CardContent className="flex-grow space-y-4"><div className="p-4 bg-slate-50 rounded-2xl space-y-3"><div className="flex items-center gap-3"><Avatar className="h-10 w-10"><AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${req.createdBy}`} /><AvatarFallback>?</AvatarFallback></Avatar><div className="flex flex-col"><span className="text-sm font-bold">{req.postedByName}</span><span className="text-[10px] text-slate-400">{req.location?.area}</span></div></div><div className="pt-2 border-t flex flex-col gap-1"><div className="flex items-center gap-2 text-xs text-slate-600"><Phone className="w-3 h-3" /> Contact: {req.contactPreference || "In-App"}</div><div className="flex items-center gap-2 text-xs text-slate-600"><Mail className="w-3 h-3" /> {(req.postedByName || "member").toLowerCase().replace(/\s+/g, '.')}@university.edu</div></div></div><Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 mt-4" onClick={() => setChatRequestId(req.id)}><MessageSquare className="w-4 h-4" /> Chat with Requester</Button></CardContent><CardFooter className="pt-4 border-t border-slate-50 flex gap-2"><Button variant="ghost" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => setCancellingRequest(req)}><XCircle className="w-4 h-4 mr-2" /> Cancel</Button><Button variant="default" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => setCompletingRequest(req)}>Mark Complete</Button></CardFooter></Card>
-          ))}</div>}
-        </section>
-        <section className="space-y-8">
-          <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between"><div className="space-y-1"><h2 className="text-2xl font-headline font-bold flex items-center gap-3"><Search className="w-6 h-6 text-primary" /> Available Missions</h2><p className="text-xs text-slate-500 font-medium">Matching your skills & neighborhood area</p></div><div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto"><div className="flex flex-wrap gap-2"><button onClick={() => setSkillFilter(null)} className={cn("px-4 h-10 rounded-full font-bold text-xs border transition-all", !skillFilter ? "bg-slate-900 text-white" : "bg-white text-slate-500")}>All Missions</button><button onClick={() => setSkillFilter("matched")} className={cn("flex items-center gap-2 px-4 h-10 rounded-full font-bold text-xs border transition-all", skillFilter === "matched" ? "bg-primary text-white" : "bg-white text-slate-500")}><Star className="w-3.5 h-3.5" /> Skill Matches</button></div><div className="relative w-full md:w-64"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input placeholder="Search titles..." className="pl-11 h-10 bg-white rounded-full text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div></div></div>
-          {isAvailableLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{[1, 2, 3].map(i => <Skeleton key={i} className="h-64 rounded-[2.5rem]" />)}</div> : processedMissions.length === 0 ? <div className="py-24 text-center bg-white rounded-[3rem] border-2 border-dashed"><h3 className="text-lg font-bold">No Missions Found</h3><p className="text-slate-500 mt-1">Check back later or expand your skills!</p></div> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{processedMissions.map((request) => (
-                <Card key={request.id} className={cn("group relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-white rounded-[2rem] border-none flex flex-col h-full", request.isMatch && "ring-2 ring-primary/20")}>
-                  <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", request.urgency === 'high' ? 'bg-red-500' : 'bg-slate-200')} />
-                  <CardHeader className="pb-2 pt-8 pl-8 pr-6"><div className="flex justify-between items-start mb-4">{request.isMatch ? (<div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20"><Star className="w-3.5 h-3.5 fill-primary" /> Skill Match</div>) : (<Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest">{request.category}</Badge>)}<Badge className={cn("text-[9px] font-black uppercase tracking-widest", request.urgency === 'high' ? "bg-red-50 text-red-600" : "bg-slate-50 text-slate-600")}>{request.urgency} Urgency</Badge></div><CardTitle className="text-xl font-headline font-bold leading-tight">{request.title}</CardTitle></CardHeader>
-                  <CardContent className="flex-grow space-y-4 pl-8 pr-6"><p className="text-slate-500 text-xs line-clamp-3 leading-relaxed">{request.description}</p><div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase border-t pt-4"><div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{request.location?.area}</div><div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{request.createdAt ? formatDistanceToNow(request.createdAt.toDate()) : "just now"} ago</div></div></CardContent>
-                  <CardFooter className="pt-4 pb-8 pl-8 pr-6"><Button className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold h-12 transition-all group-hover:scale-[1.02]" onClick={() => setAcceptingRequest(request)}>Accept & Help <ChevronRight className="ml-2 w-4 h-4" /></Button></CardFooter>
-                </Card>
+
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full space-y-12">
+          <div className="flex items-center justify-center">
+            <TabsList className="bg-white/50 dark:bg-slate-900/50 p-1 rounded-2xl border backdrop-blur-sm shadow-sm h-14">
+              <TabsTrigger value="overview" className="rounded-xl font-bold px-10 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">Overview</TabsTrigger>
+              <TabsTrigger value="active" className="rounded-xl font-bold px-10 h-12 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-800">Active Missions ({activeMissions.length})</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="overview" className="mt-0 animate-in fade-in duration-500 space-y-12">
+            <section className="space-y-6">
+              <div className="flex items-center justify-between"><h2 className="text-2xl font-headline font-bold flex items-center gap-3"><CheckCircle2 className="w-6 h-6 text-emerald-500" /> Missions In Progress</h2>{activeMissions.length > 0 && <Button variant="ghost" className="text-primary font-bold gap-2" onClick={() => handleTabChange('active')}>Manage All <ChevronRight className="w-4 h-4" /></Button>}</div>
+              {isMissionsLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{[1].map(i => <Skeleton key={i} className="h-48 rounded-3xl" />)}</div> : activeMissions.length === 0 ? <div className="p-12 text-center bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:bg-slate-900 dark:border-slate-800"><p className="text-slate-500 font-medium">You aren't currently helping anyone. Check the feed below!</p></div> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">{activeMissions.slice(0, 3).map((req) => (
+                <Card key={req.id} className="rounded-3xl border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col group border-l-4 border-l-emerald-500"><CardHeader className="pb-2"><div className="flex justify-between items-center mb-2"><Badge className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">Active Help</Badge><span className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">Ongoing</span></div><CardTitle className="text-lg font-headline font-bold leading-tight">{req.title}</CardTitle></CardHeader><CardContent className="flex-grow space-y-4"><div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl space-y-3"><div className="flex items-center gap-3"><Avatar className="h-10 w-10"><AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${req.createdBy}`} /><AvatarFallback>?</AvatarFallback></Avatar><div className="flex flex-col"><span className="text-sm font-bold">{req.postedByName}</span><span className="text-[10px] text-slate-400">{req.location?.area}</span></div></div></div><Button className="w-full bg-primary text-white font-bold h-10 rounded-xl gap-2 mt-4" onClick={() => setChatRequestId(req.id)}><MessageSquare className="w-4 h-4" /> Chat with Requester</Button></CardContent><CardFooter className="pt-4 border-t border-slate-50 dark:border-slate-800 flex gap-2 p-6"><Button variant="ghost" size="sm" className="flex-1 rounded-xl text-red-500 font-bold" onClick={() => setCancellingRequest(req)}><XCircle className="w-4 h-4 mr-2" /> Cancel</Button><Button variant="default" size="sm" className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold" onClick={() => setCompletingRequest(req)}>Mark Complete</Button></CardFooter></Card>
               ))}</div>}
-        </section>
+            </section>
+            <section className="space-y-8">
+              <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between"><div className="space-y-1"><h2 className="text-2xl font-headline font-bold flex items-center gap-3"><Search className="w-6 h-6 text-primary" /> Available Missions</h2><p className="text-xs text-slate-500 font-medium">Matching your skills & neighborhood area</p></div><div className="flex flex-col md:flex-row gap-4 w-full lg:w-auto"><div className="flex flex-wrap gap-2"><button onClick={() => setSkillFilter(null)} className={cn("px-4 h-10 rounded-full font-bold text-xs border transition-all", !skillFilter ? "bg-slate-900 text-white shadow-lg" : "bg-white text-slate-500 dark:bg-slate-900")}>All Missions</button><button onClick={() => setSkillFilter("matched")} className={cn("flex items-center gap-2 px-4 h-10 rounded-full font-bold text-xs border transition-all", skillFilter === "matched" ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white text-slate-500 dark:bg-slate-900")}><Star className="w-3.5 h-3.5" /> Skill Matches</button></div><div className="relative w-full md:w-64"><Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input placeholder="Search titles..." className="pl-11 h-10 bg-white dark:bg-slate-900 rounded-full text-xs" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} /></div></div></div>
+              {isAvailableLoading ? <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{[1, 2, 3].map(i => <Skeleton key={i} className="h-64 rounded-[2.5rem]" />)}</div> : processedMissions.length === 0 ? <div className="py-24 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed"><h3 className="text-lg font-bold">No Missions Found</h3><p className="text-slate-500 mt-1">Check back later or expand your skills!</p></div> : <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">{processedMissions.map((request) => (
+                    <Card key={request.id} className={cn("group relative overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-white dark:bg-slate-900 border-none flex flex-col h-full rounded-[2rem]", request.isMatch && "ring-2 ring-primary/20")}>
+                      <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", request.urgency === 'high' ? 'bg-red-500' : 'bg-slate-200')} />
+                      <CardHeader className="pb-2 pt-8 pl-8 pr-6"><div className="flex justify-between items-start mb-4">{request.isMatch ? (<div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20"><Star className="w-3.5 h-3.5 fill-primary" /> Skill Match</div>) : (<Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest">{request.category}</Badge>)}<Badge className={cn("text-[9px] font-black uppercase tracking-widest", request.urgency === 'high' ? "bg-red-50 text-red-600" : "bg-slate-50 dark:bg-slate-800 text-slate-600")}>{request.urgency} Urgency</Badge></div><CardTitle className="text-xl font-headline font-bold leading-tight">{request.title}</CardTitle></CardHeader>
+                      <CardContent className="flex-grow space-y-4 pl-8 pr-6"><p className="text-slate-500 text-xs line-clamp-3 leading-relaxed">{request.description}</p><div className="flex items-center gap-4 text-[10px] font-bold text-slate-400 uppercase border-t pt-4"><div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-primary" />{request.location?.area}</div><div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-primary" />{request.createdAt ? formatDistanceToNow(request.createdAt.toDate()) : "just now"} ago</div></div></CardContent>
+                      <CardFooter className="pt-4 pb-8 pl-8 pr-6"><Button className="w-full bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white rounded-2xl font-bold h-12 transition-all group-hover:scale-[1.02]" onClick={() => setAcceptingRequest(request)}>Accept & Help <ChevronRight className="ml-2 w-4 h-4" /></Button></CardFooter>
+                    </Card>
+                  ))}</div>}
+            </section>
+          </TabsContent>
+
+          <TabsContent value="active" className="mt-0 animate-in fade-in duration-500 space-y-8">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-headline font-bold flex items-center gap-3"><Briefcase className="w-8 h-8 text-emerald-500" /> Active Mission Control</h2>
+              <Badge className="bg-emerald-100 text-emerald-700 font-bold px-4 py-1 rounded-full">{activeMissions.length} Ongoing</Badge>
+            </div>
+
+            {isMissionsLoading ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-64 rounded-[2.5rem]" />)}
+              </div>
+            ) : activeMissions.length === 0 ? (
+              <div className="py-32 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed space-y-6 shadow-sm">
+                <div className="bg-slate-50 dark:bg-slate-800 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
+                  <Inbox className="w-10 h-10 text-slate-200" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-2xl font-bold text-slate-900 dark:text-white">No active missions</h3>
+                  <p className="text-slate-500 max-w-xs mx-auto">You're not currently signed up for any missions. Check the dashboard to find neighbors who need help.</p>
+                </div>
+                <Button className="rounded-2xl h-12 px-8 font-bold" onClick={() => handleTabChange('overview')}>Browse Missions</Button>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {activeMissions.map((req) => (
+                  <Card key={req.id} className="rounded-[2.5rem] border-none shadow-xl bg-white dark:bg-slate-900 overflow-hidden flex flex-col group border-l-4 border-l-emerald-500">
+                    <CardHeader className="p-8 pb-4">
+                      <div className="flex justify-between items-start">
+                        <Badge className="bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase">Mission Active</Badge>
+                        <span className="text-[10px] font-bold text-slate-400">{req.createdAt ? formatDistanceToNow(req.createdAt.toDate()) : "just now"} ago</span>
+                      </div>
+                      <CardTitle className="text-xl font-headline font-bold mt-4 leading-tight">{req.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-8 pt-0 flex-grow space-y-6">
+                      <p className="text-sm text-slate-500 line-clamp-3">{req.description}</p>
+                      <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border dark:border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10 border-2 border-white shadow-sm">
+                            <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${req.createdBy}`} />
+                            <AvatarFallback>{req.postedByName?.[0]}</AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black text-slate-400 uppercase">Requester</p>
+                            <p className="text-sm font-bold truncate">{req.postedByName}</p>
+                          </div>
+                        </div>
+                        <div className="pt-3 mt-3 border-t dark:border-slate-700 flex flex-wrap gap-4">
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
+                            <MapPin className="w-3.5 h-3.5 text-primary" /> {req.location?.area}
+                          </div>
+                          {req.contactPreference === 'call' && (
+                            <div className="flex items-center gap-2 text-xs font-bold text-emerald-600">
+                              <Phone className="w-3.5 h-3.5" /> Call Requested
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="p-8 pt-0 flex flex-col gap-3">
+                      <Button className="w-full bg-primary text-white font-bold h-12 rounded-2xl gap-2 shadow-lg shadow-primary/20" onClick={() => setChatRequestId(req.id)}>
+                        <MessageSquare className="w-4 h-4" /> Open Coordination Chat
+                      </Button>
+                      <div className="flex gap-3">
+                        <Button variant="ghost" className="flex-1 rounded-xl text-red-500 font-bold h-11" onClick={() => setCancellingRequest(req)}>
+                          <XCircle className="w-4 h-4 mr-2" /> Cancel
+                        </Button>
+                        <Button className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold h-11" onClick={() => setCompletingRequest(req)}>
+                          <CheckCircle2 className="w-4 h-4 mr-2" /> Complete
+                        </Button>
+                      </div>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
+
       <Dialog open={!!acceptingRequest} onOpenChange={(open) => !open && setAcceptingRequest(null)}>
         <DialogContent className="rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
           <div className="flex flex-col max-h-[90vh]">
