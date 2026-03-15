@@ -83,17 +83,20 @@ export async function closeChat(db: Firestore, requestId: string) {
  */
 export async function markMessagesAsRead(db: Firestore, chatId: string, userId: string) {
   const messagesRef = collection(db, 'chats', chatId, 'messages');
-  const q = query(
-    messagesRef, 
-    where('read', '==', false),
-    where('senderId', '!=', userId)
-  );
   
-  const snap = await getDocs(q);
+  // Refactored to avoid composite index: Fetch all messages and filter in JS
+  const snap = await getDocs(messagesRef);
   if (snap.empty) return;
   
+  const unreadMessages = snap.docs.filter(d => {
+    const data = d.data();
+    return data.read === false && data.senderId !== userId;
+  });
+
+  if (unreadMessages.length === 0) return;
+  
   const batch = writeBatch(db);
-  snap.docs.forEach(d => {
+  unreadMessages.forEach(d => {
     batch.update(d.ref, { read: true });
   });
   

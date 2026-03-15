@@ -89,14 +89,16 @@ export function AppSidebar() {
   useEffect(() => {
     if (!db || !user?.uid) return;
     
+    // Use single filter to avoid composite index requirement
     const q = query(
       collection(db, "notifications", user.uid, "items"),
-      where("type", "==", "chat_message"),
       where("read", "==", false)
     );
     
     const unsub = onSnapshot(q, (snap) => {
-      setUnreadCount(snap.size);
+      // Filter for chat messages in JS
+      const chatUnread = snap.docs.filter(d => d.data().type === 'chat_message');
+      setUnreadCount(chatUnread.length);
     });
     
     return () => unsub();

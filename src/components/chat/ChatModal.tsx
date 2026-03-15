@@ -5,7 +5,6 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { 
   collection, 
   query, 
-  orderBy, 
   onSnapshot, 
   addDoc, 
   serverTimestamp, 
@@ -73,10 +72,15 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
     if (!db || !isOpen) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+    
+    // Refactored to avoid index: fetch all and sort in JS
+    const q = query(messagesRef);
     
     const unsub = onSnapshot(q, (snap) => {
-      const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const msgs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a: any, b: any) => (a.timestamp?.toMillis() || 0) - (b.timestamp?.toMillis() || 0));
+      
       setMessages(msgs);
       
       // Auto-mark as read
