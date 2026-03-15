@@ -53,7 +53,8 @@ import {
   ExternalLink,
   PartyPopper,
   AlertCircle,
-  Coins
+  Coins,
+  Heart
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -332,7 +333,7 @@ export default function ProviderAvailableJobsPage() {
 
       <main className="container px-6 mx-auto py-10">
         {filteredJobs.length === 0 ? (
-          <div className="py-32 text-center bg-white rounded-[3rem] border-2 border-dashed space-y-6 max-w-2xl mx-auto shadow-sm">
+          <div className="py-32 text-center bg-white dark:bg-slate-900 rounded-[3rem] border-2 border-dashed space-y-6 max-w-2xl mx-auto shadow-sm">
             <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
               <Inbox className="w-10 h-10 text-slate-200" />
             </div>
