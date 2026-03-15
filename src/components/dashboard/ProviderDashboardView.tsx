@@ -17,7 +17,7 @@ import {
   useMemoFirebase, 
   updateDocumentNonBlocking 
 } from "@/firebase";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -50,7 +50,8 @@ import {
   Clock,
   BarChart as BarChartIcon,
   PartyPopper,
-  MessageSquare
+  MessageSquare,
+  Phone
 } from "lucide-react";
 import { 
   BarChart, 
@@ -360,7 +361,7 @@ export function ProviderDashboardView({ profile, user }: { profile: any; user: F
 
           <TabsContent value="active" className="mt-0 animate-in fade-in duration-500 space-y-8">
             <div className="flex items-center justify-between">
-              <h2 className="text-3xl font-headline font-bold flex items-center gap-3"><Briefcase className="w-8 h-8 text-amber-500" /> Active Job Queue</h2>
+              <h2 className="text-3xl font-headline font-bold flex items-center gap-3"><Briefcase className="w-8 h-8 text-emerald-500" /> Active Job Queue</h2>
               <Badge className="bg-amber-100 text-amber-700 font-bold px-4 py-1 rounded-full">{activeJobs.length} Ongoing</Badge>
             </div>
 
