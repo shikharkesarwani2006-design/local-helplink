@@ -50,8 +50,8 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
   const { user } = useUser();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [otherTyping, setOtherTyping] = useState<string | null>(null);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const chatId = requestId + '_chat';
@@ -59,6 +59,9 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
   const chatRef = useMemoFirebase(() => (db ? doc(db, 'chats', chatId) : null), [db, chatId]);
   const { data: chat } = useDoc(chatRef);
   
+  const currentUserRef = useMemoFirebase(() => (db && user?.uid ? doc(db, 'users', user.uid) : null), [db, user?.uid]);
+  const { data: profile } = useDoc(currentUserRef);
+
   const otherUserId = useMemo(() => {
     if (!chat || !user) return null;
     return chat.participants.find((id: string) => id !== user.uid);
@@ -72,8 +75,6 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
     if (!db || !isOpen) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    
-    // Refactored to avoid index: fetch all and sort in JS
     const q = query(messagesRef);
     
     const unsub = onSnapshot(q, (snap) => {
@@ -83,7 +84,6 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
       
       setMessages(msgs);
       
-      // Auto-mark as read
       if (user) {
         markMessagesAsRead(db, chatId, user.uid);
       }
@@ -92,19 +92,41 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
     return () => unsub();
   }, [db, chatId, isOpen, user]);
 
-  // Listen for typing
+  // Typing indicator listener
   useEffect(() => {
-    if (!db || !isOpen || !otherUserId) return;
+    if (!db || !isOpen || !user) return;
     
-    const typingRef = collection(db, 'chats', chatId, 'typing');
-    const unsub = onSnapshot(typingRef, (snap) => {
-      const typing = snap.docs.find(d => d.id !== user?.uid);
-      if (typing) setOtherTyping(otherUser?.name || "Someone");
-      else setOtherTyping(null);
+    const typingColRef = collection(db, 'chats', chatId, 'typing');
+    const unsub = onSnapshot(typingColRef, (snap) => {
+      const now = Date.now();
+      const typing = snap.docs
+        .filter(d => {
+          // Exclude current user's own typing doc
+          if (d.id === user.uid) return false;
+          // Exclude stale typing indicators (older than 5 secs)
+          const data = d.data();
+          const ts = data.timestamp?.toMillis();
+          return ts && (now - ts) < 5000;
+        })
+        .map(d => d.data().name);
+      
+      setTypingUsers(typing);
     });
     
     return () => unsub();
-  }, [db, chatId, isOpen, otherUserId, user, otherUser]);
+  }, [db, chatId, isOpen, user?.uid]);
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (db && user) {
+        deleteDoc(doc(db, 'chats', chatId, 'typing', user.uid));
+      }
+    };
+  }, [db, chatId, user]);
 
   // Scroll to bottom
   useEffect(() => {
@@ -114,17 +136,54 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [messages, otherTyping]);
+  }, [messages, typingUsers]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputText(val);
+    
+    if (!db || !user) return;
+    const typingRef = doc(db, 'chats', chatId, 'typing', user.uid);
+
+    // Set typing status in Firestore
+    setDoc(typingRef, { 
+      isTyping: true,
+      name: profile?.name || user.displayName || user.email?.split('@')[0],
+      timestamp: serverTimestamp()
+    });
+    
+    // Clear previous timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Auto-clear typing after 2 seconds of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      deleteDoc(typingRef);
+    }, 2000);
+  };
+
+  const handleInputBlur = async () => {
+    if (!db || !user) return;
+    const typingRef = doc(db, 'chats', chatId, 'typing', user.uid);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    await deleteDoc(typingRef);
+  };
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!inputText.trim() || !user || !chat) return;
+    if (!inputText.trim() || !user || !chat || !db) return;
     
     const text = inputText.trim();
     setInputText("");
     
-    // Stop typing
-    if (db) await deleteDoc(doc(db, 'chats', chatId, 'typing', user.uid));
+    // Clear typing indicator immediately
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    await deleteDoc(doc(db, 'chats', chatId, 'typing', user.uid));
 
     try {
       await addDoc(collection(db, 'chats', chatId, 'messages'), {
@@ -142,7 +201,6 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
         lastMessageBy: user.uid
       });
       
-      // Notification
       if (otherUserId) {
         await addDoc(collection(db, 'notifications', otherUserId, 'items'), {
           type: 'chat_message',
@@ -156,16 +214,6 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
       }
     } catch (e) {
       console.error(e);
-    }
-  };
-
-  const handleTyping = async (active: boolean) => {
-    if (!db || !user) return;
-    const typingDoc = doc(db, 'chats', chatId, 'typing', user.uid);
-    if (active) {
-      await setDoc(typingDoc, { timestamp: serverTimestamp() });
-    } else {
-      await deleteDoc(typingDoc);
     }
   };
 
@@ -263,19 +311,14 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
               );
             })}
             
-            {otherTyping && (
-              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
-                <Avatar className="h-6 w-6">
-                  <AvatarFallback className="text-[8px] font-bold">?</AvatarFallback>
-                </Avatar>
-                <div className="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                  <div className="flex gap-0.5">
-                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1 h-1 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </div>
-                  <span className="text-[10px] font-bold text-slate-500">{otherTyping} is typing...</span>
+            {typingUsers.length > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 text-slate-400 text-xs animate-in fade-in slide-in-from-bottom-2">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
+                <span className="font-bold">{typingUsers[0]} is typing...</span>
               </div>
             )}
           </div>
@@ -293,9 +336,8 @@ export function ChatModal({ requestId, isOpen, onClose }: ChatModalProps) {
                 placeholder="Type your message..."
                 className="flex-grow h-12 rounded-2xl bg-slate-50 dark:bg-slate-800 border-none focus-visible:ring-primary/20 pr-12"
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onFocus={() => handleTyping(true)}
-                onBlur={() => handleTyping(false)}
+                onChange={handleInputChange}
+                onBlur={handleInputBlur}
               />
               <Button 
                 type="submit" 
