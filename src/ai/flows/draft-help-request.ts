@@ -21,7 +21,7 @@ export async function draftHelpRequest(input: DraftHelpRequestInput): Promise<Dr
   if (!apiKey) throw new Error('Missing GOOGLE_GENAI_API_KEY');
 
   const prompt = `You are an AI assistant for a hyperlocal community help platform.
-Given the title and description below, return ONLY a valid JSON object with these fields:
+Given the title and description below, return ONLY a valid JSON object with these exact fields:
 - improvedTitle: string
 - improvedDescription: string
 - suggestedCategory: one of: blood, tutor, repair, emergency, other
@@ -53,10 +53,5 @@ Return only raw JSON. No markdown, no backticks.`;
   if (!text) throw new Error('No response from Gemini');
 
   const cleaned = text.replace(/```json|```/g, '').trim();
-  try {
-    return DraftHelpRequestOutputSchema.parse(JSON.parse(cleaned));
-  } catch (e) {
-    console.error('Failed to parse Gemini response:', text);
-    throw new Error('Invalid AI response format');
-  }
+  return DraftHelpRequestOutputSchema.parse(JSON.parse(cleaned));
 }
