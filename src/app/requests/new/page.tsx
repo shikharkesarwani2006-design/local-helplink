@@ -27,7 +27,6 @@ import {
   History,
   LayoutDashboard
 } from "lucide-react";
-import { draftHelpRequest } from "@/ai/flows/draft-help-request";
 import { cn } from "@/lib/utils";
 
 const MAX_DESC_LENGTH = 500;
@@ -86,10 +85,9 @@ function NewRequestContent() {
 
     setIsDrafting(true);
     try {
-      const result = await draftHelpRequest({
-        initialTitle: formData.title,
-        initialDescription: formData.description,
-      });
+      const res = await fetch("/api/ai-optimize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initialTitle: formData.title, initialDescription: formData.description }) });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error);
 
       setFormData(prev => ({
         ...prev,
