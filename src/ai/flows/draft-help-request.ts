@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview An AI assistant flow for drafting help requests.
@@ -68,6 +67,9 @@ const draftHelpRequestFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('Failed to generate draft.');
+    }
+    return output;
   }
 );

@@ -47,7 +47,7 @@ Given the following information, identify and list all relevant skills. Prioriti
 Description: {{{description}}}
 Resume: {{#if resumeDataUri}}{{media url=resumeDataUri}}{{else}}No resume provided.{{/if}}
 
-Extract the skills as a JSON array of strings, for example: ["Skill 1", "Skill 2", "Skill 3"]. Do not include any other text or formatting in your response, just the JSON array. Make sure the output is valid JSON.`,
+Extract the skills as a JSON array of strings, for example: ["Skill 1", "Skill 2", "Skill 3"].`,
 });
 
 const extractUserSkillsFlow = ai.defineFlow(
