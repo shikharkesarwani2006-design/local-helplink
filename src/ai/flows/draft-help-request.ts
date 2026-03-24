@@ -1,7 +1,4 @@
 'use server';
-/**
- * @fileOverview An AI assistant flow for drafting help requests using direct Gemini REST API.
- */
 
 import { z } from 'zod';
 
@@ -26,7 +23,7 @@ export async function draftHelpRequest(input: DraftHelpRequestInput): Promise<Dr
   const prompt = `You are an AI assistant for a hyperlocal community help platform.
 Given the title and description below, return ONLY a valid JSON object with these fields:
 - improvedTitle: string
-- improvedDescription: string  
+- improvedDescription: string
 - suggestedCategory: one of: blood, tutor, repair, emergency, other
 - suggestedUrgency: one of: high, medium, low
 
