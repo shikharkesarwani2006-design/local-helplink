@@ -21,7 +21,8 @@ import {
   CircleDollarSign,
   AlertCircle,
   Coins,
-  ArrowUpRight
+  ArrowUpRight,
+  Loader2
 } from "lucide-react";
 import { 
   BarChart, 
