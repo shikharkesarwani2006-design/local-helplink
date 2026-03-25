@@ -4,7 +4,8 @@ export async function POST(req: NextRequest) {
   try {
     const { initialTitle, initialDescription } = await req.json();
     const apiKey = process.env.GOOGLE_GENAI_API_KEY;
-    if (!apiKey) return NextResponse.json({ error: 'Missing API key' }, { status: 500 });
+    if (!apiKey) return NextResponse.json({ error: 'Missing API key - key is undefined' }, { status: 500 });
+    console.log('API KEY EXISTS:', !!apiKey, 'KEY START:', apiKey?.substring(0,6));
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
