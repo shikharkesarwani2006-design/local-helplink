@@ -99,7 +99,8 @@ function NewRequestContent() {
 
       toast({ title: "AI Draft Ready", description: "Your request has been optimized for better community response." });
     } catch (error) {
-      toast({ variant: "destructive", title: "AI Unavailable", description: "Could not use AI drafting right now." });
+      const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
+      toast({ variant: "destructive", title: "AI Unavailable", description: errMsg });
     } finally {
       setIsDrafting(false);
     }
