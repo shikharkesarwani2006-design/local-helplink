@@ -17,6 +17,12 @@
       "description": "A volunteer helping an elderly person with groceries.",
       "imageUrl": "https://images.unsplash.com/photo-1761666507437-9fb5a6ef7b0a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx2b2x1bnRlZXIlMjBoZWxwaW5nfGVufDB8fHx8MTc3MTc4MjI3MHww&ixlib=rb-4.1.0&q=80&w=1080",
       "imageHint": "volunteer helping"
+    },
+    {
+      "id": "login-illustration",
+      "description": "Students studying and planning with digital devices in a modern space.",
+      "imageUrl": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxzdHVkZW50cyUyMHN0dWR5aW5nfGVufDB8fHx8MTc3MTc4MzA4NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "students studying"
     }
   ]
 }
