@@ -28,6 +28,7 @@ import {
   LayoutDashboard
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { draftHelpRequest } from "@/ai/flows/draft-help-request";
 
 const MAX_DESC_LENGTH = 500;
 
@@ -85,9 +86,10 @@ function NewRequestContent() {
 
     setIsDrafting(true);
     try {
-      const res = await fetch("/api/ai-optimize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ initialTitle: formData.title, initialDescription: formData.description }) });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error);
+      const result = await draftHelpRequest({ 
+        initialTitle: formData.title, 
+        initialDescription: formData.description 
+      });
 
       setFormData(prev => ({
         ...prev,
@@ -99,7 +101,7 @@ function NewRequestContent() {
 
       toast({ title: "AI Draft Ready", description: "Your request has been optimized for better community response." });
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
+      const errMsg = error instanceof Error ? error.message : "AI model failed to respond. Please try again later.";
       toast({ variant: "destructive", title: "AI Unavailable", description: errMsg });
     } finally {
       setIsDrafting(false);
