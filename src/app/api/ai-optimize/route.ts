@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.GOOGLE_GENAI_API_KEY;
     
     if (!apiKey) {
-      return NextResponse.json({ error: 'Missing AI configuration' }, { status: 500 });
+      return NextResponse.json({ error: 'AI configuration missing.' }, { status: 500 });
     }
 
     const response = await fetch(
@@ -25,7 +25,16 @@ export async function POST(req: NextRequest) {
     );
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'AI Service currently unavailable' }, { status: response.status });
+      const errorJson = await response.json().catch(() => ({}));
+      const message = errorJson.error?.message || '';
+      
+      if (message.includes('leaked')) {
+        return NextResponse.json({ 
+          error: 'The AI API key has been disabled for security reasons. Please update your environment variables with a fresh key.' 
+        }, { status: 403 });
+      }
+
+      return NextResponse.json({ error: message || 'AI service unavailable' }, { status: response.status });
     }
 
     const data = await response.json();
@@ -43,6 +52,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI returned invalid data format' }, { status: 500 });
     }
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

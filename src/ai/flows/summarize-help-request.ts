@@ -34,7 +34,15 @@ Description: ${input.description}`;
     }
   );
 
-  if (!response.ok) throw new Error('Gemini API error');
+  if (!response.ok) {
+    const errorJson = await response.json().catch(() => ({}));
+    const message = errorJson.error?.message || '';
+    if (message.includes('leaked')) {
+      throw new Error('AI API key security issue. Please contact admin or refresh API key.');
+    }
+    throw new Error(message || 'Gemini API error');
+  }
+  
   const data = await response.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('No response from Gemini');
