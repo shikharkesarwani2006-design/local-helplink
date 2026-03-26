@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -11,6 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { 
   ShieldCheck,
   XCircle,
@@ -117,7 +124,7 @@ export default function PendingVerifications() {
     setRejectReason("");
   };
 
-  if (isUserLoading || isProfileLoading) return <div className="flex h-screen items-center justify-center bg-[#0A0F1E]"><Loader2 className="animate-spin text-primary" /></div>;
+  if (isUserLoading || isProfileLoading) return <div className="flex h-screen items-center justify-center bg-[#0A0F1E]"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
     <div className="min-h-screen bg-[#0A0F1E] text-slate-50 pb-20">
@@ -217,7 +224,7 @@ export default function PendingVerifications() {
                     <CardFooter className="p-6 pt-0 bg-white/[0.02] border-t border-white/5 flex gap-3">
                       <Button 
                         variant="ghost" 
-                        className="flex-1 rounded-xl font-bold text-rose-400 h-11 hover:bg-rose-500/10"
+                        className="flex-1 rounded-xl font-bold text-rose-400 h-11 hover:bg-rose-50/10"
                         onClick={() => setRejectingUser(u)}
                       >
                         <XCircle className="w-4 h-4 mr-2" /> Reject
