@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { query, collection, where, doc } from "firebase/firestore";
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from "@/firebase";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -43,7 +43,20 @@ function ProviderProfileContent() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const searchParams = useSearchParams();
-  const initialTab = searchParams.get("tab") || "overview";
+  const router = useRouter();
+  
+  // Controlled tab state from URL
+  const activeTab = searchParams.get("tab") || "overview";
+
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === 'overview') {
+      params.delete('tab');
+    } else {
+      params.set('tab', value);
+    }
+    router.push(`/provider/profile?${params.toString()}`);
+  };
 
   const profileRef = useMemoFirebase(() => {
     if (!db || !user?.uid) return null;
@@ -201,7 +214,7 @@ function ProviderProfileContent() {
       </div>
 
       <main className="container max-w-6xl px-6 mx-auto -mt-16 relative z-20">
-        <Tabs defaultValue={initialTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="bg-white dark:bg-slate-900 p-1.5 mb-10 shadow-2xl border dark:border-slate-800 rounded-3xl w-full max-w-2xl mx-auto grid grid-cols-3 h-16 ring-1 ring-black/5">
             <TabsTrigger value="overview" className="font-bold gap-2 rounded-2xl data-[state=active]:bg-slate-900 data-[state=active]:text-white">
               <AlertCircle className="w-4 h-4" /> Overview

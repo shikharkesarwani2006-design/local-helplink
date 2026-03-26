@@ -70,14 +70,25 @@ export function AppSidebar() {
 
   const isItemActive = useCallback((href: string) => {
     const [basePath, queryStr] = href.split('?');
+    
+    // Path must match exactly
     if (pathname !== basePath) return false;
     
+    // Check if item has query params (like ?tab=reviews)
     if (queryStr) {
       const params = new URLSearchParams(queryStr);
-      return searchParams.get('tab') === params.get('tab');
+      const targetTab = params.get('tab');
+      return searchParams.get('tab') === targetTab;
     }
     
-    if (href === '/dashboard') return !searchParams.get('tab');
+    // Special handling for Dashboard root (should only be active if NO tab is present)
+    if (basePath === '/dashboard') return !searchParams.get('tab');
+
+    // Special handling for Profile root (should only be active if NO tab OR 'overview' tab is present)
+    if (basePath === '/provider/profile' || basePath === '/profile') {
+      const currentTab = searchParams.get('tab');
+      return !currentTab || currentTab === 'overview';
+    }
     
     return true;
   }, [pathname, searchParams]);
