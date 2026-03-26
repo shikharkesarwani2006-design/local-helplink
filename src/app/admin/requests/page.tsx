@@ -37,7 +37,8 @@ import {
   Droplets,
   BookOpen,
   Wrench,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -194,7 +195,7 @@ export default function AdminRequestsManager() {
     }
   };
 
-  if (isUserLoading || isProfileLoading) return <div className="flex h-screen items-center justify-center bg-[#0A0F1E]"><Loader2 className="animate-spin text-primary" /></div>;
+  if (isUserLoading || isProfileLoading) return <div className="flex h-screen items-center justify-center bg-[#0A0F1E]"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
     <div className="min-h-screen bg-[#0A0F1E] text-slate-50 pb-20">
