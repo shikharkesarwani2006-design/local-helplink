@@ -1,14 +1,11 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { 
   Heart, 
   Zap, 
@@ -16,14 +13,19 @@ import {
   CheckCircle2, 
   ArrowRight, 
   Star, 
-  Globe, 
   Droplets, 
   BookOpen, 
   Wrench, 
-  AlertTriangle,
-  Loader2,
-  ShieldCheck,
-  Users
+  AlertTriangle, 
+  ShieldCheck, 
+  Users, 
+  MapPin, 
+  Bell, 
+  Activity,
+  Globe,
+  Trophy,
+  Navigation,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,179 +33,212 @@ export default function LandingPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [counts, setCounts] = useState({ resolved: 0, users: 0, time: 0 });
 
-  const heroImage = PlaceHolderImages.find((img) => img.id === "hero-community");
-
-  // Redirect if logged in
   useEffect(() => {
     if (!isUserLoading && user) {
       router.push("/dashboard");
     }
   }, [user, isUserLoading, router]);
 
-  // Animation for stats
   useEffect(() => {
     setMounted(true);
-    if (!user) {
-      const interval = setInterval(() => {
-        setCounts(prev => ({
-          resolved: prev.resolved < 1250 ? prev.resolved + 13 : 1250,
-          users: prev.users < 840 ? prev.users + 9 : 840,
-          time: prev.time < 12 ? prev.time + 1 : 12,
-        }));
-      }, 30);
-      return () => clearInterval(interval);
-    }
-  }, [user]);
+  }, []);
 
   if (isUserLoading || user) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-        <p className="text-sm font-bold text-slate-400 uppercase tracking-widest animate-pulse">
-          Entering Network...
+      <div className="min-h-screen bg-[#0A0F2C] flex flex-col items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-[#FF4D2E] mb-4" />
+        <p className="text-sm font-bold text-white/40 uppercase tracking-widest animate-pulse">
+          Initializing Security Context...
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F8FAFC]">
-      {/* Public Navigation */}
-      <nav className="flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary p-2 rounded-xl shadow-lg shadow-primary/20">
+    <div className="flex flex-col min-h-screen bg-[#0A0F2C] text-white selection:bg-[#FF4D2E]/30 overflow-hidden font-['Plus_Jakarta_Sans',_sans-serif]">
+      {/* Navigation */}
+      <nav className="flex items-center justify-between px-6 lg:px-12 py-6 bg-[#0A0F2C]/80 backdrop-blur-xl sticky top-0 z-[100] border-b border-white/5">
+        <div className="flex items-center gap-2.5">
+          <div className="bg-[#FF4D2E] p-2 rounded-xl shadow-[0_0_20px_rgba(255,77,46,0.3)]">
             <Heart className="text-white w-6 h-6 fill-white" />
           </div>
-          <span className="text-2xl font-headline font-bold text-slate-900 tracking-tight">CampusConnect</span>
+          <span className="text-2xl font-bold tracking-tighter">HelpLink</span>
         </div>
-        <div className="hidden md:flex gap-8">
-          <Link href="#how-it-works" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors">How it Works</Link>
-          <Link href="#categories" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors">Support Channels</Link>
-          <Link href="#testimonials" className="text-sm font-bold text-slate-500 hover:text-primary transition-colors">Success Stories</Link>
+        <div className="hidden lg:flex gap-10">
+          <Link href="#how-it-works" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">How it Works</Link>
+          <Link href="#features" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Safety Protocols</Link>
+          <Link href="#community" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Community</Link>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/auth/login">
-            <Button variant="ghost" className="font-bold text-slate-600">Login</Button>
+            <Button variant="ghost" className="font-bold text-slate-300 hover:text-white hover:bg-white/5">Login</Button>
           </Link>
           <Link href="/auth/register">
-            <Button className="bg-primary hover:bg-primary/90 text-white font-bold rounded-full px-6 shadow-lg shadow-primary/20">
-              Join Now
+            <Button className="bg-[#FF4D2E] hover:bg-[#FF4D2E]/90 text-white font-bold rounded-full px-8 shadow-xl shadow-[#FF4D2E]/20 transition-all active:scale-95">
+              Get Started
             </Button>
           </Link>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative pt-20 pb-32 overflow-hidden bg-gradient-to-br from-indigo-50 via-white to-white">
-        <div className="container px-6 mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
-          <div className="space-y-8 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-xs font-black uppercase tracking-widest">
-              <Zap className="w-3.5 h-3.5 fill-primary" /> Hyperlocal Help Network
+      <section className="relative min-h-[90vh] flex items-center pt-20 pb-32">
+        {/* Visual Background Elements */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A0F2C] via-[#0D3B38]/40 to-[#0A0F2C] z-0" />
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#00D4C8]/10 rounded-full blur-[120px] animate-pulse pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#FF4D2E]/5 rounded-full blur-[120px] animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
+        
+        {/* Grid Overlay */}
+        <div className="absolute inset-0 opacity-[0.1]" style={{ backgroundImage: 'radial-gradient(#FFFFFF 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
+        <div className="container px-6 lg:px-12 mx-auto relative z-10 grid lg:grid-cols-2 gap-20 items-center">
+          <div className="space-y-10 text-center lg:text-left">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00D4C8]/10 border border-[#00D4C8]/20 text-[#00D4C8] text-[10px] font-black uppercase tracking-[0.2em] animate-in fade-in slide-in-from-left duration-700">
+              <Activity className="w-3.5 h-3.5 animate-pulse" /> Live Neighborhood Network
             </div>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-headline font-bold leading-[0.9] text-slate-900 tracking-tighter">
-              Get Help. Give Help. <span className="text-primary">Instantly. 🤝</span>
-            </h1>
-            <p className="text-xl text-slate-500 max-w-lg mx-auto lg:mx-0 leading-relaxed font-medium">
-              Hyperlocal emergency & skill exchange for your campus community. Your neighborhood network, strengthened by collective action.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center lg:justify-start">
+            
+            <div className="space-y-6">
+              <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95] tracking-tighter text-white">
+                Your Neighborhood's <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF4D2E] to-[#FF8A65]">Emergency & Skill Network.</span>
+              </h1>
+              <p className="text-xl text-[#B0B8C1] max-w-xl mx-auto lg:mx-0 leading-relaxed font-medium">
+                Connect instantly with trusted locals for emergencies, skill sharing, and community help — within your immediate area.
+              </p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start pt-4">
               <Link href="/auth/register">
-                <Button size="lg" className="h-16 px-10 text-xl bg-primary hover:bg-primary/90 text-white font-bold rounded-full shadow-2xl shadow-primary/30 group">
-                  Get Help Now <ArrowRight className="ml-2 w-6 h-6 group-hover:translate-x-1 transition-transform" />
+                <Button size="lg" className="h-16 px-10 text-lg bg-[#FF4D2E] hover:bg-[#FF4D2E]/90 text-white font-bold rounded-2xl shadow-2xl shadow-[#FF4D2E]/30 group transition-all">
+                  Get Help Now <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
               <Link href="/auth/register?role=volunteer">
-                <Button size="lg" variant="outline" className="h-16 px-10 text-xl border-2 border-slate-200 text-slate-600 font-bold rounded-full hover:bg-slate-50">
-                  Volunteer
+                <Button size="lg" variant="outline" className="h-16 px-10 text-lg border-2 border-[#00D4C8]/30 text-[#00D4C8] font-bold rounded-2xl hover:bg-[#00D4C8]/10 transition-all">
+                  Offer Your Skills
                 </Button>
               </Link>
             </div>
-            <div className="flex items-center gap-4 justify-center lg:justify-start pt-4">
+
+            <div className="flex items-center gap-6 justify-center lg:justify-start pt-8 border-t border-white/5">
                <div className="flex -space-x-3">
                  {[1,2,3,4].map(i => (
-                   <div key={i} className="w-10 h-10 rounded-full border-2 border-white bg-slate-200 overflow-hidden shadow-sm">
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 10}`} alt="user" />
+                   <div key={i} className="w-12 h-12 rounded-2xl border-4 border-[#0A0F2C] bg-slate-800 overflow-hidden shadow-xl">
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 42}`} alt="user" className="w-full h-full object-cover" />
                    </div>
                  ))}
                </div>
-               <div className="text-sm font-bold text-slate-400 uppercase tracking-widest">+800 Joined this month</div>
+               <div className="space-y-0.5">
+                 <p className="text-lg font-bold text-white leading-none">2,400+ Verified Helpers</p>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Active in your neighborhood</p>
+               </div>
             </div>
           </div>
           
-          <div className="relative">
-            <div className="relative h-[550px] w-full rounded-[3rem] overflow-hidden shadow-[0_32px_64px_-12px_rgba(0,0,0,0.14)] border-8 border-white rotate-2">
-              {heroImage && (
-                <Image
-                  src={heroImage.imageUrl}
-                  alt={heroImage.description}
-                  fill
-                  priority
-                  className="object-cover"
-                  data-ai-hint={heroImage.imageHint}
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-              <div className="absolute bottom-8 left-8 right-8 bg-white/90 backdrop-blur-xl p-6 rounded-[2rem] shadow-2xl border border-white/20">
-                <div className="flex items-center gap-4">
-                  <div className="bg-emerald-500 p-2.5 rounded-2xl shadow-lg shadow-emerald-500/20">
-                    <CheckCircle2 className="text-white w-6 h-6" />
+          <div className="relative hidden lg:block">
+            {/* Animated Location Pins & Map Visualization */}
+            <div className="relative w-full h-[600px] bg-white/5 rounded-[4rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
+               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20" />
+               
+               {/* Location Pulse */}
+               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <div className="relative flex items-center justify-center">
+                    <div className="absolute w-32 h-32 bg-[#00D4C8]/20 rounded-full animate-ping" />
+                    <div className="absolute w-16 h-16 bg-[#00D4C8]/40 rounded-full animate-pulse" />
+                    <div className="relative bg-[#00D4C8] p-4 rounded-3xl shadow-[0_0_30px_#00D4C8]">
+                      <Navigation className="w-8 h-8 text-[#0A0F2C] fill-[#0A0F2C]" />
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Mission Resolved</p>
-                    <p className="text-xs text-slate-500 font-medium italic leading-relaxed">"Found a verified physics tutor in 12 minutes!"</p>
-                  </div>
-                </div>
-              </div>
+               </div>
+
+               {/* Floating Mock Cards */}
+               <div className="absolute top-12 left-12 animate-bounce" style={{ animationDuration: '4s' }}>
+                  <Card className="bg-slate-900/90 border border-white/10 backdrop-blur-md rounded-2xl p-4 shadow-2xl w-56">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-amber-500/20 p-2 rounded-lg"><Wrench className="w-4 h-4 text-amber-500" /></div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Service</p>
+                        <p className="text-xs font-bold">Need Plumber - 0.3km</p>
+                      </div>
+                    </div>
+                  </Card>
+               </div>
+
+               <div className="absolute bottom-20 left-20 animate-bounce" style={{ animationDuration: '5s', animationDelay: '1s' }}>
+                  <Card className="bg-[#FF4D2E] border-none rounded-2xl p-4 shadow-2xl w-56 text-white">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-white/20 p-2 rounded-lg"><Droplets className="w-4 h-4 text-white" /></div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-white/60 tracking-widest">Emergency</p>
+                        <p className="text-xs font-bold">Medical Help - NOW</p>
+                      </div>
+                    </div>
+                  </Card>
+               </div>
+
+               <div className="absolute top-32 right-12 animate-bounce" style={{ animationDuration: '6s', animationDelay: '0.5s' }}>
+                  <Card className="bg-slate-900/90 border border-white/10 backdrop-blur-md rounded-2xl p-4 shadow-2xl w-56">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-teal-500/20 p-2 rounded-lg"><BookOpen className="w-4 h-4 text-[#00D4C8]" /></div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Skill</p>
+                        <p className="text-xs font-bold">Math Tutor Ready</p>
+                      </div>
+                    </div>
+                  </Card>
+               </div>
             </div>
-            <div className="absolute -top-12 -right-12 w-48 h-48 bg-primary/10 rounded-full blur-3xl animate-pulse" />
-            <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl" />
           </div>
         </div>
       </section>
 
-      {/* Stats Counter Bar */}
-      <section className="py-16 bg-slate-900 text-white relative z-20">
-        <div className="container px-6 mx-auto grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
+      {/* Stats Bar */}
+      <section className="py-16 bg-[#0A0F2C] border-y border-white/5 relative z-20">
+        <div className="container px-6 lg:px-12 mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
           <div className="space-y-2">
-            <h3 className="text-6xl font-headline font-bold text-primary">{mounted ? counts.resolved : 0}+</h3>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Requests Resolved</p>
+            <h3 className="text-4xl lg:text-5xl font-extrabold text-[#00D4C8] tracking-tighter">2,400+</h3>
+            <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Helpers Nearby</p>
           </div>
           <div className="space-y-2">
-            <h3 className="text-6xl font-headline font-bold text-primary">{mounted ? counts.users : 0}+</h3>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Verified Volunteers</p>
+            <h3 className="text-4xl lg:text-5xl font-extrabold text-[#00D4C8] tracking-tighter">850+</h3>
+            <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Skills Listed</p>
           </div>
           <div className="space-y-2">
-            <h3 className="text-6xl font-headline font-bold text-primary">{mounted ? counts.time : 0}m</h3>
-            <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-[10px]">Avg Response Time</p>
+            <h3 className="text-4xl lg:text-5xl font-extrabold text-[#00D4C8] tracking-tighter">99%</h3>
+            <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Response Rate</p>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-4xl lg:text-5xl font-extrabold text-[#00D4C8] tracking-tighter">15</h3>
+            <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-[10px]">Neighborhoods</p>
           </div>
         </div>
       </section>
 
-      {/* How it Works */}
-      <section id="how-it-works" className="py-32 bg-white">
-        <div className="container px-6 mx-auto">
+      {/* How it Works Section */}
+      <section id="how-it-works" className="py-32 bg-gradient-to-b from-[#0A0F2C] to-[#0D3B38]/20">
+        <div className="container px-6 lg:px-12 mx-auto">
           <div className="text-center mb-24 max-w-2xl mx-auto space-y-4">
-            <h2 className="text-5xl font-headline font-bold text-slate-900 tracking-tight">The 3-Step Match</h2>
-            <p className="text-xl text-slate-500 font-medium">How we turn neighborhood needs into community action.</p>
+            <h2 className="text-4xl lg:text-6xl font-extrabold text-white tracking-tighter">The 3-Step Match</h2>
+            <p className="text-xl text-slate-400 font-medium">How we turn neighborhood needs into community action.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-16 relative">
-            <div className="hidden md:block absolute top-1/3 left-0 w-full h-0.5 bg-slate-50 -z-10" />
+            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-white/5 -z-10" />
             
             {[
-              { step: "01", title: "📢 Post your need", desc: "Broadcast your emergency, repair, or academic request to people nearby.", icon: <MessageSquare className="w-10 h-10 text-primary" /> },
-              { step: "02", title: "🔔 Helpers notified", desc: "Our real-time engine alerts verified volunteers matching your specific need.", icon: <Zap className="w-10 h-10 text-amber-500 fill-amber-500" /> },
-              { step: "03", title: "✅ Get help fast", desc: "Coordinate via secure in-app chat and resolve the need together.", icon: <CheckCircle2 className="w-10 h-10 text-emerald-500" /> }
+              { step: "01", title: "📍 Post Your Need", desc: "Broadcast your emergency, repair, or academic request to people nearby.", icon: <MapPin className="w-10 h-10 text-[#FF4D2E]" /> },
+              { step: "02", title: "🔔 Nearby Alerts", desc: "Our real-time engine alerts verified volunteers matching your specific need.", icon: <Bell className="w-10 h-10 text-[#00D4C8]" /> },
+              { step: "03", title: "🤝 Connect & Resolve", desc: "Coordinate via secure in-app chat and resolve the need together.", icon: <CheckCircle2 className="w-10 h-10 text-emerald-500" /> }
             ].map((item, i) => (
               <div key={i} className="flex flex-col items-center text-center space-y-8 group">
-                <div className="w-28 h-28 bg-slate-50 rounded-[2.5rem] flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:bg-white group-hover:shadow-2xl transition-all duration-500 border border-transparent group-hover:border-slate-100">
+                <div className="w-28 h-28 bg-white/5 rounded-[2.5rem] border border-white/10 flex items-center justify-center shadow-inner group-hover:scale-110 group-hover:bg-[#00D4C8]/10 group-hover:border-[#00D4C8]/30 transition-all duration-500">
                   {item.icon}
                 </div>
                 <div className="space-y-3">
-                  <span className="text-[10px] font-black text-primary/40 uppercase tracking-widest border px-3 py-1 rounded-full">{item.step}</span>
-                  <h3 className="text-2xl font-headline font-bold text-slate-900">{item.title}</h3>
-                  <p className="text-slate-500 font-medium max-w-xs leading-relaxed">{item.desc}</p>
+                  <span className="text-[10px] font-black text-[#00D4C8] uppercase tracking-widest bg-[#00D4C8]/10 px-4 py-1.5 rounded-full border border-[#00D4C8]/20">{item.step}</span>
+                  <h3 className="text-2xl font-bold text-white">{item.title}</h3>
+                  <p className="text-slate-400 font-medium max-w-xs leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -211,62 +246,36 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Categories Showcase */}
-      <section id="categories" className="py-32 bg-slate-50/50">
-        <div className="container px-6 mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-20 gap-6">
-            <div className="space-y-4 max-w-xl text-center md:text-left">
-               <h2 className="text-5xl font-headline font-bold tracking-tight text-slate-900">Support Channels</h2>
-               <p className="text-xl text-slate-500 font-medium">Verified expertise for every neighborhood situation.</p>
+      {/* Features Grid */}
+      <section id="features" className="py-32 bg-[#0A0F2C] relative">
+        <div className="container px-6 lg:px-12 mx-auto">
+          <div className="flex flex-col lg:flex-row justify-between items-end mb-24 gap-8">
+            <div className="space-y-4 max-w-2xl text-center lg:text-left">
+               <h2 className="text-4xl lg:text-6xl font-extrabold tracking-tighter text-white">Trust-Built Features</h2>
+               <p className="text-xl text-slate-400 font-medium">Verified expertise for every neighborhood situation.</p>
             </div>
             <Link href="/auth/register">
-              <Button variant="outline" className="rounded-full font-bold border-slate-200 px-8 h-12 shadow-sm bg-white">See all categories</Button>
+              <Button variant="outline" className="rounded-2xl font-bold border-white/10 text-white px-8 h-14 hover:bg-white/5">View Security Protocols</Button>
             </Link>
           </div>
           
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
-              { 
-                title: "Blood Donation", 
-                icon: <Droplets className="w-8 h-8" />, 
-                color: "bg-red-50 text-red-600 border-red-100", 
-                desc: "Urgent units for surgeries or medical emergencies.",
-                example: "Need 2 units O+ for patient at City Hosp."
-              },
-              { 
-                title: "Academic Help", 
-                icon: <BookOpen className="w-8 h-8" />, 
-                color: "bg-blue-50 text-blue-600 border-blue-100", 
-                desc: "Peer-to-peer tutoring and exam prep sessions.",
-                example: "Struggling with Dijkstra's algorithm logic."
-              },
-              { 
-                title: "Repair Service", 
-                icon: <Wrench className="w-8 h-8" />, 
-                color: "bg-amber-50 text-amber-600 border-amber-100", 
-                desc: "Technical fix for electronics or personal gear.",
-                example: "MacBook screen flickering since morning."
-              },
-              { 
-                title: "Emergency", 
-                icon: <AlertTriangle className="w-8 h-8" />, 
-                color: "bg-rose-50 text-rose-600 border-rose-100", 
-                desc: "Immediate help for lost items or urgent safety.",
-                example: "Lost wallet near Library with campus ID."
-              }
+              { title: "Emergency SOS", icon: <AlertTriangle className="w-8 h-8" />, color: "text-[#FF4D2E]", desc: "Immediate broadcasting for critical medical or safety needs." },
+              { title: "Skill Exchange", icon: <Zap className="w-8 h-8" />, color: "text-amber-500", desc: "Trade knowledge or services with qualified neighbors nearby." },
+              { title: "Hyperlocal Feed", icon: <MapPin className="w-8 h-8" />, color: "text-[#00D4C8]", desc: "A live stream of community requests within 5km radius." },
+              { title: "Verified Helpers", icon: <ShieldCheck className="w-8 h-8" />, color: "text-emerald-500", desc: "Every helper goes through identity and skill verification." },
+              { title: "Real-time Chat", icon: <MessageSquare className="w-8 h-8" />, color: "text-blue-500", desc: "Coordinate and finalize details through secure messaging." },
+              { title: "Trust Score", icon: <Star className="w-8 h-8" />, color: "text-purple-500", desc: "Reputation system based on community reviews and successful missions." }
             ].map((cat, i) => (
-              <Card key={i} className="group rounded-[2.5rem] border-none shadow-sm hover:shadow-2xl transition-all duration-500 cursor-pointer overflow-hidden bg-white">
+              <Card key={i} className="group rounded-[2.5rem] border-white/10 bg-white/5 backdrop-blur-xl hover:shadow-[0_0_40px_rgba(0,212,200,0.1)] hover:border-[#00D4C8]/30 transition-all duration-500 cursor-pointer overflow-hidden">
                 <CardContent className="p-10 space-y-6">
-                  <div className={`w-16 h-16 ${cat.color} rounded-2xl flex items-center justify-center border shadow-inner group-hover:scale-110 transition-transform duration-500`}>
+                  <div className={`w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500 ${cat.color}`}>
                     {cat.icon}
                   </div>
                   <div className="space-y-3">
-                    <h3 className="text-2xl font-headline font-bold text-slate-900 leading-tight">{cat.title}</h3>
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed">{cat.desc}</p>
-                  </div>
-                  <div className="pt-6 border-t border-slate-50">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Example Request</p>
-                    <p className="text-xs font-bold text-slate-700 leading-snug italic">"{cat.example}"</p>
+                    <h3 className="text-2xl font-bold text-white leading-tight">{cat.title}</h3>
+                    <p className="text-sm text-slate-400 font-medium leading-relaxed">{cat.desc}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -276,32 +285,31 @@ export default function LandingPage() {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="py-32 bg-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="container px-6 mx-auto">
+      <section id="community" className="py-32 bg-gradient-to-b from-[#0A0F2C] to-[#0D3B38]/10 relative overflow-hidden">
+        <div className="container px-6 lg:px-12 mx-auto">
            <div className="grid lg:grid-cols-2 gap-24 items-center">
-              <div className="space-y-10">
-                 <h2 className="text-5xl md:text-6xl font-headline font-bold tracking-tighter leading-none text-slate-900">
-                   Hear from our <span className="text-primary italic">Community.</span>
+              <div className="space-y-12">
+                 <h2 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-none text-white">
+                   Voices from our <br /><span className="text-[#00D4C8] italic">Community.</span>
                  </h2>
                  <div className="space-y-8">
                    {[
-                     { name: "Sarah J.", role: "Student Volunteer", text: "I've helped 4 neighbors with bike repairs this month. The reputation system makes it so rewarding to see my impact grow!", avatar: "12" },
-                     { name: "Prof. Miller", role: "Faculty Member", text: "CampusConnect is essential for our safety. It fosters a culture of mutual support that standard university apps lack.", avatar: "15" },
-                     { name: "Rohit K.", role: "Junior Developer", text: "Found a tutoring match for Data Structures in 10 minutes. The real-time notification system is absolute magic.", avatar: "18" }
+                     { name: "Rahul K.", loc: "MMMUT Campus", text: "Found a verified Physics tutor in 12 minutes! The real-time matching is absolute magic for students.", avatar: "RK" },
+                     { name: "Sarah M.", loc: "Gorakhpur North", text: "Helped a neighbor with a flat tire late at night. The safety protocols made me feel comfortable responding.", avatar: "SM" },
+                     { name: "Prof. Miller", loc: "Staff Quarters", text: "Essential for campus safety. It fosters a culture of mutual support that standard apps lack.", avatar: "PM" }
                    ].map((t, i) => (
-                     <div key={i} className="p-8 border-none rounded-[2rem] bg-slate-50/50 space-y-6 shadow-sm hover:shadow-md transition-shadow">
+                     <div key={i} className="p-8 border border-white/5 rounded-[2rem] bg-white/5 backdrop-blur-sm space-y-6 shadow-sm hover:border-[#00D4C8]/20 transition-all">
                         <div className="flex gap-1">
                           {[1,2,3,4,5].map(s => <Star key={s} className="w-4 h-4 text-amber-400 fill-amber-400" />)}
                         </div>
-                        <p className="text-lg text-slate-700 font-medium leading-relaxed italic">"{t.text}"</p>
+                        <p className="text-lg text-slate-200 font-medium leading-relaxed italic">"{t.text}"</p>
                         <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 rounded-2xl bg-slate-200 overflow-hidden shadow-sm border-2 border-white">
-                              <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${t.avatar}`} alt="avatar" />
+                           <div className="w-12 h-12 rounded-2xl bg-[#00D4C8]/20 flex items-center justify-center border-2 border-[#00D4C8]/30 font-bold text-[#00D4C8]">
+                              {t.avatar}
                            </div>
                            <div>
-                              <p className="font-bold text-slate-900">{t.name}</p>
-                              <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{t.role}</p>
+                              <p className="font-bold text-white">{t.name}</p>
+                              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{t.loc}</p>
                            </div>
                         </div>
                      </div>
@@ -309,26 +317,26 @@ export default function LandingPage() {
                  </div>
               </div>
               
-              <div className="bg-slate-900 p-12 md:p-20 rounded-[4rem] border border-white/10 relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-12 opacity-5 rotate-12 group-hover:scale-110 transition-transform duration-700">
+              <div className="bg-[#FF4D2E] p-12 md:p-20 rounded-[4rem] relative overflow-hidden group">
+                 <div className="absolute top-0 right-0 p-12 opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-700">
                     <Heart className="w-64 h-64 text-white" />
                  </div>
                  <div className="space-y-8 relative z-10">
-                    <div className="bg-primary/20 w-20 h-20 rounded-3xl flex items-center justify-center mb-10 border border-primary/30">
-                      <ShieldCheck className="w-10 h-10 text-primary" />
+                    <div className="bg-white/20 w-20 h-20 rounded-3xl flex items-center justify-center mb-10 border border-white/30">
+                      <ShieldCheck className="w-10 h-10 text-white" />
                     </div>
-                    <h3 className="text-4xl md:text-5xl font-headline font-bold text-white leading-tight">Ready to make a campus impact?</h3>
-                    <p className="text-xl text-slate-400 font-medium leading-relaxed">
-                      Join thousands of campus members already using CampusConnect to stay safe, get expert help, and give back.
+                    <h3 className="text-4xl md:text-5xl font-extrabold text-white leading-tight">Ready to Make Your Neighborhood Safer?</h3>
+                    <p className="text-xl text-white/80 font-medium leading-relaxed">
+                      Join thousands of campus members and residents already using HelpLink to stay safe and give back.
                     </p>
                     <div className="pt-6">
                       <Link href="/auth/register" className="inline-block">
-                        <Button size="lg" className="h-16 px-12 text-xl bg-primary hover:bg-primary/90 text-white font-bold rounded-full shadow-2xl shadow-primary/40 active:scale-95 transition-all">
-                          Create Your Profile
+                        <Button size="lg" className="h-16 px-12 text-xl bg-white text-[#FF4D2E] hover:bg-slate-100 font-bold rounded-2xl shadow-2xl active:scale-95 transition-all">
+                          Join Local HelpLink Free
                         </Button>
                       </Link>
                     </div>
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">No subscription fees • Verified Campus Emails Only</p>
+                    <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em]">No subscription fees • Verified Accounts Only</p>
                  </div>
               </div>
            </div>
@@ -336,19 +344,19 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-950 text-slate-500 py-24 border-t border-white/5">
-        <div className="container px-6 mx-auto grid md:grid-cols-4 gap-16">
+      <footer className="bg-[#0A0F2C] text-slate-500 py-24 border-t border-white/5">
+        <div className="container px-6 lg:px-12 mx-auto grid md:grid-cols-4 gap-16">
           <div className="space-y-8 col-span-2 md:col-span-1">
             <div className="flex items-center gap-3">
-              <div className="bg-primary/20 p-2 rounded-xl">
-                <Heart className="text-primary w-6 h-6 fill-primary" />
+              <div className="bg-[#FF4D2E]/20 p-2 rounded-xl">
+                <Heart className="text-[#FF4D2E] w-6 h-6 fill-[#FF4D2E]" />
               </div>
-              <span className="text-2xl font-headline font-bold text-white tracking-tight">CampusConnect</span>
+              <span className="text-2xl font-bold text-white tracking-tight">HelpLink</span>
             </div>
-            <p className="text-sm leading-relaxed font-medium">The hyperlocal platform for campus emergencies and skill exchange. Building safer university communities together through neighborhood action.</p>
+            <p className="text-sm leading-relaxed font-medium">The hyperlocal platform for neighborhood emergencies and skill exchange. Building safer communities through local action.</p>
             <div className="flex gap-4">
                {[1,2,3,4].map(i => (
-                 <div key={i} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-primary hover:text-white transition-all cursor-pointer group">
+                 <div key={i} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#FF4D2E] hover:text-white transition-all cursor-pointer group">
                     <Globe className="w-5 h-5 text-slate-600 group-hover:text-white" />
                  </div>
                ))}
@@ -358,40 +366,40 @@ export default function LandingPage() {
           <div>
             <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Platform</h4>
             <ul className="space-y-5 text-sm font-bold">
-              <li><Link href="#" className="hover:text-primary transition-colors">Safety Protocols</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Verification Process</Link></li>
-              <li><Link href="/leaderboard" className="hover:text-primary transition-colors">Global Leaderboard</Link></li>
-              <li><Link href="/blood-donors" className="hover:text-primary transition-colors">Blood Registry</Link></li>
+              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">How it Works</Link></li>
+              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Safety Protocols</Link></li>
+              <li><Link href="/leaderboard" className="hover:text-[#00D4C8] transition-colors">Leaderboard</Link></li>
+              <li><Link href="/blood-donors" className="hover:text-[#00D4C8] transition-colors">Blood Registry</Link></li>
             </ul>
           </div>
           
           <div>
             <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Support</h4>
             <ul className="space-y-5 text-sm font-bold">
-              <li><Link href="#" className="hover:text-primary transition-colors">Member Guidelines</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Privacy Shield</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Terms of Service</Link></li>
-              <li><Link href="#" className="hover:text-primary transition-colors">Report Abuse</Link></li>
+              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Safety Guidelines</Link></li>
+              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Privacy Policy</Link></li>
+              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Terms of Service</Link></li>
+              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Contact Support</Link></li>
             </ul>
           </div>
           
           <div className="space-y-6">
-            <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Campus Newsletter</h4>
-            <p className="text-xs leading-relaxed font-medium">Stay updated with neighborhood news and impact alerts.</p>
+            <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Newsletter</h4>
+            <p className="text-xs leading-relaxed font-medium">Stay updated with neighborhood impact reports.</p>
             <div className="flex gap-2">
-              <input type="email" placeholder="Campus email" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs flex-grow focus:outline-none focus:ring-1 focus:ring-primary" />
-              <Button size="sm" className="bg-primary rounded-xl h-9">Join</Button>
+              <input type="email" placeholder="Email address" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs flex-grow focus:outline-none focus:ring-1 focus:ring-[#00D4C8]" />
+              <Button size="sm" className="bg-[#00D4C8] text-[#0A0F2C] hover:bg-[#00D4C8]/90 rounded-xl h-9 font-bold px-4">Join</Button>
             </div>
           </div>
         </div>
         
-        <div className="container px-6 mx-auto mt-24 pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="container px-6 lg:px-12 mx-auto mt-24 pt-10 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600">
-            © 2024 CampusConnect. Built for a more helpful university neighborhood.
+            © 2024 HelpLink Hyperlocal. Designed for community impact.
           </p>
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            Verified Campus Project
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-[#00D4C8]">
+            <ShieldCheck className="w-4 h-4" />
+            Verified Campus Network
           </div>
         </div>
       </footer>
