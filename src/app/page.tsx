@@ -317,26 +317,26 @@ export default function LandingPage() {
                  </div>
               </div>
               
-              <div className="bg-[#FF4D2E] p-12 md:p-20 rounded-[4rem] relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-12 opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-700">
-                    <Heart className="w-64 h-64 text-white" />
+              <div className="bg-[#F0FDFA] p-12 md:p-20 rounded-[4rem] relative overflow-hidden group border border-[#CCFBF1]">
+                 <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 group-hover:scale-110 transition-transform duration-700">
+                    <Heart className="w-64 h-64 text-[#00D4C8]" />
                  </div>
                  <div className="space-y-8 relative z-10">
-                    <div className="bg-white/20 w-20 h-20 rounded-3xl flex items-center justify-center mb-10 border border-white/30">
-                      <ShieldCheck className="w-10 h-10 text-white" />
+                    <div className="bg-[#00D4C8]/10 w-20 h-20 rounded-3xl flex items-center justify-center mb-10 border border-[#00D4C8]/20">
+                      <ShieldCheck className="w-10 h-10 text-[#00D4C8]" />
                     </div>
-                    <h3 className="text-4xl md:text-5xl font-extrabold text-white leading-tight">Ready to Make Your Neighborhood Safer?</h3>
-                    <p className="text-xl text-white/80 font-medium leading-relaxed">
+                    <h3 className="text-4xl md:text-5xl font-extrabold text-slate-900 leading-tight">Ready to Make Your Neighborhood Safer?</h3>
+                    <p className="text-xl text-slate-600 font-medium leading-relaxed">
                       Join thousands of campus members and residents already using HelpLink to stay safe and give back.
                     </p>
                     <div className="pt-6">
                       <Link href="/auth/register" className="inline-block">
-                        <Button size="lg" className="h-16 px-12 text-xl bg-white text-[#FF4D2E] hover:bg-slate-100 font-bold rounded-2xl shadow-2xl active:scale-95 transition-all">
+                        <Button size="lg" className="h-16 px-12 text-xl bg-[#FF4D2E] text-white hover:bg-[#FF4D2E]/90 font-bold rounded-2xl shadow-2xl active:scale-95 transition-all">
                           Join Local HelpLink Free
                         </Button>
                       </Link>
                     </div>
-                    <p className="text-[10px] font-black text-white/60 uppercase tracking-[0.3em]">No subscription fees • Verified Accounts Only</p>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">No subscription fees • Verified Accounts Only</p>
                  </div>
               </div>
            </div>
