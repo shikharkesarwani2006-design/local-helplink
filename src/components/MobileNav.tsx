@@ -3,22 +3,38 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, PlusCircle, History, User, Heart } from "lucide-react";
+import { LayoutDashboard, PlusCircle, History, User, Heart, ShieldCheck, Users, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { doc } from "firebase/firestore";
 
 export function MobileNav() {
   const pathname = usePathname();
   const { user } = useUser();
+  const db = useFirestore();
+
+  const userRef = useMemoFirebase(() => (db && user?.uid ? doc(db, "users", user.uid) : null), [db, user?.uid]);
+  const { data: profile } = useDoc(userRef);
 
   if (!user || pathname === "/" || pathname.startsWith("/auth")) return null;
 
-  const tabs = [
+  const isAdmin = profile?.role === 'admin';
+
+  const citizenTabs = [
     { label: "Feed", href: "/dashboard", icon: LayoutDashboard },
     { label: "Post", href: "/requests/new", icon: PlusCircle },
     { label: "History", href: "/requests/my", icon: History },
     { label: "Profile", href: "/profile", icon: User },
   ];
+
+  const adminTabs = [
+    { label: "Hub", href: "/admin", icon: LayoutDashboard },
+    { label: "Missions", href: "/admin/requests", icon: LayoutGrid },
+    { label: "Citizens", href: "/admin/users", icon: Users },
+    { label: "Verify", href: "/admin/verifications", icon: ShieldCheck },
+  ];
+
+  const tabs = isAdmin ? adminTabs : citizenTabs;
 
   return (
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-t dark:border-slate-800 px-4 py-2 flex justify-around items-end shadow-[0_-5px_20px_rgba(0,0,0,0.05)] rounded-t-3xl" role="navigation" aria-label="Mobile Bottom Navigation">

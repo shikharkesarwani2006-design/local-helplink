@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -51,7 +52,6 @@ import { cn } from "@/lib/utils";
 
 function UserSmallCard({ userId, label }: { userId: string; label: string }) {
   const db = useFirestore();
-  // FIXED: Ensure userId exists before calling doc()
   const userRef = useMemoFirebase(() => (db && userId ? doc(db, "users", userId) : null), [db, userId]);
   const { data: profile } = useDoc(userRef);
 
@@ -101,14 +101,12 @@ export default function AdminRequestsManager() {
     }
   }, [user, profile, isUserLoading, isProfileLoading, router]);
 
-  // REMOVED orderBy to avoid index
   const requestsQuery = useMemoFirebase(() => {
     if (!db || profile?.role !== 'admin') return null;
     return query(collection(db, "requests"));
   }, [db, profile?.role]);
   const { data: rawRequests, isLoading: isRequestsLoading } = useCollection(requestsQuery);
 
-  // SORT AND FILTER IN JS
   const allRequestsSorted = useMemo(() => {
     if (!rawRequests) return [];
     return [...rawRequests].sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
@@ -196,65 +194,65 @@ export default function AdminRequestsManager() {
     }
   };
 
-  if (isUserLoading || isProfileLoading) return null;
+  if (isUserLoading || isProfileLoading) return <div className="flex h-screen items-center justify-center bg-[#0A0F1E]"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 pb-20">
-      <header className="bg-white dark:bg-slate-900 border-b dark:border-slate-800 py-8 px-6">
+    <div className="min-h-screen bg-[#0A0F1E] text-slate-50 pb-20">
+      <header className="bg-[#1A1F35] border-b border-white/5 py-8 px-6">
         <div className="container mx-auto space-y-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
             <div className="space-y-1">
-              <h1 className="text-3xl font-headline font-bold text-slate-900 dark:text-white tracking-tight">Community Requests</h1>
-              <p className="text-slate-500 text-sm font-medium">Monitor, moderate and manage global community missions.</p>
+              <h1 className="text-3xl font-headline font-bold text-white tracking-tight">Community Missions</h1>
+              <p className="text-slate-400 text-sm font-medium">Monitor, moderate and manage all global community help requests.</p>
             </div>
             
-            <div className="flex gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 dark:bg-slate-800/50 px-6 py-3 rounded-2xl border dark:border-slate-800 shadow-sm">
-              <div className="flex flex-col items-center px-2 border-r dark:border-slate-700"><span className="text-slate-900 dark:text-white text-lg">{stats.total}</span> Total</div>
-              <div className="flex flex-col items-center px-2 border-r dark:border-slate-700 text-blue-500"><span className="text-lg">{stats.open}</span> Open</div>
-              <div className="flex flex-col items-center px-2 border-r dark:border-slate-700 text-amber-500"><span className="text-lg">{stats.active}</span> Active</div>
-              <div className="flex flex-col items-center px-2 border-r dark:border-slate-700 text-emerald-500"><span className="text-lg">{stats.completed}</span> Success</div>
-              <div className="flex flex-col items-center px-2 text-slate-400"><span className="text-lg">{stats.expired}</span> Expired</div>
+            <div className="flex gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white/5 px-6 py-3 rounded-2xl border border-white/5 shadow-sm">
+              <div className="flex flex-col items-center px-2 border-r border-white/5"><span className="text-white text-lg">{stats.total}</span> Total</div>
+              <div className="flex flex-col items-center px-2 border-r border-white/5 text-blue-400"><span className="text-lg">{stats.open}</span> Open</div>
+              <div className="flex flex-col items-center px-2 border-r border-white/5 text-amber-400"><span className="text-lg">{stats.active}</span> Active</div>
+              <div className="flex flex-col items-center px-2 border-r border-white/5 text-emerald-400"><span className="text-lg">{stats.completed}</span> Success</div>
+              <div className="flex flex-col items-center px-2 text-slate-500"><span className="text-lg">{stats.expired}</span> Expired</div>
             </div>
           </div>
 
-          <div className="space-y-4 pt-4 border-t dark:border-slate-800">
+          <div className="space-y-4 pt-4 border-t border-white/5">
             <Tabs value={statusFilter} onValueChange={setStatusFilter} className="w-full">
-              <TabsList className="bg-slate-100 dark:bg-slate-800 rounded-xl p-1 h-11">
-                <TabsTrigger value="all" className="rounded-lg font-bold px-6">All Missions</TabsTrigger>
-                <TabsTrigger value="open" className="rounded-lg font-bold px-6">Open Feed</TabsTrigger>
-                <TabsTrigger value="accepted" className="rounded-lg font-bold px-6">In Progress</TabsTrigger>
-                <TabsTrigger value="completed" className="rounded-lg font-bold px-6">Resolved</TabsTrigger>
-                <TabsTrigger value="expired" className="rounded-lg font-bold px-6">Expired</TabsTrigger>
+              <TabsList className="bg-white/5 rounded-xl p-1 h-11 border border-white/5">
+                <TabsTrigger value="all" className="rounded-lg font-bold px-6 data-[state=active]:bg-primary">All Missions</TabsTrigger>
+                <TabsTrigger value="open" className="rounded-lg font-bold px-6 data-[state=active]:bg-primary">Open Feed</TabsTrigger>
+                <TabsTrigger value="accepted" className="rounded-lg font-bold px-6 data-[state=active]:bg-primary">In Progress</TabsTrigger>
+                <TabsTrigger value="completed" className="rounded-lg font-bold px-6 data-[state=active]:bg-primary">Resolved</TabsTrigger>
+                <TabsTrigger value="expired" className="rounded-lg font-bold px-6 data-[state=active]:bg-primary">Expired</TabsTrigger>
               </TabsList>
             </Tabs>
 
             <div className="flex flex-wrap items-center gap-4">
               <div className="relative flex-grow max-w-sm">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <Input 
                   placeholder="Filter by title..." 
-                  className="pl-11 h-11 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl"
+                  className="pl-11 h-11 bg-white/5 border-white/5 rounded-xl text-white placeholder:text-slate-600"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
-                <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <select className="text-xs font-bold bg-transparent outline-none cursor-pointer dark:text-slate-300" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-                  <option value="all">Any Category</option>
-                  <option value="blood">Blood Donation</option>
-                  <option value="tutor">Tutoring</option>
-                  <option value="repair">Repair</option>
-                  <option value="emergency">Emergency</option>
+              <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/5 shadow-sm">
+                <Filter className="w-3.5 h-3.5 text-slate-500" />
+                <select className="text-xs font-bold bg-transparent outline-none cursor-pointer text-slate-300" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                  <option value="all" className="bg-[#1A1F35]">Any Category</option>
+                  <option value="blood" className="bg-[#1A1F35]">Blood Donation</option>
+                  <option value="tutor" className="bg-[#1A1F35]">Tutoring</option>
+                  <option value="repair" className="bg-[#1A1F35]">Repair</option>
+                  <option value="emergency" className="bg-[#1A1F35]">Emergency</option>
                 </select>
               </div>
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800">
-                <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
-                <select className="text-xs font-bold bg-transparent outline-none cursor-pointer dark:text-slate-300" value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value)}>
-                  <option value="all">Any Urgency</option>
-                  <option value="high">🔴 Critical</option>
-                  <option value="medium">🟡 Medium</option>
-                  <option value="low">🟢 Normal</option>
+              <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-xl border border-white/5 shadow-sm">
+                <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+                <select className="text-xs font-bold bg-transparent outline-none cursor-pointer text-slate-300" value={urgencyFilter} onChange={(e) => setUrgencyFilter(e.target.value)}>
+                  <option value="all" className="bg-[#1A1F35]">Any Urgency</option>
+                  <option value="high" className="bg-[#1A1F35]">🔴 Critical</option>
+                  <option value="medium" className="bg-[#1A1F35]">🟡 Medium</option>
+                  <option value="low" className="bg-[#1A1F35]">🟢 Normal</option>
                 </select>
               </div>
             </div>
@@ -263,44 +261,44 @@ export default function AdminRequestsManager() {
       </header>
 
       <main className="container px-6 mx-auto py-8">
-        <Card className="border-none shadow-xl overflow-hidden bg-white dark:bg-slate-900 rounded-[2rem]">
+        <Card className="border-none shadow-xl overflow-hidden bg-[#1A1F35] rounded-[2rem]">
           <Table>
-            <TableHeader className="bg-slate-50/50 dark:bg-slate-800/50">
-              <TableRow className="border-slate-100 dark:border-slate-800">
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 pl-8 w-12">#</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Request Title</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Category</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Urgency</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Status</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">By Member</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14">Assigned To</TableHead>
-                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-right pr-8">Actions</TableHead>
+            <TableHeader className="bg-white/5">
+              <TableRow className="border-white/5">
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 pl-8 w-12 text-slate-500">#</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-slate-500">Request Title</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-slate-500">Category</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-slate-500">Urgency</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-slate-500">Status</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-slate-500">By Member</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-slate-500">Assigned</TableHead>
+                <TableHead className="font-bold uppercase text-[10px] tracking-widest h-14 text-right pr-8 text-slate-500">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isRequestsLoading ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-24 text-slate-400"><RefreshCw className="animate-spin w-8 h-8 mx-auto mb-2" /> Syncing network missions...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-24 text-slate-500"><RefreshCw className="animate-spin w-8 h-8 mx-auto mb-2" /> Syncing network...</TableCell></TableRow>
               ) : filteredRequests.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="text-center py-24 text-slate-400">No matching requests found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-24 text-slate-500">No matching requests found.</TableCell></TableRow>
               ) : filteredRequests.map((r, i) => (
                 <TableRow 
                   key={r.id} 
                   className={cn(
-                    "border-slate-50 dark:border-slate-800 group hover:bg-slate-50/30 transition-colors",
-                    r.urgency === 'high' ? "border-l-4 border-l-red-500" : 
+                    "border-white/5 group hover:bg-white/[0.02] transition-colors",
+                    r.urgency === 'high' ? "border-l-4 border-l-rose-500" : 
                     r.urgency === 'medium' ? "border-l-4 border-l-amber-500" : 
                     "border-l-4 border-l-emerald-500"
                   )}
                 >
-                  <TableCell className="pl-8 py-4 text-xs font-black text-slate-300">{i + 1}</TableCell>
+                  <TableCell className="pl-8 py-4 text-xs font-black text-slate-700">{i + 1}</TableCell>
                   <TableCell className="py-4">
                     <div className="flex flex-col min-w-[200px]">
-                      <span className="font-bold text-slate-900 dark:text-white truncate cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedRequest(r)}>{r.title}</span>
-                      <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {r.createdAt ? format(r.createdAt.toDate(), 'MMM dd, HH:mm') : '-'}</span>
+                      <span className="font-bold text-slate-200 truncate cursor-pointer hover:text-primary transition-colors" onClick={() => setSelectedRequest(r)}>{r.title}</span>
+                      <span className="text-[10px] font-bold text-slate-600 flex items-center gap-1 uppercase tracking-tight"><Clock className="w-3 h-3" /> {r.createdAt ? format(r.createdAt.toDate(), 'MMM dd, HH:mm') : '-'}</span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                       {getCategoryIcon(r.category)}
                       <span className="capitalize">{r.category}</span>
                     </div>
@@ -308,9 +306,9 @@ export default function AdminRequestsManager() {
                   <TableCell>
                     <Badge variant="outline" className={cn(
                       "text-[9px] font-black uppercase px-2 py-0.5 border-none",
-                      r.urgency === 'high' ? "bg-red-50 text-red-600" : 
-                      r.urgency === 'medium' ? "bg-amber-50 text-amber-600" : 
-                      "bg-emerald-50 text-emerald-600"
+                      r.urgency === 'high' ? "bg-rose-500/20 text-rose-400" : 
+                      r.urgency === 'medium' ? "bg-amber-500/20 text-amber-400" : 
+                      "bg-emerald-500/20 text-emerald-400"
                     )}>
                       {r.urgency}
                     </Badge>
@@ -320,54 +318,50 @@ export default function AdminRequestsManager() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6"><AvatarFallback className="text-[8px] font-bold">{r.postedByName?.[0]}</AvatarFallback></Avatar>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{r.postedByName}</span>
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-[8px] font-bold bg-white/10 text-white">{r.postedByName?.[0]}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-bold text-slate-400">{r.postedByName}</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     {r.acceptedBy ? (
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[10px] border-none">Member Assigned</Badge>
-                      </div>
+                      <Badge variant="secondary" className="bg-white/5 text-slate-400 font-bold text-[10px] border-none">Member Linked</Badge>
                     ) : (
-                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Unassigned</span>
+                      <span className="text-[10px] font-black text-slate-700 uppercase tracking-widest italic">Awaiting</span>
                     )}
                   </TableCell>
                   <TableCell className="text-right pr-8">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 text-slate-400"><MoreVertical className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 text-slate-600"><MoreVertical className="w-4 h-4" /></Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="right" className="rounded-2xl w-56 p-2 shadow-2xl border-none">
-                        <DropdownMenuLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-3 mb-1">Moderation</DropdownMenuLabel>
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold cursor-pointer" onClick={() => setSelectedRequest(r)}>
-                          <Eye className="w-4 h-4" /> View Full Details
+                      <DropdownMenuContent align="right" className="rounded-2xl w-56 p-2 shadow-2xl border-none bg-[#1A1F35]">
+                        <DropdownMenuLabel className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-3 mb-1">Moderation</DropdownMenuLabel>
+                        <DropdownMenuItem className="rounded-xl gap-2 font-bold cursor-pointer text-slate-200" onClick={() => setSelectedRequest(r)}>
+                          <Eye className="w-4 h-4 text-primary" /> Full Details
                         </DropdownMenuItem>
                         
                         {r.status !== 'completed' && (
-                          <DropdownMenuItem className="rounded-xl gap-2 font-bold text-emerald-600 cursor-pointer" onClick={() => handleForceComplete(r.id)}>
-                            <CheckCircle2 className="w-4 h-4" /> Force Complete
+                          <DropdownMenuItem className="rounded-xl gap-2 font-bold text-emerald-400 cursor-pointer" onClick={() => handleForceComplete(r.id)}>
+                            <CheckCircle2 className="w-4 h-4" /> Force Resolved
                           </DropdownMenuItem>
                         )}
 
                         {r.status === 'accepted' && (
-                          <DropdownMenuItem className="rounded-xl gap-2 font-bold text-amber-600 cursor-pointer" onClick={() => handleReopen(r.id)}>
-                            <RefreshCw className="w-4 h-4" /> Reopen Mission
+                          <DropdownMenuItem className="rounded-xl gap-2 font-bold text-amber-400 cursor-pointer" onClick={() => handleReopen(r.id)}>
+                            <RefreshCw className="w-4 h-4" /> Reset to Open
                           </DropdownMenuItem>
                         )}
 
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-blue-600 cursor-pointer" onClick={() => handleExtendExpiry(r.id, r.expiresAt)}>
-                          <Calendar className="w-4 h-4" /> Extend +24 Hours
+                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-blue-400 cursor-pointer" onClick={() => handleExtendExpiry(r.id, r.expiresAt)}>
+                          <Calendar className="w-4 h-4" /> Extend Deadline
                         </DropdownMenuItem>
 
-                        <DropdownMenuSeparator />
+                        <DropdownMenuSeparator className="bg-white/5" />
                         
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-slate-500 cursor-pointer">
-                          <Flag className="w-4 h-4" /> Mark as Reported
-                        </DropdownMenuItem>
-
-                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-red-600 cursor-pointer" onClick={() => handleDeleteRequest(r.id)}>
-                          <Trash2 className="w-4 h-4" /> Permanent Delete
+                        <DropdownMenuItem className="rounded-xl gap-2 font-bold text-rose-400 cursor-pointer" onClick={() => handleDeleteRequest(r.id)}>
+                          <Trash2 className="w-4 h-4" /> Delete Permanently
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -380,42 +374,42 @@ export default function AdminRequestsManager() {
       </main>
 
       <Dialog open={!!selectedRequest} onOpenChange={() => setSelectedRequest(null)}>
-        <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl bg-[#0A0F1E]">
           {selectedRequest && (
             <div className="flex flex-col max-h-[90vh]">
               <header className={cn(
-                "p-8 text-white relative",
-                selectedRequest.urgency === 'high' ? "bg-red-600" : "bg-slate-900"
+                "p-8 text-white relative border-b border-white/5",
+                selectedRequest.urgency === 'high' ? "bg-rose-600" : "bg-[#1A1F35]"
               )}>
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl opacity-50" />
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl opacity-50" />
                 <div className="flex items-center justify-between mb-6 relative z-10">
                   <Badge className="bg-white/20 text-white border-none px-4 py-1.5 font-black uppercase text-[10px] tracking-widest">
                     {selectedRequest.category} • {selectedRequest.urgency} Urgency
                   </Badge>
-                  <span className="text-[10px] font-bold opacity-70">ID: {selectedRequest.id}</span>
+                  <span className="text-[10px] font-bold opacity-70">UID: {selectedRequest.id}</span>
                 </div>
                 <DialogTitle className="text-3xl font-headline font-bold relative z-10 leading-tight">{selectedRequest.title}</DialogTitle>
               </header>
 
-              <div className="flex-grow overflow-y-auto p-8 bg-white dark:bg-slate-950">
+              <div className="flex-grow overflow-y-auto p-8">
                 <div className="grid md:grid-cols-12 gap-8">
                   <div className="md:col-span-7 space-y-8">
                     <div className="space-y-3">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Description</h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium whitespace-pre-wrap">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Description</h4>
+                      <p className="text-sm text-slate-400 leading-relaxed font-medium whitespace-pre-wrap">
                         {selectedRequest.description || "No detailed description provided."}
                       </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border dark:border-slate-800 space-y-1">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</p>
-                        <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-1">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Location</p>
+                        <div className="flex items-center gap-2 text-sm font-bold text-white">
                           <MapPin className="w-4 h-4 text-primary" /> {selectedRequest.location?.area || "Campuswide"}
                         </div>
                       </div>
-                      <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border dark:border-slate-800 space-y-1">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</p>
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/5 space-y-1">
+                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">System Status</p>
                         <div className="flex items-center gap-2 text-sm font-bold capitalize">
                           {getStatusBadge(selectedRequest.status, selectedRequest.expiresAt)}
                         </div>
@@ -423,25 +417,25 @@ export default function AdminRequestsManager() {
                     </div>
 
                     <div className="space-y-4">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b pb-2">Mission Timeline</h4>
-                      <div className="space-y-4 relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-slate-100 dark:before:bg-slate-800">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Mission Timeline</h4>
+                      <div className="space-y-4 relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-px before:bg-white/5">
                         <div className="relative">
-                          <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-white dark:ring-slate-950" />
-                          <p className="text-xs font-bold text-slate-900 dark:text-white">Broadcast Started</p>
-                          <p className="text-[10px] text-slate-400">{selectedRequest.createdAt ? format(selectedRequest.createdAt.toDate(), 'MMM dd, yyyy HH:mm') : 'Recently'}</p>
+                          <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-[#0A0F1E]" />
+                          <p className="text-xs font-bold text-white">Broadcast Initialized</p>
+                          <p className="text-[10px] text-slate-500">{selectedRequest.createdAt ? format(selectedRequest.createdAt.toDate(), 'MMM dd, yyyy HH:mm') : 'Recently'}</p>
                         </div>
                         {selectedRequest.acceptedAt && (
                           <div className="relative">
-                            <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-amber-500 ring-4 ring-white dark:ring-slate-950" />
-                            <p className="text-xs font-bold text-slate-900 dark:text-white">Assigned to Neighbor</p>
-                            <p className="text-[10px] text-slate-400">{format(selectedRequest.acceptedAt.toDate(), 'MMM dd, yyyy HH:mm')}</p>
+                            <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-amber-500 ring-4 ring-[#0A0F1E]" />
+                            <p className="text-xs font-bold text-white">Neighbor Assigned</p>
+                            <p className="text-[10px] text-slate-500">{format(selectedRequest.acceptedAt.toDate(), 'MMM dd, yyyy HH:mm')}</p>
                           </div>
                         )}
                         {selectedRequest.completedAt && (
                           <div className="relative">
-                            <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-slate-950" />
-                            <p className="text-xs font-bold text-slate-900 dark:text-white">Mission Resolved</p>
-                            <p className="text-[10px] text-slate-400">{format(selectedRequest.completedAt.toDate(), 'MMM dd, yyyy HH:mm')}</p>
+                            <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-[#0A0F1E]" />
+                            <p className="text-xs font-bold text-white">Resolution Confirmed</p>
+                            <p className="text-[10px] text-slate-500">{format(selectedRequest.completedAt.toDate(), 'MMM dd, yyyy HH:mm')}</p>
                           </div>
                         )}
                       </div>
@@ -454,23 +448,23 @@ export default function AdminRequestsManager() {
                     {selectedRequest.acceptedBy ? (
                       <UserSmallCard userId={selectedRequest.acceptedBy} label="Responder" />
                     ) : (
-                      <div className="p-6 border-2 border-dashed rounded-3xl text-center space-y-2">
-                        <User className="w-8 h-8 text-slate-200 mx-auto" />
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Awaiting Helper</p>
+                      <div className="p-6 border-2 border-dashed border-white/5 rounded-3xl text-center space-y-2">
+                        <User className="w-8 h-8 text-slate-800 mx-auto" />
+                        <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest leading-none">Searching for helper</p>
                       </div>
                     )}
 
                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 space-y-4">
                       <div className="flex items-center gap-2">
                         <ShieldCheck className="w-5 h-5 text-primary" />
-                        <h5 className="text-xs font-black uppercase text-primary tracking-widest">Admin Oversight</h5>
+                        <h5 className="text-xs font-black uppercase text-primary tracking-widest">Admin Control Panel</h5>
                       </div>
-                      <div className="space-y-3">
-                        <Button variant="outline" className="w-full justify-start rounded-xl h-10 text-xs font-bold gap-2" onClick={() => handleExtendExpiry(selectedRequest.id, selectedRequest.expiresAt)}>
-                          <Calendar className="w-3.5 h-3.5" /> Extend Deadline
+                      <div className="space-y-2">
+                        <Button variant="outline" className="w-full justify-start rounded-xl h-10 text-xs font-bold gap-2 border-white/5 bg-white/5 hover:bg-white/10" onClick={() => handleExtendExpiry(selectedRequest.id, selectedRequest.expiresAt)}>
+                          <Calendar className="w-3.5 h-3.5" /> Extend Deadline (+24h)
                         </Button>
-                        <Button variant="outline" className="w-full justify-start rounded-xl h-10 text-xs font-bold gap-2 text-red-500 hover:bg-red-50" onClick={() => handleDeleteRequest(selectedRequest.id)}>
-                          <Trash2 className="w-3.5 h-3.5" /> Delete Request
+                        <Button variant="outline" className="w-full justify-start rounded-xl h-10 text-xs font-bold gap-2 border-white/5 bg-white/5 hover:bg-white/10 text-rose-400" onClick={() => handleDeleteRequest(selectedRequest.id)}>
+                          <Trash2 className="w-3.5 h-3.5" /> Remove Broadcast
                         </Button>
                       </div>
                     </div>
@@ -478,11 +472,11 @@ export default function AdminRequestsManager() {
                 </div>
               </div>
 
-              <div className="p-6 bg-slate-50 dark:bg-slate-900 border-t dark:border-slate-800 flex flex-wrap gap-3 justify-end mt-auto">
-                <Button variant="ghost" className="rounded-xl font-bold" onClick={() => setSelectedRequest(null)}>Dismiss</Button>
+              <div className="p-6 bg-white/5 border-t border-white/5 flex flex-wrap gap-3 justify-end mt-auto">
+                <Button variant="ghost" className="rounded-xl font-bold" onClick={() => setSelectedRequest(null)}>Close Viewer</Button>
                 {selectedRequest.status !== 'completed' && (
-                  <Button className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-2" onClick={() => handleForceComplete(selectedRequest.id)}>
-                    <CheckCircle2 className="w-4 h-4" /> Force Complete
+                  <Button className="rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold gap-2 shadow-lg shadow-emerald-500/20" onClick={() => handleForceComplete(selectedRequest.id)}>
+                    <CheckCircle2 className="w-4 h-4" /> Force Resolved
                   </Button>
                 )}
               </div>

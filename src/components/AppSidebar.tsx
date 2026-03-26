@@ -1,3 +1,4 @@
+
 "use client";
 
 import { 
@@ -24,7 +25,8 @@ import {
   CircleDollarSign,
   MessageSquare,
   Settings,
-  Droplets
+  Droplets,
+  Files
 } from "lucide-react";
 import { 
   Sidebar, 
@@ -70,26 +72,17 @@ export function AppSidebar() {
 
   const isItemActive = useCallback((href: string) => {
     const [basePath, queryStr] = href.split('?');
-    
-    // Path must match exactly
     if (pathname !== basePath) return false;
-    
-    // Check if item has query params (like ?tab=reviews)
     if (queryStr) {
       const params = new URLSearchParams(queryStr);
       const targetTab = params.get('tab');
       return searchParams.get('tab') === targetTab;
     }
-    
-    // Special handling for Dashboard root (should only be active if NO tab is present)
     if (basePath === '/dashboard') return !searchParams.get('tab');
-
-    // Special handling for Profile root (should only be active if NO tab OR 'overview' tab is present)
     if (basePath === '/provider/profile' || basePath === '/profile') {
       const currentTab = searchParams.get('tab');
       return !currentTab || currentTab === 'overview';
     }
-    
     return true;
   }, [pathname, searchParams]);
 
@@ -110,16 +103,16 @@ export function AppSidebar() {
   const mainLinks = useMemo(() => {
     if (isAdmin) {
       return [
-        { label: "Overview", href: "/admin", icon: LayoutDashboard },
-        { label: "Citizen Directory", href: "/admin/users", icon: Users },
-        { label: "All Requests", href: "/admin/requests", icon: LayoutGrid },
-        { label: "Pending Verifications", href: "/admin/verifications", icon: ShieldCheck, badge: pendingCount },
-        { label: "Provider Monitor", href: "/admin/providers", icon: Wrench },
+        { label: "Admin Hub", href: "/admin", icon: LayoutDashboard },
+        { label: "Citizens", href: "/admin/users", icon: Users },
+        { label: "All Missions", href: "/admin/requests", icon: LayoutGrid },
+        { label: "Verifications", href: "/admin/verifications", icon: ShieldCheck, badge: pendingCount },
+        { label: "Experts", href: "/admin/providers", icon: Wrench },
+        { label: "Broadcasts", href: "/admin/announcements", icon: Megaphone },
       ];
     }
 
     const links = [];
-    
     if (profile?.role === 'volunteer') {
       links.push(
         { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -149,22 +142,14 @@ export function AppSidebar() {
         { label: "Chats", href: "/chats", icon: MessageSquare, badge: unreadCount },
       );
     }
-
     return links;
   }, [profile?.role, pendingCount, isAdmin, unreadCount]);
 
-  const moderationLinks = useMemo(() => {
-    if (isAdmin) {
-      return [
-        { label: "Reported Content", href: "/admin/requests", icon: AlertTriangle, badge: reportedRequests?.length, badgeColor: "bg-red-500" },
-        { label: "Announcements", href: "/admin/announcements", icon: Megaphone },
-      ];
-    }
-    return [];
-  }, [isAdmin, reportedRequests?.length]);
-
   const profileLinks = useMemo(() => {
-    if (isAdmin) return [];
+    if (isAdmin) return [
+      { label: "System Profile", href: "/profile", icon: User },
+      { label: "Admin Settings", href: "/settings", icon: Settings },
+    ];
     if (profile?.role === 'provider') {
       return [
         { label: "My Profile", href: "/provider/profile", icon: User },
@@ -222,7 +207,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent className="px-3 gap-6">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">Main</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">Control Panel</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainLinks.map((item) => {
@@ -251,31 +236,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">{isAdmin ? 'Moderation' : profile?.role === 'provider' ? 'Business' : 'Community'}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/30 px-3 mb-2 group-data-[collapsible=icon]:hidden">Account</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {moderationLinks.map((item) => {
-                const active = isItemActive(item.href);
-                return (
-                  <SidebarMenuItem key={item.label}>
-                    <SidebarMenuButton 
-                      asChild 
-                      isActive={active} 
-                      tooltip={item.label} 
-                      className={cn(
-                        "h-11 px-3 rounded-xl transition-all duration-200", 
-                        active ? "bg-primary text-white font-bold shadow-lg shadow-primary/20" : "text-white/60 hover:text-white hover:bg-white/5"
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className={cn("w-5 h-5", active ? "text-white" : "text-white/40")} />
-                        <span>{item.label}</span>
-                        {item.badge !== undefined && item.badge > 0 && <span className={cn("ml-auto text-[10px] text-white px-1.5 rounded-full font-black", item.badgeColor || "bg-primary")}>{item.badge}</span>}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
               {profileLinks.map((item) => {
                 const active = isItemActive(item.href);
                 return (
