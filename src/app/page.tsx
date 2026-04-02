@@ -316,8 +316,8 @@ export default function LandingPage() {
                  </h2>
                  <div className="space-y-8">
                    {[
-                     { name: "Rahul K.", loc: "MMMUT Campus", text: "Found a verified Physics tutor in 12 minutes! The real-time matching is absolute magic for students.", avatar: "RK" },
-                     { name: "Sarah M.", loc: "Gorakhpur North", text: "Helped a neighbor with a flat tire late at night. The safety protocols made me feel comfortable responding.", avatar: "SM" },
+                     { name: "Rahul K.", text: "Found a verified Physics tutor in 12 minutes! The real-time matching is absolute magic for students.", avatar: "RK" },
+                     { name: "Sarah M.", text: "Helped a neighbor with a flat tire late at night. The safety protocols made me feel comfortable responding.", avatar: "SM" },
                    ].map((t, i) => (
                      <div key={i} className="p-8 border border-white/5 rounded-[2rem] bg-white/5 backdrop-blur-sm space-y-6 shadow-sm hover:border-[#00D4C8]/20 transition-all">
                         <div className="flex gap-1">
@@ -330,7 +330,6 @@ export default function LandingPage() {
                            </div>
                            <div>
                               <p className="font-bold text-white">{t.name}</p>
-                              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{t.loc}</p>
                            </div>
                         </div>
                      </div>
