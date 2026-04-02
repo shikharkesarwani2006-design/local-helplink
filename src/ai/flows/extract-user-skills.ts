@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for extracting skills using direct Gemini REST API.
@@ -19,7 +20,7 @@ export type ExtractUserSkillsOutput = z.infer<typeof ExtractUserSkillsOutputSche
 export async function extractUserSkills(
   input: ExtractUserSkillsInput
 ): Promise<ExtractUserSkillsOutput> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY;
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyCX0qma6A_H9KBTF6DVMg5aIq5BaBYBWxk";
   if (!apiKey) throw new Error('Missing GOOGLE_GENAI_API_KEY');
 
   let prompt = `You are an expert at extracting technical and soft skills from user descriptions. Identify and list all relevant skills. Do not invent skills. Return ONLY valid JSON with an array of strings in the field "skills".\n\n`;

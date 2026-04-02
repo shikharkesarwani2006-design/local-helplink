@@ -37,8 +37,11 @@ export default function LandingPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
-  // Get placeholder images
-  const mapImage = PlaceHolderImages.find(img => img.id === 'map-preview')?.imageUrl || "";
+  // Safely extract the map image URL
+  const mapImageData = PlaceHolderImages.find(img => img.id === 'map-preview');
+  const mapImageUrl = (mapImageData && typeof mapImageData.imageUrl === 'string' && mapImageData.imageUrl.length > 0) 
+    ? mapImageData.imageUrl 
+    : null;
 
   useEffect(() => {
     setMounted(true);
@@ -154,9 +157,9 @@ export default function LandingPage() {
           <div className="relative hidden lg:block">
             <div className="relative w-full h-[600px] bg-white/5 rounded-[4rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
                <div className="absolute inset-0 opacity-20">
-                 {mapImage && (
+                 {mapImageUrl && (
                    <Image 
-                     src={mapImage} 
+                     src={mapImageUrl} 
                      alt="Neighborhood Map" 
                      fill 
                      className="object-cover"
