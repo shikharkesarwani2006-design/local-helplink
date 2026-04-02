@@ -18,7 +18,7 @@ export type DraftHelpRequestInput = {
 export type DraftHelpRequestOutput = z.infer<typeof DraftHelpRequestOutputSchema>;
 
 export async function draftHelpRequest(input: DraftHelpRequestInput): Promise<DraftHelpRequestOutput> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyCICAMCXNR9NLrVsMK_YintSgl17y37Qcs";
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyBttIU_WWiIEP52HZxxZY6AmI4r68nfh5M";
   if (!apiKey) throw new Error('AI configuration missing. Please set GOOGLE_GENAI_API_KEY.');
 
   const prompt = `You are an AI assistant for a hyperlocal community help platform.

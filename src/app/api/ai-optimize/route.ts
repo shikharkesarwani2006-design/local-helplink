@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   try {
     const { initialTitle, initialDescription } = await req.json();
-    const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyCICAMCXNR9NLrVsMK_YintSgl17y37Qcs";
+    const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyBttIU_WWiIEP52HZxxZY6AmI4r68nfh5M";
     
     if (!apiKey) {
       return NextResponse.json({ error: 'AI configuration missing.' }, { status: 500 });

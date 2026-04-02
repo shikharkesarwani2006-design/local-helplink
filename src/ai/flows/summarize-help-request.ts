@@ -17,7 +17,7 @@ export type SummarizeHelpRequestInput = {
 export type SummarizeHelpRequestOutput = z.infer<typeof SummarizeHelpRequestOutputSchema>;
 
 export async function summarizeHelpRequest(input: SummarizeHelpRequestInput): Promise<SummarizeHelpRequestOutput> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyCICAMCXNR9NLrVsMK_YintSgl17y37Qcs";
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyBttIU_WWiIEP52HZxxZY6AmI4r68nfh5M";
   if (!apiKey) throw new Error('Missing GOOGLE_GENAI_API_KEY');
 
   const prompt = `As an AI assistant, your task is to provide a very concise summary (max 30 words) of the following help request description. Focus on the core need. Return ONLY valid JSON with the field "summary".

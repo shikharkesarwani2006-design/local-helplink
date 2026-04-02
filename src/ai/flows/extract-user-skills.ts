@@ -20,7 +20,7 @@ export type ExtractUserSkillsOutput = z.infer<typeof ExtractUserSkillsOutputSche
 export async function extractUserSkills(
   input: ExtractUserSkillsInput
 ): Promise<ExtractUserSkillsOutput> {
-  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyCICAMCXNR9NLrVsMK_YintSgl17y37Qcs";
+  const apiKey = process.env.GOOGLE_GENAI_API_KEY || "AIzaSyBttIU_WWiIEP52HZxxZY6AmI4r68nfh5M";
   if (!apiKey) throw new Error('Missing GOOGLE_GENAI_API_KEY');
 
   let prompt = `You are an expert at extracting technical and soft skills from user descriptions. Identify and list all relevant skills. Do not invent skills. Return ONLY valid JSON with an array of strings in the field "skills".\n\n`;
