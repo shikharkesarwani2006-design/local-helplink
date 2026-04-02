@@ -1,7 +1,9 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -28,11 +30,15 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function LandingPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+
+  // Get placeholder images
+  const mapImage = PlaceHolderImages.find(img => img.id === 'map-preview')?.imageUrl || "";
 
   useEffect(() => {
     setMounted(true);
@@ -44,11 +50,10 @@ export default function LandingPage() {
     }
   }, [user, isUserLoading, router, mounted]);
 
-  // Prevent hydration mismatch by only rendering content after mount
+  // Prevent hydration mismatch
   if (!mounted) return null;
 
-  // While checking auth or if user is already logged in (awaiting redirect)
-  // We show a minimal loader that matches the theme
+  // Show a thematic loader while checking auth state if user is already logged in
   if (isUserLoading || user) {
     return (
       <div className="min-h-screen bg-[#0A0F2C] flex flex-col items-center justify-center">
@@ -73,7 +78,7 @@ export default function LandingPage() {
         <div className="hidden lg:flex gap-10">
           <Link href="#how-it-works" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">How it Works</Link>
           <Link href="#features" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Safety Protocols</Link>
-          <Link href="#community" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Community</Link>
+          <Link href="/leaderboard" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Hero Board</Link>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/auth/login">
@@ -128,7 +133,14 @@ export default function LandingPage() {
                <div className="flex -space-x-3">
                  {[1,2,3,4].map(i => (
                    <div key={i} className="w-12 h-12 rounded-2xl border-4 border-[#0A0F2C] bg-slate-800 overflow-hidden shadow-xl">
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 123}`} alt="user" className="w-full h-full object-cover" />
+                      <Image 
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 123}`} 
+                        alt="Active Member" 
+                        width={48} 
+                        height={48}
+                        className="w-full h-full object-cover"
+                        data-ai-hint="member avatar"
+                      />
                    </div>
                  ))}
                </div>
@@ -141,7 +153,15 @@ export default function LandingPage() {
           
           <div className="relative hidden lg:block">
             <div className="relative w-full h-[600px] bg-white/5 rounded-[4rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
-               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20" />
+               <div className="absolute inset-0 opacity-20">
+                 <Image 
+                   src={mapImage} 
+                   alt="Neighborhood Map" 
+                   fill 
+                   className="object-cover"
+                   data-ai-hint="digital map"
+                 />
+               </div>
                
                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                   <div className="relative flex items-center justify-center">
@@ -313,7 +333,7 @@ export default function LandingPage() {
                  </div>
               </div>
               
-              <div className="bg-[#F0FDFA] p-12 md:p-20 rounded-[4rem] relative overflow-hidden group border border-[#CCFBF1]">
+              <div className="bg-[#EBF4F0] p-12 md:p-20 rounded-[4rem] relative overflow-hidden group border border-teal-100">
                  <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 group-hover:scale-110 transition-transform duration-700">
                     <Heart className="w-64 h-64 text-[#00D4C8]" />
                  </div>
@@ -364,7 +384,7 @@ export default function LandingPage() {
             <ul className="space-y-5 text-sm font-bold">
               <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">How it Works</Link></li>
               <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Safety Protocols</Link></li>
-              <li><Link href="/leaderboard" className="hover:text-[#00D4C8] transition-colors">Leaderboard</Link></li>
+              <li><Link href="/leaderboard" className="hover:text-[#00D4C8] transition-colors">Hero Board</Link></li>
               <li><Link href="/blood-donors" className="hover:text-[#00D4C8] transition-colors">Blood Registry</Link></li>
             </ul>
           </div>
