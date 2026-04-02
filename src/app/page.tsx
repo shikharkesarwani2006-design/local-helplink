@@ -35,35 +35,40 @@ export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!isUserLoading && user) {
-      router.push("/dashboard");
-    }
-  }, [user, isUserLoading, router]);
-
-  useEffect(() => {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (mounted && !isUserLoading && user) {
+      router.push("/dashboard");
+    }
+  }, [user, isUserLoading, router, mounted]);
+
+  // Prevent hydration mismatch by only rendering content after mount
+  if (!mounted) return null;
+
+  // While checking auth or if user is already logged in (awaiting redirect)
+  // We show a minimal loader that matches the theme
   if (isUserLoading || user) {
     return (
       <div className="min-h-screen bg-[#0A0F2C] flex flex-col items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-[#FF4D2E] mb-4" />
         <p className="text-sm font-bold text-white/40 uppercase tracking-widest animate-pulse">
-          Initializing Security Context...
+          Synchronizing Network...
         </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#0A0F2C] text-white selection:bg-[#FF4D2E]/30 overflow-hidden font-['Plus_Jakarta_Sans',_sans-serif]">
+    <div className="flex flex-col min-h-screen bg-[#0A0F2C] text-white selection:bg-[#FF4D2E]/30 overflow-hidden font-body">
       {/* Navigation */}
       <nav className="flex items-center justify-between px-6 lg:px-12 py-6 bg-[#0A0F2C]/80 backdrop-blur-xl sticky top-0 z-[100] border-b border-white/5">
         <div className="flex items-center gap-2.5">
           <div className="bg-[#FF4D2E] p-2 rounded-xl shadow-[0_0_20px_rgba(255,77,46,0.3)]">
             <Heart className="text-white w-6 h-6 fill-white" />
           </div>
-          <span className="text-2xl font-bold tracking-tighter">HelpLink</span>
+          <span className="text-2xl font-bold tracking-tighter font-headline">HelpLink</span>
         </div>
         <div className="hidden lg:flex gap-10">
           <Link href="#how-it-works" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">How it Works</Link>
@@ -84,23 +89,20 @@ export default function LandingPage() {
 
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center pt-20 pb-32">
-        {/* Visual Background Elements */}
         <div className="absolute inset-0 bg-gradient-to-br from-[#0A0F2C] via-[#0D3B38]/40 to-[#0A0F2C] z-0" />
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] pointer-events-none" />
         <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#00D4C8]/10 rounded-full blur-[120px] animate-pulse pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[#FF4D2E]/5 rounded-full blur-[120px] animate-pulse pointer-events-none" style={{ animationDelay: '2s' }} />
         
-        {/* Grid Overlay */}
         <div className="absolute inset-0 opacity-[0.1]" style={{ backgroundImage: 'radial-gradient(#FFFFFF 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
 
         <div className="container px-6 lg:px-12 mx-auto relative z-10 grid lg:grid-cols-2 gap-20 items-center">
           <div className="space-y-10 text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00D4C8]/10 border border-[#00D4C8]/20 text-[#00D4C8] text-[10px] font-black uppercase tracking-[0.2em] animate-in fade-in slide-in-from-left duration-700">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00D4C8]/10 border border-[#00D4C8]/20 text-[#00D4C8] text-[10px] font-black uppercase tracking-[0.2em]">
               <Activity className="w-3.5 h-3.5 animate-pulse" /> Live Neighborhood Network
             </div>
             
             <div className="space-y-6">
-              <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95] tracking-tighter text-white">
+              <h1 className="text-5xl md:text-7xl lg:text-[5.5rem] font-extrabold leading-[0.95] tracking-tighter text-white font-headline">
                 Your Neighborhood's <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF4D2E] to-[#FF8A65]">Emergency & Skill Network.</span>
               </h1>
@@ -126,23 +128,21 @@ export default function LandingPage() {
                <div className="flex -space-x-3">
                  {[1,2,3,4].map(i => (
                    <div key={i} className="w-12 h-12 rounded-2xl border-4 border-[#0A0F2C] bg-slate-800 overflow-hidden shadow-xl">
-                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 42}`} alt="user" className="w-full h-full object-cover" />
+                      <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${i + 123}`} alt="user" className="w-full h-full object-cover" />
                    </div>
                  ))}
                </div>
-               <div className="space-y-0.5">
+               <div className="space-y-0.5 text-left">
                  <p className="text-lg font-bold text-white leading-none">2,400+ Verified Helpers</p>
-                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Active in your neighborhood</p>
+                 <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Active in your area</p>
                </div>
             </div>
           </div>
           
           <div className="relative hidden lg:block">
-            {/* Animated Location Pins & Map Visualization */}
             <div className="relative w-full h-[600px] bg-white/5 rounded-[4rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-20" />
                
-               {/* Location Pulse */}
                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                   <div className="relative flex items-center justify-center">
                     <div className="absolute w-32 h-32 bg-[#00D4C8]/20 rounded-full animate-ping" />
@@ -153,14 +153,13 @@ export default function LandingPage() {
                   </div>
                </div>
 
-               {/* Floating Mock Cards */}
                <div className="absolute top-12 left-12 animate-bounce" style={{ animationDuration: '4s' }}>
                   <Card className="bg-slate-900/90 border border-white/10 backdrop-blur-md rounded-2xl p-4 shadow-2xl w-56">
                     <div className="flex items-center gap-3">
                       <div className="bg-amber-500/20 p-2 rounded-lg"><Wrench className="w-4 h-4 text-amber-500" /></div>
                       <div>
                         <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Service</p>
-                        <p className="text-xs font-bold">Need Plumber - 0.3km</p>
+                        <p className="text-xs font-bold text-white">Need Plumber - 0.3km</p>
                       </div>
                     </div>
                   </Card>
@@ -184,7 +183,7 @@ export default function LandingPage() {
                       <div className="bg-teal-500/20 p-2 rounded-lg"><BookOpen className="w-4 h-4 text-[#00D4C8]" /></div>
                       <div>
                         <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Skill</p>
-                        <p className="text-xs font-bold">Math Tutor Ready</p>
+                        <p className="text-xs font-bold text-white">Math Tutor Ready</p>
                       </div>
                     </div>
                   </Card>
@@ -220,12 +219,10 @@ export default function LandingPage() {
       <section id="how-it-works" className="py-32 bg-gradient-to-b from-[#0A0F2C] to-[#0D3B38]/20">
         <div className="container px-6 lg:px-12 mx-auto">
           <div className="text-center mb-24 max-w-2xl mx-auto space-y-4">
-            <h2 className="text-4xl lg:text-6xl font-extrabold text-white tracking-tighter">The 3-Step Match</h2>
+            <h2 className="text-4xl lg:text-6xl font-extrabold text-white tracking-tighter font-headline">The 3-Step Match</h2>
             <p className="text-xl text-slate-400 font-medium">How we turn neighborhood needs into community action.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-16 relative">
-            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-white/5 -z-10" />
-            
             {[
               { step: "01", title: "📍 Post Your Need", desc: "Broadcast your emergency, repair, or academic request to people nearby.", icon: <MapPin className="w-10 h-10 text-[#FF4D2E]" /> },
               { step: "02", title: "🔔 Nearby Alerts", desc: "Our real-time engine alerts verified volunteers matching your specific need.", icon: <Bell className="w-10 h-10 text-[#00D4C8]" /> },
@@ -251,7 +248,7 @@ export default function LandingPage() {
         <div className="container px-6 lg:px-12 mx-auto">
           <div className="flex flex-col lg:flex-row justify-between items-end mb-24 gap-8">
             <div className="space-y-4 max-w-2xl text-center lg:text-left">
-               <h2 className="text-4xl lg:text-6xl font-extrabold tracking-tighter text-white">Trust-Built Features</h2>
+               <h2 className="text-4xl lg:text-6xl font-extrabold tracking-tighter text-white font-headline">Trust-Built Features</h2>
                <p className="text-xl text-slate-400 font-medium">Verified expertise for every neighborhood situation.</p>
             </div>
             <Link href="/auth/register">
@@ -284,19 +281,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* CTA Banner */}
       <section id="community" className="py-32 bg-gradient-to-b from-[#0A0F2C] to-[#0D3B38]/10 relative overflow-hidden">
         <div className="container px-6 lg:px-12 mx-auto">
            <div className="grid lg:grid-cols-2 gap-24 items-center">
               <div className="space-y-12">
-                 <h2 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-none text-white">
+                 <h2 className="text-5xl md:text-6xl font-extrabold tracking-tighter leading-none text-white font-headline">
                    Voices from our <br /><span className="text-[#00D4C8] italic">Community.</span>
                  </h2>
                  <div className="space-y-8">
                    {[
                      { name: "Rahul K.", loc: "MMMUT Campus", text: "Found a verified Physics tutor in 12 minutes! The real-time matching is absolute magic for students.", avatar: "RK" },
                      { name: "Sarah M.", loc: "Gorakhpur North", text: "Helped a neighbor with a flat tire late at night. The safety protocols made me feel comfortable responding.", avatar: "SM" },
-                     { name: "Prof. Miller", loc: "Staff Quarters", text: "Essential for campus safety. It fosters a culture of mutual support that standard apps lack.", avatar: "PM" }
                    ].map((t, i) => (
                      <div key={i} className="p-8 border border-white/5 rounded-[2rem] bg-white/5 backdrop-blur-sm space-y-6 shadow-sm hover:border-[#00D4C8]/20 transition-all">
                         <div className="flex gap-1">
@@ -351,7 +347,7 @@ export default function LandingPage() {
               <div className="bg-[#FF4D2E]/20 p-2 rounded-xl">
                 <Heart className="text-[#FF4D2E] w-6 h-6 fill-[#FF4D2E]" />
               </div>
-              <span className="text-2xl font-bold text-white tracking-tight">HelpLink</span>
+              <span className="text-2xl font-bold text-white tracking-tight font-headline">HelpLink</span>
             </div>
             <p className="text-sm leading-relaxed font-medium">The hyperlocal platform for neighborhood emergencies and skill exchange. Building safer communities through local action.</p>
             <div className="flex gap-4">
@@ -387,8 +383,8 @@ export default function LandingPage() {
             <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Newsletter</h4>
             <p className="text-xs leading-relaxed font-medium">Stay updated with neighborhood impact reports.</p>
             <div className="flex gap-2">
-              <input type="email" placeholder="Email address" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs flex-grow focus:outline-none focus:ring-1 focus:ring-[#00D4C8]" />
-              <Button size="sm" className="bg-[#00D4C8] text-[#0A0F2C] hover:bg-[#00D4C8]/90 rounded-xl h-9 font-bold px-4">Join</Button>
+              <input type="email" placeholder="Email address" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs flex-grow focus:outline-none focus:ring-1 focus:ring-[#00D4C8] text-white" />
+              <Button size="sm" className="bg-[#00D4C8] text-[#0A0F2C] hover:bg-[#00D4C8]/90 rounded-xl h-9 font-bold px-4 border-none">Join</Button>
             </div>
           </div>
         </div>
