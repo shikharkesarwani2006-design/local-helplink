@@ -154,13 +154,15 @@ export default function LandingPage() {
           <div className="relative hidden lg:block">
             <div className="relative w-full h-[600px] bg-white/5 rounded-[4rem] border border-white/10 backdrop-blur-3xl overflow-hidden shadow-2xl">
                <div className="absolute inset-0 opacity-20">
-                 <Image 
-                   src={mapImage} 
-                   alt="Neighborhood Map" 
-                   fill 
-                   className="object-cover"
-                   data-ai-hint="digital map"
-                 />
+                 {mapImage && (
+                   <Image 
+                     src={mapImage} 
+                     alt="Neighborhood Map" 
+                     fill 
+                     className="object-cover"
+                     data-ai-hint="digital map"
+                   />
+                 )}
                </div>
                
                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
