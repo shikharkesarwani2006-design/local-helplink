@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore } from "@/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -27,21 +28,33 @@ import {
   Globe,
   Trophy,
   Navigation,
-  Loader2
+  Loader2,
+  Mail,
+  Shield,
+  FileText,
+  Phone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useToast } from "@/hooks/use-toast";
+import { InfoModal } from "@/components/landing/InfoModal";
 
 export default function LandingPage() {
   const { user, isUserLoading } = useUser();
+  const db = useFirestore();
   const router = useRouter();
+  const { toast } = useToast();
+  
   const [mounted, setMounted] = useState(false);
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [submittingNewsletter, setSubmittingNewsletter] = useState(false);
+
+  // Modal states
+  const [activeModal, setActiveModal] = useState<string | null>(null);
 
   // Safely extract the map image URL
   const mapImageData = PlaceHolderImages.find(img => img.id === 'map-preview');
-  const mapImageUrl = (mapImageData && typeof mapImageData.imageUrl === 'string' && mapImageData.imageUrl.length > 0) 
-    ? mapImageData.imageUrl 
-    : null;
+  const mapImageUrl = mapImageData?.imageUrl || null;
 
   useEffect(() => {
     setMounted(true);
@@ -53,10 +66,64 @@ export default function LandingPage() {
     }
   }, [user, isUserLoading, router, mounted]);
 
+  const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleHeroBoardClick = () => {
+    if (user) {
+      router.push("/leaderboard");
+    } else {
+      document.getElementById("stats-bar")?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const handleBloodRegistryClick = () => {
+    if (user) {
+      router.push("/blood-donors");
+    } else {
+      toast({
+        title: "Authentication Required",
+        description: "Login to access the private Blood Registry.",
+      });
+      router.push("/auth/login");
+    }
+  };
+
+  const handleNewsletterJoin = async () => {
+    if (!newsletterEmail.trim()) {
+      toast({ variant: "destructive", title: "Email required", description: "Please enter your email address." });
+      return;
+    }
+    
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newsletterEmail)) {
+      toast({ variant: "destructive", title: "Invalid email", description: "Please enter a valid email address." });
+      return;
+    }
+
+    setSubmittingNewsletter(true);
+    try {
+      await addDoc(collection(db, "newsletter"), {
+        email: newsletterEmail,
+        subscribedAt: serverTimestamp()
+      });
+      toast({ title: "✅ Thanks for subscribing!", description: "You are now on the neighborhood impact list." });
+      setNewsletterEmail("");
+    } catch (e) {
+      toast({ variant: "destructive", title: "Subscription failed", description: "Please try again later." });
+    } finally {
+      setSubmittingNewsletter(false);
+    }
+  };
+
   // Prevent hydration mismatch
   if (!mounted) return null;
 
-  // Show a thematic loader while checking auth state if user is already logged in
   if (isUserLoading || user) {
     return (
       <div className="min-h-screen bg-[#0A0F2C] flex flex-col items-center justify-center">
@@ -79,9 +146,25 @@ export default function LandingPage() {
           <span className="text-2xl font-bold tracking-tighter font-headline">HelpLink</span>
         </div>
         <div className="hidden lg:flex gap-10">
-          <Link href="#how-it-works" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">How it Works</Link>
-          <Link href="#features" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Safety Protocols</Link>
-          <Link href="/leaderboard" className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors">Hero Board</Link>
+          <a 
+            href="#how-it-works" 
+            onClick={(e) => handleSmoothScroll(e, "how-it-works")}
+            className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors cursor-pointer"
+          >
+            How it Works
+          </a>
+          <button 
+            onClick={() => setActiveModal("safety-protocols")}
+            className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors"
+          >
+            Safety Protocols
+          </button>
+          <button 
+            onClick={handleHeroBoardClick}
+            className="text-sm font-bold text-slate-400 hover:text-[#00D4C8] transition-colors"
+          >
+            Hero Board
+          </button>
         </div>
         <div className="flex items-center gap-4">
           <Link href="/auth/login">
@@ -219,7 +302,7 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Bar */}
-      <section className="py-16 bg-[#0A0F2C] border-y border-white/5 relative z-20">
+      <section id="stats-bar" className="py-16 bg-[#0A0F2C] border-y border-white/5 relative z-20">
         <div className="container px-6 lg:px-12 mx-auto grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
           <div className="space-y-2">
             <h3 className="text-4xl lg:text-5xl font-extrabold text-[#00D4C8] tracking-tighter">2,400+</h3>
@@ -268,45 +351,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section id="features" className="py-32 bg-[#0A0F2C] relative">
-        <div className="container px-6 lg:px-12 mx-auto">
-          <div className="flex flex-col lg:flex-row justify-between items-end mb-24 gap-8">
-            <div className="space-y-4 max-w-2xl text-center lg:text-left">
-               <h2 className="text-4xl lg:text-6xl font-extrabold tracking-tighter text-white font-headline">Trust-Built Features</h2>
-               <p className="text-xl text-slate-400 font-medium">Verified expertise for every neighborhood situation.</p>
-            </div>
-            <Link href="/auth/register">
-              <Button variant="outline" className="rounded-2xl font-bold border-white/10 text-white px-8 h-14 hover:bg-white/5">View Security Protocols</Button>
-            </Link>
-          </div>
-          
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { title: "Emergency SOS", icon: <AlertTriangle className="w-8 h-8" />, color: "text-[#FF4D2E]", desc: "Immediate broadcasting for critical medical or safety needs." },
-              { title: "Skill Exchange", icon: <Zap className="w-8 h-8" />, color: "text-amber-500", desc: "Trade knowledge or services with qualified neighbors nearby." },
-              { title: "Hyperlocal Feed", icon: <MapPin className="w-8 h-8" />, color: "text-[#00D4C8]", desc: "A live stream of community requests within 5km radius." },
-              { title: "Verified Helpers", icon: <ShieldCheck className="w-8 h-8" />, color: "text-emerald-500", desc: "Every helper goes through identity and skill verification." },
-              { title: "Real-time Chat", icon: <MessageSquare className="w-8 h-8" />, color: "text-blue-500", desc: "Coordinate and finalize details through secure messaging." },
-              { title: "Trust Score", icon: <Star className="w-8 h-8" />, color: "text-purple-500", desc: "Reputation system based on community reviews and successful missions." }
-            ].map((cat, i) => (
-              <Card key={i} className="group rounded-[2.5rem] border-white/10 bg-white/5 backdrop-blur-xl hover:shadow-[0_0_40px_rgba(0,212,200,0.1)] hover:border-[#00D4C8]/30 transition-all duration-500 cursor-pointer overflow-hidden">
-                <CardContent className="p-10 space-y-6">
-                  <div className={`w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 shadow-inner group-hover:scale-110 transition-transform duration-500 ${cat.color}`}>
-                    {cat.icon}
-                  </div>
-                  <div className="space-y-3">
-                    <h3 className="text-2xl font-bold text-white leading-tight">{cat.title}</h3>
-                    <p className="text-sm text-slate-400 font-medium leading-relaxed">{cat.desc}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Banner */}
+      {/* Testimonials */}
       <section id="community" className="py-32 bg-gradient-to-b from-[#0A0F2C] to-[#0D3B38]/10 relative overflow-hidden">
         <div className="container px-6 lg:px-12 mx-auto">
            <div className="grid lg:grid-cols-2 gap-24 items-center">
@@ -374,32 +419,82 @@ export default function LandingPage() {
               <span className="text-2xl font-bold text-white tracking-tight font-headline">HelpLink</span>
             </div>
             <p className="text-sm leading-relaxed font-medium">The hyperlocal platform for neighborhood emergencies and skill exchange. Building safer communities through local action.</p>
-            <div className="flex gap-4">
-               {[1,2,3,4].map(i => (
-                 <div key={i} className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center hover:bg-[#FF4D2E] hover:text-white transition-all cursor-pointer group">
-                    <Globe className="w-5 h-5 text-slate-600 group-hover:text-white" />
-                 </div>
-               ))}
-            </div>
           </div>
           
           <div>
             <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Platform</h4>
             <ul className="space-y-5 text-sm font-bold">
-              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">How it Works</Link></li>
-              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Safety Protocols</Link></li>
-              <li><Link href="/leaderboard" className="hover:text-[#00D4C8] transition-colors">Hero Board</Link></li>
-              <li><Link href="/blood-donors" className="hover:text-[#00D4C8] transition-colors">Blood Registry</Link></li>
+              <li>
+                <a 
+                  href="#how-it-works" 
+                  onClick={(e) => handleSmoothScroll(e, "how-it-works")}
+                  className="hover:text-[#00D4C8] transition-colors cursor-pointer"
+                >
+                  How it Works
+                </a>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setActiveModal("safety-protocols")}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Safety Protocols
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={handleHeroBoardClick}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Hero Board
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={handleBloodRegistryClick}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Blood Registry
+                </button>
+              </li>
             </ul>
           </div>
           
           <div>
             <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Support</h4>
             <ul className="space-y-5 text-sm font-bold">
-              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Safety Guidelines</Link></li>
-              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Privacy Policy</Link></li>
-              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Terms of Service</Link></li>
-              <li><Link href="#" className="hover:text-[#00D4C8] transition-colors">Contact Support</Link></li>
+              <li>
+                <button 
+                  onClick={() => setActiveModal("safety-guidelines")}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Safety Guidelines
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setActiveModal("privacy-policy")}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Privacy Policy
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setActiveModal("terms")}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Terms of Service
+                </button>
+              </li>
+              <li>
+                <button 
+                  onClick={() => setActiveModal("contact")}
+                  className="hover:text-[#00D4C8] transition-colors text-left"
+                >
+                  Contact Support
+                </button>
+              </li>
             </ul>
           </div>
           
@@ -407,8 +502,21 @@ export default function LandingPage() {
             <h4 className="text-white font-black uppercase text-[10px] tracking-[0.2em] mb-8">Newsletter</h4>
             <p className="text-xs leading-relaxed font-medium">Stay updated with neighborhood impact reports.</p>
             <div className="flex gap-2">
-              <input type="email" placeholder="Email address" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs flex-grow focus:outline-none focus:ring-1 focus:ring-[#00D4C8] text-white" />
-              <Button size="sm" className="bg-[#00D4C8] text-[#0A0F2C] hover:bg-[#00D4C8]/90 rounded-xl h-9 font-bold px-4 border-none">Join</Button>
+              <input 
+                type="email" 
+                placeholder="Email address" 
+                className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs flex-grow focus:outline-none focus:ring-1 focus:ring-[#00D4C8] text-white" 
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+              />
+              <Button 
+                size="sm" 
+                className="bg-[#00D4C8] text-[#0A0F2C] hover:bg-[#00D4C8]/90 rounded-xl h-9 font-bold px-4 border-none"
+                onClick={handleNewsletterJoin}
+                disabled={submittingNewsletter}
+              >
+                {submittingNewsletter ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
+              </Button>
             </div>
           </div>
         </div>
@@ -423,6 +531,125 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Informational Modals */}
+      <InfoModal 
+        isOpen={activeModal === "safety-protocols"} 
+        onClose={() => setActiveModal(null)} 
+        title="🛡️ Safety Protocols"
+      >
+        <ul className="space-y-4 text-slate-600 dark:text-slate-400 font-medium">
+          <li className="flex items-start gap-3"><Shield className="w-5 h-5 text-primary shrink-0 mt-0.5" /> All volunteers are community verified by the HelpLink admin team.</li>
+          <li className="flex items-start gap-3"><AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" /> Report any suspicious behavior immediately through the platform.</li>
+          <li className="flex items-start gap-3"><Zap className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /> Never share personal financial information or bank details with helpers.</li>
+          <li className="flex items-start gap-3"><MapPin className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> Meet in public campus areas (Library, Main Gate, Canteen) when possible.</li>
+          <li className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" /> Admin team reviews all reported content within 2 hours.</li>
+          <li className="flex items-start gap-3 font-bold text-slate-900 dark:text-white"><Phone className="w-5 h-5 text-red-600 shrink-0 mt-0.5" /> Emergency contacts: Campus Security: 112</li>
+        </ul>
+      </InfoModal>
+
+      <InfoModal 
+        isOpen={activeModal === "safety-guidelines"} 
+        onClose={() => setActiveModal(null)} 
+        title="✅ Safety Guidelines"
+      >
+        <ul className="space-y-4 text-slate-600 dark:text-slate-400 font-medium">
+          <li className="flex items-start gap-3"><Users className="w-5 h-5 text-primary shrink-0 mt-0.5" /> Verify helper identity by checking their profile and rating before meeting.</li>
+          <li className="flex items-start gap-3"><MessageSquare className="w-5 h-5 text-primary shrink-0 mt-0.5" /> Use in-app chat for all coordination to maintain a record.</li>
+          <li className="flex items-start gap-3"><Star className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" /> Rate every interaction honestly to help keep the community safe.</li>
+          <li className="flex items-start gap-3"><ShieldAlert className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /> Report life-threatening emergencies to campus authorities first.</li>
+          <li className="flex items-start gap-3"><Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" /> HelpLink is a community coordination tool, not an emergency medical service.</li>
+          <li className="flex items-start gap-3"><CircleDollarSign className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> Never pay anyone outside the app's agreed or standard campus system.</li>
+        </ul>
+      </InfoModal>
+
+      <InfoModal 
+        isOpen={activeModal === "privacy-policy"} 
+        onClose={() => setActiveModal(null)} 
+        title="🔒 Privacy Policy"
+      >
+        <div className="space-y-6">
+          <p className="text-slate-600 dark:text-slate-400">At HelpLink, your privacy is our priority. Here is how we handle your data:</p>
+          <ul className="space-y-4 text-slate-600 dark:text-slate-400 font-medium">
+            <li className="flex items-start gap-3"><FileText className="w-5 h-5 text-primary shrink-0 mt-0.5" /> We collect only necessary data: name, email, campus location, and skills.</li>
+            <li className="flex items-start gap-3"><ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> Your data is stored securely in encrypted Google Cloud/Firebase databases.</li>
+            <li className="flex items-start gap-3"><Zap className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" /> We never sell or share your data with third-party advertisers.</li>
+            <li className="flex items-start gap-3"><MapPin className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" /> Precise location is only shared with helpers after you accept their mission.</li>
+            <li className="flex items-start gap-3"><Users className="w-5 h-5 text-primary shrink-0 mt-0.5" /> You can delete your profile and all associated data permanently at any time.</li>
+          </ul>
+          <p className="text-xs text-slate-400 pt-4 border-t">Data Controller: shikharkesarwani2006@gmail.com</p>
+        </div>
+      </InfoModal>
+
+      <InfoModal 
+        isOpen={activeModal === "terms"} 
+        onClose={() => setActiveModal(null)} 
+        title="📄 Terms of Service"
+      >
+        <ul className="space-y-4 text-slate-600 dark:text-slate-400 font-medium">
+          <li className="flex items-start gap-3"><Globe className="w-5 h-5 text-primary shrink-0 mt-0.5" /> HelpLink is a community-driven volunteer and skill-sharing platform.</li>
+          <li className="flex items-start gap-3"><Users className="w-5 h-5 text-primary shrink-0 mt-0.5" /> Users must be 18+ or have explicit guardian consent to use the service.</li>
+          <li className="flex items-start gap-3"><AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" /> Platform misuse results in immediate and permanent account suspension.</li>
+          <li className="flex items-start gap-3"><Info className="w-5 h-5 text-slate-400 shrink-0 mt-0.5" /> HelpLink is not liable for offline interactions between community members.</li>
+          <li className="flex items-start gap-3"><CircleDollarSign className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" /> Service providers are independent and set their own community rates.</li>
+          <li className="flex items-start gap-3"><ShieldCheck className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" /> Administrative safety and moderation decisions are final.</li>
+        </ul>
+      </InfoModal>
+
+      <InfoModal 
+        isOpen={activeModal === "contact"} 
+        onClose={() => setActiveModal(null)} 
+        title="📞 Contact Support"
+      >
+        <div className="space-y-8">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+              <Mail className="w-6 h-6 text-primary" />
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400">Support Email</p>
+                <p className="font-bold text-slate-900 dark:text-white">shikharkesarwani2006@gmail.com</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
+              <MapPin className="w-6 h-6 text-primary" />
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400">Physical Location</p>
+                <p className="font-bold text-slate-900 dark:text-white">MMMUT Campus, Gorakhpur, UP</p>
+              </div>
+            </div>
+          </div>
+          
+          <ul className="space-y-3 text-sm text-slate-500 font-medium">
+            <li className="flex items-center gap-2">• Response time: Within 24 hours</li>
+            <li className="flex items-center gap-2">• For campus emergencies call: 112</li>
+            <li className="flex items-center gap-2">• Report abuse through the app's report button</li>
+          </ul>
+
+          <Button 
+            className="w-full h-14 rounded-2xl bg-primary text-white font-bold text-lg shadow-xl shadow-primary/20"
+            asChild
+          >
+            <a href="mailto:shikharkesarwani2006@gmail.com">Send Email</a>
+          </Button>
+        </div>
+      </InfoModal>
     </div>
   );
 }
+
+const ShieldAlert = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+    <path d="M12 8v4" />
+    <path d="M12 16h.01" />
+  </svg>
+);
