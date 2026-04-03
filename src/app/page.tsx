@@ -34,7 +34,8 @@ import {
   FileText,
   Phone,
   Info,
-  CircleDollarSign
+  CircleDollarSign,
+  ShieldAlert
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -579,7 +580,7 @@ export default function LandingPage() {
             <li className="flex items-start gap-3"><MapPin className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" /> Precise location is only shared with helpers after you accept their mission.</li>
             <li className="flex items-start gap-3"><Users className="w-5 h-5 text-primary shrink-0 mt-0.5" /> You can delete your profile and all associated data permanently at any time.</li>
           </ul>
-          <p className="text-xs text-slate-400 pt-4 border-t">Data Controller: shikharkesarwani2006@gmail.com</p>
+          <p className="text-xs text-slate-400 pt-4 border-t">Data Controller: admin2006@gmail.com</p>
         </div>
       </InfoModal>
 
@@ -609,14 +610,14 @@ export default function LandingPage() {
               <Mail className="w-6 h-6 text-primary" />
               <div>
                 <p className="text-[10px] font-black uppercase text-slate-400">Support Email</p>
-                <p className="font-bold text-slate-900 dark:text-white">shikharkesarwani2006@gmail.com</p>
+                <p className="font-bold text-slate-900 dark:text-white">admin2006@gmail.com</p>
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl">
               <MapPin className="w-6 h-6 text-primary" />
               <div>
                 <p className="text-[10px] font-black uppercase text-slate-400">Physical Location</p>
-                <p className="font-bold text-slate-900 dark:text-white">MMMUT Campus, Gorakhpur, UP</p>
+                <p className="font-bold text-slate-900 dark:text-white">Prayagraj, UP</p>
               </div>
             </div>
           </div>
@@ -631,27 +632,10 @@ export default function LandingPage() {
             className="w-full h-14 rounded-2xl bg-primary text-white font-bold text-lg shadow-xl shadow-primary/20"
             asChild
           >
-            <a href="mailto:shikharkesarwani2006@gmail.com">Send Email</a>
+            <a href="mailto:admin2006@gmail.com">Send Email</a>
           </Button>
         </div>
       </InfoModal>
     </div>
   );
 }
-
-const ShieldAlert = ({ className }: { className?: string }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-    <path d="M12 8v4" />
-    <path d="M12 16h.01" />
-  </svg>
-);
