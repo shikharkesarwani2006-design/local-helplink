@@ -32,7 +32,9 @@ import {
   Mail,
   Shield,
   FileText,
-  Phone
+  Phone,
+  Info,
+  CircleDollarSign
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
