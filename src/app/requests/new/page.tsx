@@ -13,15 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { 
-  Loader2, 
-  Sparkles, 
   Send, 
   MapPin, 
   Clock, 
@@ -31,16 +23,16 @@ import {
   X,
   Plus,
   History,
-  LayoutDashboard,
-  AlertTriangle
+  AlertCircle,
+  Lightbulb
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { draftHelpRequest } from "@/ai/flows/draft-help-request";
 
 const MAX_DESC_LENGTH = 500;
 
 function NewRequestContent() {
   const searchParams = useSearchParams();
+  const [showTips, setShowTips] = useState(true);
   const [formData, setFormData] = useState({
     title: searchParams.get("title") || "",
     description: searchParams.get("desc") || "",
@@ -54,8 +46,6 @@ function NewRequestContent() {
   });
   
   const [skillInput, setSkillInput] = useState("");
-  const [isDrafting, setIsDrafting] = useState(false);
-  const [aiQuotaExceeded, setAiQuotaExceeded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successData, setSuccessData] = useState<{ notified: number } | null>(null);
   
@@ -82,44 +72,6 @@ function NewRequestContent() {
       }));
     }
   }, [searchParams]);
-
-  const handleAIDraft = async () => {
-    if (!formData.title || !formData.description) {
-      toast({
-        title: "More context needed",
-        description: "Please provide a basic title and description for AI to refine.",
-      });
-      return;
-    }
-
-    setIsDrafting(true);
-    try {
-      const result = await draftHelpRequest({ 
-        initialTitle: formData.title, 
-        initialDescription: formData.description 
-      });
-
-      setFormData(prev => ({
-        ...prev,
-        title: result.improvedTitle,
-        description: result.improvedDescription.slice(0, MAX_DESC_LENGTH),
-        category: result.suggestedCategory,
-        urgency: result.suggestedUrgency as any,
-      }));
-
-      setAiQuotaExceeded(false);
-      toast({ title: "AI Draft Ready", description: "Your request has been optimized for better community response." });
-    } catch (error: any) {
-      const errMsg = error instanceof Error ? error.message : "";
-      if (errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("429")) {
-        setAiQuotaExceeded(true);
-      } else {
-        toast({ variant: "destructive", title: "AI Unavailable", description: "AI model failed to respond. Please try again later." });
-      }
-    } finally {
-      setIsDrafting(false);
-    }
-  };
 
   const notifyMatchingHelpers = async (requestId: string, request: any) => {
     if (!db) return 0;
@@ -257,7 +209,7 @@ function NewRequestContent() {
           <h1 className="text-3xl font-headline font-bold text-slate-900 dark:text-white">Broadcast a Need</h1>
           <Card className="shadow-xl border-none bg-white dark:bg-slate-900 rounded-3xl overflow-hidden">
             <CardHeader className="bg-slate-50/50 dark:bg-slate-950/50 border-b dark:border-slate-800">
-              <CardTitle className="text-lg font-bold flex items-center gap-2"><Sparkles className="w-5 h-5 text-primary" /> Mission Details</CardTitle>
+              <CardTitle className="text-lg font-bold flex items-center gap-2"><Lightbulb className="w-5 h-5 text-amber-500" /> Mission Details</CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
               <div className="space-y-2">
@@ -291,41 +243,15 @@ function NewRequestContent() {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center px-1">
                   <Label htmlFor="description" className="font-bold">Detailed Description</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-block">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className={cn("text-primary font-bold gap-1", aiQuotaExceeded && "opacity-50")}
-                            onClick={handleAIDraft} 
-                            disabled={isDrafting || aiQuotaExceeded}
-                          >
-                            {isDrafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className={cn("w-3 h-3", aiQuotaExceeded ? "text-slate-400" : "text-amber-500")} />} 
-                            AI Optimize
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      {aiQuotaExceeded && (
-                        <TooltipContent className="bg-slate-900 text-white border-none rounded-xl p-3">
-                          <p className="text-xs font-bold">AI quota exceeded. Resets in 24 hours.</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
+                  <button
+                    onClick={() => setShowTips(!showTips)}
+                    className="flex items-center gap-1 text-amber-500 hover:text-amber-600 text-xs font-bold transition-colors uppercase tracking-widest"
+                  >
+                    💡 {showTips ? 'Hide Tips' : 'Show Tips'}
+                  </button>
                 </div>
-
-                {aiQuotaExceeded && (
-                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-3 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <p className="text-[11px] font-bold text-amber-800 dark:text-amber-400 leading-relaxed">
-                      ✨ AI Optimize is temporarily unavailable. Please write your description manually.
-                    </p>
-                  </div>
-                )}
 
                 <Textarea 
                   id="description" 
@@ -345,16 +271,19 @@ function NewRequestContent() {
                   </p>
                 </div>
 
-                {aiQuotaExceeded && (
-                  <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95">
-                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2 mb-2">
+                {showTips && (
+                  <div className="mt-4 p-4 bg-amber-50 dark:bg-amber-950/20 rounded-2xl border border-dashed border-amber-200 dark:border-amber-900/50 animate-in fade-in zoom-in-95">
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-400 flex items-center gap-2 mb-2">
                       <Info className="w-3.5 h-3.5" /> 💡 Tips for a good description:
                     </p>
-                    <ul className="text-[11px] text-slate-500 dark:text-slate-500 space-y-1 pl-5 list-disc font-medium">
+                    <ul className="text-[11px] text-amber-700/80 dark:text-amber-500/80 space-y-1.5 pl-5 list-disc font-medium">
                       <li>Be specific about what you need</li>
-                      <li>Mention your location/area</li>
+                      <li>Mention your location/area clearly</li>
                       <li>Add your availability/timing</li>
                       <li>Include any special requirements</li>
+                      <li><span className="font-bold">For blood:</span> Mention required blood group</li>
+                      <li><span className="font-bold">For tutoring:</span> Mention subject + level</li>
+                      <li><span className="font-bold">For repair:</span> Describe the problem clearly</li>
                     </ul>
                   </div>
                 )}
