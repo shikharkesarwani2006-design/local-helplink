@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth, useFirestore } from "@/firebase";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   
   const { auth } = useAuth();
   const db = useFirestore();
@@ -51,6 +52,59 @@ export default function LoginPage() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    const emailVal = email.trim();
+    
+    if (!emailVal) {
+      toast({
+        variant: "destructive",
+        title: "Email Required",
+        description: "Please enter your email address in the field below first.",
+      });
+      return;
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailVal)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+      });
+      return;
+    }
+    
+    setResetLoading(true);
+    try {
+      if (!auth) throw new Error("Auth service not available");
+      await sendPasswordResetEmail(auth, emailVal);
+      toast({
+        title: "✅ Reset Email Sent!",
+        description: "Check your inbox and spam folder for instructions.",
+      });
+    } catch (error: any) {
+      console.error('Reset error:', error);
+      let errorMessage = error.message;
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email.';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = 'Too many attempts. Try again later.';
+      }
+      
+      toast({
+        variant: "destructive",
+        title: "Reset Failed",
+        description: errorMessage,
+      });
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -233,7 +287,15 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-slate-500">Access Key</Label>
-                    <Link href="#" className="text-[10px] font-bold text-red-500 hover:text-red-400 transition-colors uppercase tracking-wider">Reset</Link>
+                    <button 
+                      type="button"
+                      onClick={handleResetPassword}
+                      disabled={resetLoading || !email}
+                      className="text-[10px] font-bold text-red-500 hover:text-red-400 transition-colors uppercase tracking-wider disabled:opacity-30 flex items-center gap-1"
+                    >
+                      {resetLoading && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                      Reset
+                    </button>
                   </div>
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600 group-focus-within:text-red-500 transition-colors" />
