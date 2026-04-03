@@ -13,6 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Loader2, 
   Sparkles, 
@@ -25,7 +31,8 @@ import {
   X,
   Plus,
   History,
-  LayoutDashboard
+  LayoutDashboard,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { draftHelpRequest } from "@/ai/flows/draft-help-request";
@@ -48,6 +55,7 @@ function NewRequestContent() {
   
   const [skillInput, setSkillInput] = useState("");
   const [isDrafting, setIsDrafting] = useState(false);
+  const [aiQuotaExceeded, setAiQuotaExceeded] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successData, setSuccessData] = useState<{ notified: number } | null>(null);
   
@@ -99,10 +107,15 @@ function NewRequestContent() {
         urgency: result.suggestedUrgency as any,
       }));
 
+      setAiQuotaExceeded(false);
       toast({ title: "AI Draft Ready", description: "Your request has been optimized for better community response." });
-    } catch (error) {
-      const errMsg = error instanceof Error ? error.message : "AI model failed to respond. Please try again later.";
-      toast({ variant: "destructive", title: "AI Unavailable", description: errMsg });
+    } catch (error: any) {
+      const errMsg = error instanceof Error ? error.message : "";
+      if (errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("429")) {
+        setAiQuotaExceeded(true);
+      } else {
+        toast({ variant: "destructive", title: "AI Unavailable", description: "AI model failed to respond. Please try again later." });
+      }
     } finally {
       setIsDrafting(false);
     }
@@ -278,8 +291,73 @@ function NewRequestContent() {
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between items-center"><Label htmlFor="description" className="font-bold">Detailed Description</Label><Button variant="ghost" size="sm" className="text-primary font-bold gap-1" onClick={handleAIDraft} disabled={isDrafting}>{isDrafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3 text-amber-500" />} AI Optimize</Button></div>
-                <Textarea id="description" placeholder="Provide details for coordination..." className="min-h-[140px] rounded-2xl" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="description" className="font-bold">Detailed Description</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-block">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={cn("text-primary font-bold gap-1", aiQuotaExceeded && "opacity-50")}
+                            onClick={handleAIDraft} 
+                            disabled={isDrafting || aiQuotaExceeded}
+                          >
+                            {isDrafting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className={cn("w-3 h-3", aiQuotaExceeded ? "text-slate-400" : "text-amber-500")} />} 
+                            AI Optimize
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {aiQuotaExceeded && (
+                        <TooltipContent className="bg-slate-900 text-white border-none rounded-xl p-3">
+                          <p className="text-xs font-bold">AI quota exceeded. Resets in 24 hours.</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {aiQuotaExceeded && (
+                  <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-3 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-bold text-amber-800 dark:text-amber-400 leading-relaxed">
+                      ✨ AI Optimize is temporarily unavailable. Please write your description manually.
+                    </p>
+                  </div>
+                )}
+
+                <Textarea 
+                  id="description" 
+                  placeholder="Provide details for coordination..." 
+                  className="min-h-[140px] rounded-2xl" 
+                  value={formData.description} 
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
+                />
+                
+                <div className="flex justify-between mt-1">
+                  <p className="text-[10px] text-slate-400 font-medium">Min 10 characters</p>
+                  <p className={cn(
+                    "text-[10px] font-black tracking-widest uppercase", 
+                    formData.description.length > MAX_DESC_LENGTH ? "text-red-500" : "text-slate-400"
+                  )}>
+                    {formData.description.length} / {MAX_DESC_LENGTH}
+                  </p>
+                </div>
+
+                {aiQuotaExceeded && (
+                  <div className="mt-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95">
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2 mb-2">
+                      <Info className="w-3.5 h-3.5" /> 💡 Tips for a good description:
+                    </p>
+                    <ul className="text-[11px] text-slate-500 dark:text-slate-500 space-y-1 pl-5 list-disc font-medium">
+                      <li>Be specific about what you need</li>
+                      <li>Mention your location/area</li>
+                      <li>Add your availability/timing</li>
+                      <li>Include any special requirements</li>
+                    </ul>
+                  </div>
+                )}
               </div>
               <div className="space-y-2"><Label htmlFor="area" className="font-bold">Landmark / Area</Label><Input id="area" placeholder="e.g. Science Block, Room 204" value={formData.area} onChange={(e) => setFormData({ ...formData, area: e.target.value })} className="h-12 rounded-xl" /></div>
               
