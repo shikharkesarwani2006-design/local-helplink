@@ -424,7 +424,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 **Shikhar Kesarwani**
 - 📧 Email: shikharkesarwani2006@gmail.com
 - 🎓 MMMUT, Gorakhpur
-- 💼 GitHub: [@your-username](https://github.com/your-username)
+- 💼 GitHub: https://github.com/shikharkesarwani2006-design/
 
 ---
 
